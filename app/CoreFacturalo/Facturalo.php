@@ -467,7 +467,17 @@ class Facturalo
             'is_preview' => false,
         ];
 
-        $html = $template->pdf($base_pdf_template, $this->type, $this->company, $this->document, $format_pdf, $optional_configuration);
+	 if (true) {
+            $pagination = collect([]);
+            $this->document->items->chunk(12)->each(function($chunk) use ($template, $base_pdf_template, $format_pdf, $optional_configuration , $pagination) {
+		$document = clone $this->document;
+		$document->items = $chunk;
+                $html = $template->pdf($base_pdf_template, $this->type, $this->company, $document, $format_pdf, $optional_configuration);
+                $pagination->push($html);
+            });
+        } else {
+            $html = $template->pdf($base_pdf_template, $this->type, $this->company, $this->document, $format_pdf, $optional_configuration);
+        }
 
         if (($format_pdf === 'ticket') OR
             ($format_pdf === 'ticket_58') OR
@@ -854,9 +864,16 @@ class Facturalo
         }
         else {
             $pdf->WriteHTML($stylesheet, HTMLParserMode::HEADER_CSS);
-            $this->renderMpdfSafely(function () use ($pdf, $html) {
-                return $pdf->WriteHTML($html, HTMLParserMode::HTML_BODY);
-            });
+	        if (isset($pagination) && $pagination->count() > 0) {
+                $pagination->each(function($html, $index) use ($pdf, $pagination) {
+                    $pdf->WriteHTML($html, HTMLParserMode::HTML_BODY);
+                    if ($index < $pagination->count() - 1) {
+                        $pdf->AddPage();
+                    }
+                });
+            } else {
+                $pdf->WriteHTML($html, HTMLParserMode::HTML_BODY);
+            }
 
             $helper_facturalo = new HelperFacturalo();
 
@@ -866,7 +883,7 @@ class Facturalo
                     $template,
                     $base_pdf_template,
                     $width,
-                    ($quantity_rows * 8) + $extra_by_item_description +200,
+                    ($quantity_rows * 8) + $extra_by_item_description +200
                 ], true);
             }
 
@@ -1099,13 +1116,8 @@ class Facturalo
             $service = new GiorService();
         }
         if($service_pse_code != null) {
-
-            $this->document->update([
-                'send_to_pse' => true
-            ]);
-
             $response = $service->sendXmlSigned($this->document->filename, $this->xmlSigned);
-
+            // dd($response);
             if($response['success']) {
                 if($response['cdr'] != null) {
                     $this->uploadFile($response['cdr'], 'cdr_b64');

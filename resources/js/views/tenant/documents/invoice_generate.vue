@@ -239,7 +239,15 @@
                                     v-text="errors.customer_id[0]"
                                 ></small>
                             </div>
-                            <div class="points-system">
+
+                            <div v-if="form.operation_type_id === '0101'" class="mt-2">
+                                <div >
+                                <el-checkbox v-model="form.is_itinerant" @change="changeItineratOption">
+                                    ¿Venta itinerante?
+                                </el-checkbox>
+                                </div>
+                            </div>  
+                        <div class="points-system">
                                 <div
                                     v-if="config.enabled_point_system && form.customer_id"
                                     class="d-flex align-items-center justify-content-between content-points"
@@ -7900,6 +7908,10 @@ export default {
                 .catch(error => {
                     if (error.response.status === 422) {
                         this.errors = error.response.data;
+                        if (this.errors.customer_id) {
+                            this.$message.error(this.errors.customer_id[0]);
+                            delete this.errors.customer_id;
+                        }
                     } else {
                         this.$message.error(error.response.data.message);
                     }
@@ -8336,7 +8348,7 @@ export default {
             }
 
             if (!this.form.customer_id) {
-                this.$message.error("Debe seleccionar cliente");
+                this.$message.error("El campo cliente es obligatorio.");
                 return false;
             }
 

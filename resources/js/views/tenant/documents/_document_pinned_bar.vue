@@ -100,7 +100,15 @@
                             <span class="ifb-add-row-icon">
                                 <i :class="isFieldPinned(field.key) ? 'el-icon-check' : 'el-icon-plus'"></i>
                             </span>
-                            <span class="ifb-add-row-label">{{ field.label }}</span>
+                            <span class="ifb-add-row-label">
+                                {{ field.label }}
+                                <el-tooltip v-if="fieldConditionHint(field)"
+                                            :content="fieldConditionHint(field)"
+                                            placement="top"
+                                            effect="dark">
+                                    <i class="el-icon-info ifb-cond-info ifb-add-row-info" @click.stop></i>
+                                </el-tooltip>
+                            </span>
                             <span class="ifb-add-row-type">{{ inputLabel(field.type) }}</span>
                         </div>
                     </div>
@@ -161,6 +169,7 @@ export default {
         return {
             editing: false,
             draftPins: [],
+            originalDraftSignature: null,
             addPanelOpen: false,
             addSearch: '',
             resizingIdx: null,
@@ -207,6 +216,7 @@ export default {
     methods: {
         enterEditMode() {
             this.draftPins = this.sortedPins.map(p => ({ ...p }));
+            this.originalDraftSignature = this.layoutSignature(this.draftPins);
             this.editing = true;
             this.addPanelOpen = false;
         },
@@ -214,6 +224,31 @@ export default {
             this.editing = false;
             this.addPanelOpen = false;
             this.addSearch = '';
+            this.originalDraftSignature = null;
+        },
+        cancelEdit() {
+            if (!this.hasUnsavedLayoutChanges()) {
+                this.exitEditMode();
+                return;
+            }
+
+            this.$confirm('Hay cambios sin guardar en el editor. Si cierras ahora, se perderán.', 'Cerrar sin guardar', {
+                confirmButtonText: 'Cerrar sin guardar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => {
+                this.exitEditMode();
+            }).catch(() => {});
+        },
+        hasUnsavedLayoutChanges() {
+            return this.layoutSignature(this.draftPins) !== this.originalDraftSignature;
+        },
+        layoutSignature(pins) {
+            return JSON.stringify((pins || []).map((p, idx) => ({
+                field_key: p.field_key,
+                width: parseInt(p.width, 10) || 3,
+                order: idx,
+            })));
         },
         onDragEnd() {
             this.draftPins = this.draftPins.map((p, idx) => ({ ...p, order: idx }));
@@ -291,6 +326,11 @@ export default {
         },
         inputLabel(type) {
             return getInputTypeLabel(type);
+        },
+        fieldConditionHint(field) {
+            if (!field || !this.hiddenSet.has(field.key)) return null;
+            return field.conditionHint
+                || 'Este campo depende de una condición o configuración para mostrarse.';
         },
         pinTitle(pin) {
             if (this.isSpacer(pin)) return 'Espaciado';
@@ -380,5 +420,9 @@ export default {
     color: var(--warning);
     cursor: help;
     font-size: 15px;
+}
+.ifb-add-row-info {
+    margin-left: 4px;
+    vertical-align: middle;
 }
 </style>

@@ -214,7 +214,7 @@ export default {
                     moment().startOf("month").format("YYYY-MM-DD"),
                     moment().endOf("month").format("YYYY-MM-DD"),
                 ],
-                compare: "previous_year",
+                compare: "previous_period",
             },
             kpi: {
                 monthSales: "0.00",

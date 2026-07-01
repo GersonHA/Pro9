@@ -571,6 +571,24 @@
                                     </i>
                                 </div>
                                 <div class="w-100">
+                                    <div
+                                        v-if="relocatedFields.length"
+                                        class="mt-5 no-gutters w-100"
+                                    >
+                                        <div
+                                            v-for="rf in relocatedFields"
+                                            :key="rf.key"
+                                            class="col-12 field-pinnable"
+                                        >
+                                            <button v-if="editingLayout" type="button" class="pin-from-form-btn" @click.prevent="pinFromForm(rf.key)"><i class="el-icon-top"></i> Fijar</button>
+                                            <remote-slot
+                                                :source="pinnedBarInstance"
+                                                :slot-name="rf.key"
+                                                :slot-scope-data="{ field: rf.field, width: 12 }"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div class="mt-5 w-100">
                                         <div class="col-12 switch-container">
                                             <div class="row no-gutters">
@@ -3968,7 +3986,26 @@ import DocumentFormPreview from "./partials/preview.vue";
 import ConsignedForm from './partials/consigned.vue';
 import CustomFieldsRenderer from '@viewsModuleCustomField/custom_fields/custom_field_renderer.vue'
 import DocumentFormPinnedBar from './_document_pinned_bar.vue';
-import { getDefaultLayout as getDocumentDefaultLayout } from './_document_form_fields_catalog';
+import {
+    getDefaultLayout as getDocumentDefaultLayout,
+    getAvailableFields as getDocumentAvailableFields,
+} from './_document_form_fields_catalog';
+
+const RemoteSlot = {
+    name: 'RemoteSlot',
+    functional: true,
+    props: {
+        source: { type: Object, default: null },
+        slotName: { type: String, required: true },
+        slotScopeData: { type: Object, default: () => ({}) },
+    },
+    render(h, ctx) {
+        const src = ctx.props.source;
+        const slot = src && src.$scopedSlots ? src.$scopedSlots[ctx.props.slotName] : null;
+        const content = typeof slot === 'function' ? slot(ctx.props.slotScopeData) : slot;
+        return h('div', { class: 'relocated-field-slot' }, content || []);
+    },
+};
 
 export default {
     props: [
@@ -4001,6 +4038,7 @@ export default {
         ConsignedForm,
         CustomFieldsRenderer,
         DocumentFormPinnedBar,
+        RemoteSlot,
     },
     mixins: [
         functions,
@@ -4036,6 +4074,9 @@ export default {
             pinned_fields: [],
             editingLayout: false,
             layout_saving: false,
+            // Instancia de la barra de datos generales, para reubicar sus slots no fijados.
+            pinnedBarInstance: null,
+            pinnedBarReady: false,
             isVisible: false,
             is_contingency: false,
             focus_on_client: false,
@@ -4151,7 +4192,22 @@ export default {
     },
     computed: {
         layoutPinnedKeysSet() {
+            if (
+                this.editingLayout &&
+                this.pinnedBarInstance &&
+                Array.isArray(this.pinnedBarInstance.draftPins)
+            ) {
+                return new Set(this.pinnedBarInstance.draftPins.map(p => p.field_key));
+            }
             return new Set((this.pinned_fields || []).map(p => p.field_key));
+        },
+        relocatedFields() {
+            if (!this.pinnedBarReady) return [];
+            const hidden = new Set(this.hiddenLayoutFields);
+            return getDocumentAvailableFields('invoice')
+                .filter(f => f.group === 'main')
+                .filter(f => !this.layoutPinnedKeysSet.has(f.key) && !hidden.has(f.key))
+                .map(f => ({ key: f.key, field: f }));
         },
         hiddenLayoutFields() {
             const hidden = [];
@@ -4391,6 +4447,12 @@ export default {
             return fund_obj.guarantee_fund ? fund_obj.guarantee_fund : 0
         }
     },
+    mounted() {
+        this.capturePinnedBar();
+    },
+    updated() {
+        this.capturePinnedBar();
+    },
     async created() {
         await this.initComponent();
         await this.getPercentageIgv();
@@ -4563,6 +4625,11 @@ export default {
     },
     methods: {
         // ───── Datos generales personalizables (DocumentFormLayout) ─────
+        capturePinnedBar() {
+            if (this.pinnedBarInstance || !this.$refs.pinnedBar) return;
+            this.pinnedBarInstance = this.$refs.pinnedBar;
+            this.pinnedBarReady = true;
+        },
         isLayoutPinned(fieldKey) {
             return this.layoutPinnedKeysSet.has(fieldKey);
         },

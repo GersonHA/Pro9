@@ -141,6 +141,23 @@
                                             :value="option.id"
                                             :label="option.description"
                                         ></el-option>
+                                        <template slot="empty">
+                                            <p v-if="loading_search" class="el-select-dropdown__empty">
+                                                Cargando...
+                                            </p>
+
+                                            <p v-else class="el-select-dropdown__empty">
+                                                No se encontraron resultados
+                                            </p>
+
+                                            <div
+                                                v-if="!loading_search"
+                                                class="el-select-dropdown__item new-option"
+                                                @click.stop="openNewPersonDialog"
+                                            >
+                                                <span>{{ customerSearchTerm ? `Crear cliente "${customerSearchTerm}"` : 'Crear cliente' }}</span>
+                                            </div>
+                                        </template>
                                     </el-select>
                                     <el-checkbox v-model="search_item_by_barcode"
                                                 :disabled="recordItem != null">Buscar por
@@ -625,7 +642,15 @@ export default {
             series: [],
             form_cash_document: {},
             showDialogSaleNoteOptions: false,
+            customerSearchTerm: '',
         };
+    },
+    watch: {
+        showDialogNewPerson(newVal) {
+            if (!newVal) {
+                //this.customerSearchTerm = ''
+            }
+        }
     },
     async mounted() {
         await this.onFetchTables();
@@ -635,6 +660,7 @@ export default {
     async created() {
         await this.$eventHub.$on("reloadDataPersons", (customerId) => {
             this.reloadDataCustomers(customerId);
+            this.customerSearchTerm = ''
         });
     },
     computed: {
@@ -655,6 +681,10 @@ export default {
                 return false;
             }
             return true;
+        },
+        openNewPersonDialog() {
+            this.personRecordId = null
+            this.showDialogNewPerson = true
         },
     },
     methods: {
@@ -824,6 +854,7 @@ export default {
 
         },
         searchRemoteCustomers(input) {
+            this.customerSearchTerm = input;
             if (input.length > 0) {
                 this.loading = true;
 
@@ -850,6 +881,7 @@ export default {
             }
         },
         changeCustomer() {
+            this.customerSearchTerm = ''
             this.customer = this.customers
                 .filter((c) => c.id === this.form.customer_id)
                 .reduce((c) => c);

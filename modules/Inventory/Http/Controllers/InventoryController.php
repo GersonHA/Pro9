@@ -583,6 +583,20 @@ class InventoryController extends Controller
 
             $inventory->save();
 
+            $item_warehouse = ItemWarehouse::firstOrNew([
+                'item_id' => $item_id,
+                'warehouse_id' => $warehouse_id
+            ]);
+            $item_warehouse->stock = $quantity_real;
+            $item_warehouse->save();
+
+            \Log::info('stock update', [
+                'item_id' => $item_id,
+                'warehouse_id' => $warehouse_id,
+                'quantity_real' => $quantity_real,
+                'item_warehouse_id' => $item_warehouse->id
+            ]);
+
             return [
                 'success' => true,
                 'message' => 'Cantidad de stock actualizado con éxito'
@@ -631,6 +645,20 @@ class InventoryController extends Controller
                 $inventory->system_stock = $item['quantity'];
 
                 $inventory->save();
+
+                $item_warehouse = ItemWarehouse::firstOrNew([
+                    'item_id' => $item_id,
+                    'warehouse_id' => $warehouse_id
+                ]);
+                $item_warehouse->stock = $quantity_real;
+                $item_warehouse->save();
+                \Log::info('stock update', [
+                    'item_id' => $item_id,
+                    'warehouse_id' => $warehouse_id,
+                    'quantity_real' => $quantity_real,
+                    'item_warehouse_id' => $item_warehouse->id,
+                    'saved' => $saved
+                ]);
 
             }
             DB::connection('tenant')->commit();

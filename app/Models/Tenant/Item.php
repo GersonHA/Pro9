@@ -579,7 +579,8 @@ class Item extends ModelTenant
             $establishment_id = auth()->user()->establishment_id;
             $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
             if ($warehouse) {
-                $item_warehouse = $this->warehouses->where('warehouse_id',$warehouse->id)->first();
+                $this->unsetRelation('warehouses');
+                $item_warehouse = $this->warehouses->where('warehouse_id', $warehouse->id)->first();
                 return ($item_warehouse) ? $item_warehouse->stock : 0;
             }
         }

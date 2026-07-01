@@ -11,20 +11,24 @@
             <span class="el-dialog__title">{{ titleDialog }}</span>
             <span class="ifb-dialog-title-actions">
                 <template v-if="editingLayout">
-                    <el-button size="mini" plain @click="resetLayoutFromHeader">
-                        <i class="el-icon-refresh-left"></i> Restablecer
-                    </el-button>
-                    <el-button size="mini"
-                               type="primary"
-                               :loading="layout_saving"
-                               @click="confirmLayoutFromHeader">
-                        <i class="el-icon-check"></i> Listo
-                    </el-button>
+                    <button type="button" class="btn btn-sm second-buton mt-1" @click="cancelLayoutEditFromHeader">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x" style="margin-top: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                        Cancelar
+                    </button>
+                    <button @click="resetLayoutFromHeader" class="btn btn-sm second-buton">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-refresh" style="margin-top: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                        Restablecer
+                    </button>
+                    <button :loading="layout_saving" @click="confirmLayoutFromHeader" class="btn btn-sm btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-device-floppy" style="margin-top: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
+                        Guardar
+                    </button>
                 </template>
                 <template v-else>
-                    <el-button size="mini" plain icon="el-icon-set-up" @click="enterLayoutEditFromHeader">
+                    <button class="btn btn-sm second-buton" @click="enterLayoutEditFromHeader">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-horizontal" style="margin-top: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 6l8 0" /><path d="M16 6l4 0" /><path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 12l2 0" /><path d="M10 12l10 0" /><path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 18l11 0" /><path d="M19 18l1 0" /></svg>
                         Personalizar barra
-                    </el-button>
+                    </button>
                 </template>
             </span>
         </span>
@@ -250,24 +254,25 @@
                     </div>
                 </template>
                 <template #image>
-                    <div class="form-group">
-                        <label class="label-img">Imágen</label>
-                        <div class="d-flex align-items-start">
-                            <el-upload ref="itemImageUploadPinned"
-                                       :action="`/${resource}/upload`"
-                                       :data="{'type': 'items'}"
-                                       :headers="headers"
-                                       :on-success="onSuccess"
-                                       :show-file-list="false"
-                                       class="avatar-uploader item-img">
-                                <img v-if="form.image_url"
-                                     :src="form.image_url"
-                                     class="avatar">
-                                <i v-else
-                                   class="el-icon-plus avatar-uploader-icon"></i>
-                            </el-upload>
+                    <div class="form-group d-flex">
+                        <el-upload ref="itemImageUploadPinned"
+                                   :action="`/${resource}/upload`"
+                                   :data="{'type': 'items'}"
+                                   :headers="headers"
+                                   :on-success="onSuccess"
+                                   :show-file-list="false"
+                                   class="avatar-uploader item-img"
+                                   style="margin-top: 12px;">
+                            <img v-if="form.image_url"
+                                 :src="form.image_url"
+                                 class="avatar">
+                            <i v-else
+                               class="el-icon-plus avatar-uploader-icon"></i>
+                        </el-upload>
+                        <div class="d-flex flex-column ms-2">
+                            <label class="label-img">Imágen</label>
                             <button type="button"
-                                    class="btn btn-sm btn-primary ms-2 mt-auto"
+                                    class="btn btn-sm second-buton mt-auto"
                                     @click.prevent="clickUploadImage('itemImageUploadPinned')">
                                 Agregar imágen
                             </button>
@@ -1006,7 +1011,6 @@
                     <div class="row">
                         <div v-show="!isPinned('image')" class="col-md-3 field-pinnable" data-field-key="image">
                             <button v-if="editingLayout" type="button" class="pin-from-form-btn" @click.prevent="pinFromForm('image')"><i class="el-icon-top"></i> Fijar arriba</button>
-                            <label class="label-img">Imágen <span class="text-danger"></span></label>
                             <div class="form-group d-flex">
                                 <el-upload ref="itemImageUpload"
                                            :action="`/${resource}/upload`"
@@ -1014,18 +1018,22 @@
                                            :headers="headers"
                                            :on-success="onSuccess"
                                            :show-file-list="false"
-                                           class="avatar-uploader item-img">
+                                           class="avatar-uploader item-img"
+                                           style="margin-top: 12px;">
                                     <img v-if="form.image_url"
                                          :src="form.image_url"
                                          class="avatar">
                                     <i v-else
                                        class="el-icon-plus avatar-uploader-icon"></i>
                                 </el-upload>
-                                <button type="button"
-                                        class="btn btn-sm btn-primary ms-2 mt-auto"
-                                        @click.prevent="clickUploadImage('itemImageUpload')">
-                                    Agregar imágen
-                                </button>
+                                <div class="d-flex flex-column ms-2">
+                                    <label class="label-img">Imágen</label>
+                                    <button type="button"
+                                            class="btn btn-sm second-buton mt-auto"
+                                            @click.prevent="clickUploadImage('itemImageUpload')">
+                                        Agregar imágen
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-9">
@@ -1500,7 +1508,7 @@
                     </div>
                 </el-tab-pane>
             </el-tabs>
-            <div class="form-actions text-end pt-2 mt-2">
+            <div class="form-actions text-end pt-2 mt-2" v-if="!editingLayout">
                 <template v-if="forOnlyShowAllDetails">
                     <el-button @click.prevent="close()">Cerrar</el-button>
                 </template>
@@ -2652,7 +2660,9 @@ this.activeName = null
                     const data = response.data && response.data.data ? response.data.data : null
                     const available = getAvailableFields(this.resolvedVariant).map(f => f.key)
                     const remote = data && Array.isArray(data.pinned_fields) ? data.pinned_fields : []
-                    const filtered = remote.filter(p => available.includes(p.field_key))
+                    const filtered = remote.filter(p =>
+                        (typeof p.field_key === 'string' && p.field_key.indexOf('__spacer__') === 0)
+                        || available.includes(p.field_key))
                     this.pinned_fields = filtered.length > 0
                         ? filtered
                         : getDefaultLayout(this.resolvedVariant)
@@ -2679,6 +2689,11 @@ this.activeName = null
         confirmLayoutFromHeader() {
             if (this.$refs.pinnedBar && typeof this.$refs.pinnedBar.confirmEdit === 'function') {
                 this.$refs.pinnedBar.confirmEdit();
+            }
+        },
+        cancelLayoutEditFromHeader() {
+            if (this.$refs.pinnedBar && typeof this.$refs.pinnedBar.cancelEdit === 'function') {
+                this.$refs.pinnedBar.cancelEdit();
             }
         },
         onSaveLayout(pinned, done) {

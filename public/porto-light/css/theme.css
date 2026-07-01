@@ -23768,20 +23768,20 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
     justify-content: center;
 }
 .item-img {
-    height: 32px;
-    width: 32px;
+    height: 48px;
+    width: 48px;
 }
 .item-img .el-upload {
-    height: 32px;
+    height: 48px;
     aspect-ratio: 1;
 }
 .item-img .el-upload .avatar-uploader-icon {
-    font-size: 13px;
-    line-height: 30px;
+    font-size: 14px;
+    line-height: 45px;
 }
 .item-img .el-upload .avatar {
-    width: 32px;
-    height: 32px;
+    width: 48px;
+    height: 48px;
 }
 .label-img {
     margin-top: 8px;

@@ -389,8 +389,7 @@ export default {
     },
 };
 </script>
-
-<style scoped>
+<style>
 .ifb-spacer-preview {
     display: flex;
     align-items: center;
@@ -411,6 +410,8 @@ export default {
     font-style: italic;
     user-select: none;
 }
+</style>
+<style scoped>
 .pinned-cell-edit--conditional .pinned-cell-edit-inner {
     border-color: var(--warning);
     border-style: dashed;

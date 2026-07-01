@@ -382,22 +382,23 @@ html.fixed.sidebar-nuevo-tema .sidebar-left, html.fixed.sidebar-nuevo-tema .side
     margin-top: 8px;
 }
 .item-img {
-    height: 36px;
-    width: 36px;
+    margin-top: 20px !important;
+    height: 46px;
+    width: 46px;
 }
 .label-img {
     margin-top: 14px;
 }
 .item-img .el-upload {
-    height: 36px;
+    height: 46px;
 }
 .item-img .el-upload .avatar-uploader-icon {
     font-size: 14px;
-    line-height: 34px;
+    line-height: 45px;
 }
 .item-img .el-upload .avatar {
-    width: 36px;
-    height: 36px;
+    width: 46px;
+    height: 46px;
 }
 .text-info {
     color: var(--dark-color) !important;

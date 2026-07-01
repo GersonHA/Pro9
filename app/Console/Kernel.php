@@ -23,10 +23,10 @@ class Kernel extends ConsoleKernel
      * @return void
      */
     protected function schedule(Schedule $schedule) {
-        $schedule->command('tenancy:run tenant:run')
+        $schedule->command('tenant:run')
             ->everyMinute();
         // Se ejecutara por hora guardando estado de cpu y memoria (windows/linux)
-        $schedule->command('status:server')->everyMinute();
+        //$schedule->command('status:server')->everyMinute();
         // $schedule->command('order:payments')->everyMinute()->appendOutputTo(storage_path('logs/order_create.log'));
         $schedule->command('order:payments')->everyMinute()->sendOutputTo(storage_path('logs/order_create.log'));
         $schedule->command('tenancy:run suscription:create-orders')->dailyAt('08:00')->timezone('America/Lima')->appendOutputTo(storage_path('logs/suscription_orders.log'));

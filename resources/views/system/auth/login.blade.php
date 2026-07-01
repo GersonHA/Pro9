@@ -23,7 +23,7 @@
                 <div class="card card-header card-primary bg-info">
                     <p class="card-title text-center">Acceso al Sistema</p>
                     <h1 class="display-3 position-absolute text-left font-weight-bold"
-                        style="left: 90%; margin-top: -35px !important; color: rgba(255,255,255,.1) !important; font-size: 4.5rem !important; font-weight: 600 !important;">8</h1>
+                        style="left: 90%; margin-top: -35px !important; color: rgba(255,255,255,.1) !important; font-size: 4.5rem !important; font-weight: 600 !important;">9</h1>
                 </div>
                 <div class="card-body p-3">
                     <form method="POST" action="{{ route('login') }}">

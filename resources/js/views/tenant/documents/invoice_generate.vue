@@ -20,11 +20,21 @@
                         <div
                             class="row mx-1 my-1 mx-md-1 my-md-0"
                         >
-                            <div class="col-md-4 text-start d-flex align-items-center">
-                                <h3 class="m-0 fw-bold">Nuevo Combrobante Electrónico</h3>
+                            <div class="col-md-6 text-start d-flex align-items-end">
+                                <h2 class="m-0 fw-bold title-document" style="line-height: 25px;">
+                                    Nuevo Combrobante Electrónico
+                                    <button type="button" title="Personalizar datos generales" @click="enterLayoutEditFromHeader" class="btn btn-sm second-buton ms-3 edit-layout-btn" v-if="!editingLayout">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-horizontal"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 6l8 0" /><path d="M16 6l4 0" /><path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 12l2 0" /><path d="M10 12l10 0" /><path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 18l11 0" /><path d="M19 18l1 0" /></svg>
+                                    </button>
+                                </h2>
                             </div>
-                            <div class="row p-0 m-0 col-md-8">
-                                <div class="col-4 align-self-end invoice-type">
+                            <div class="row p-0 m-0 col-md-6">
+                                <div class="col-md-4 d-flex align-items-end justify-content-end">
+                                    <button type="button" class="btn btn-sm second-buton" @click="toggleInformation">
+                                        Información adicional
+                                    </button>
+                                </div>
+                                <div class="col-3 align-self-end invoice-type">
                                     <div
                                         :class="{
                                             'has-danger': errors.document_type_id
@@ -85,7 +95,7 @@
 
                                 <div
                                     v-if="showOperationTypeField"
-                                    class="col-md-4 align-self-end operation-type"
+                                    class="col-md-3 align-self-end operation-type"
                                 >
                                     <div
                                         :class="{
@@ -133,22 +143,21 @@
                                         ></small>
                                     </div>
                                 </div>
-                                <div class="col-lg-2 d-flex align-items-end justify-content-end gap-1">
-                                    <template v-if="editingLayout">
-                                        <button type="button" @click="resetLayoutFromHeader" class="btn btn-sm second-buton" title="Restablecer">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-refresh"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
-                                        </button>
-                                        <button type="button" :disabled="layout_saving" @click="confirmLayoutFromHeader" class="btn btn-sm btn-primary" title="Guardar">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-device-floppy"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
-                                        </button>
-                                    </template>
-                                    <template v-else>
-                                        <button type="button" title="Personalizar datos generales" @click="enterLayoutEditFromHeader" class="btn btn-sm second-buton">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-horizontal"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 6l8 0" /><path d="M16 6l4 0" /><path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 12l2 0" /><path d="M10 12l10 0" /><path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M4 18l11 0" /><path d="M19 18l1 0" /></svg>
-                                        </button>
-                                    </template>
-                                </div>
                             </div>
+                        </div>
+                        <div class="d-flex align-items-end justify-content-start gap-1 p-0 py-1 py-md-2 px-md-2 mx-1" v-if="editingLayout">
+                            <button type="button" class="btn btn-sm second-buton mt-1" @click="cancelLayoutEditFromHeader">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
+                                Cancelar
+                            </button>
+                            <button type="button" @click="resetLayoutFromHeader" class="btn btn-sm second-buton" title="Restablecer">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-refresh"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" /><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" /></svg>
+                                Restablecer
+                            </button>
+                            <button type="button" :disabled="layout_saving" @click="confirmLayoutFromHeader" class="btn btn-sm btn-primary" title="Guardar">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-device-floppy"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2" /><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" /><path d="M14 4l0 4l-6 0l0 -4" /></svg>
+                                Guardar
+                            </button>
                         </div>
                     </header>
                     <document-form-pinned-bar
@@ -532,11 +541,12 @@
                         <!-- Información Adicional -->
                         <div>
                             <!-- Botón para mostrar/ocultar el componente -->
-                            <span
+                            <!-- <span
                                 class="toggle-button toggle-button-invoice"
                                 :class="{ shift: isVisible }"
                                 @click="toggleInformation"
                                 :title="isVisible ? 'Cerrar Información Adicional' : 'Abrir Información Adicional'"
+                                v-if="isVisible"
                             >
                                 <span class="toggle-button-text">
                                     {{
@@ -545,7 +555,7 @@
                                             : "Abrir Información Adicional"
                                     }}
                                 </span>
-                            </span>
+                            </span> -->
 
                             <div
                                 class="additional-information px-4"
@@ -561,6 +571,24 @@
                                     </i>
                                 </div>
                                 <div class="w-100">
+                                    <div
+                                        v-if="relocatedFields.length"
+                                        class="mt-5 no-gutters w-100"
+                                    >
+                                        <div
+                                            v-for="rf in relocatedFields"
+                                            :key="rf.key"
+                                            class="col-12 field-pinnable"
+                                        >
+                                            <button v-if="editingLayout" type="button" class="pin-from-form-btn" @click.prevent="pinFromForm(rf.key)"><i class="el-icon-top"></i> Fijar</button>
+                                            <remote-slot
+                                                :source="pinnedBarInstance"
+                                                :slot-name="rf.key"
+                                                :slot-scope-data="{ field: rf.field, width: 12 }"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div class="mt-5 w-100">
                                         <div class="col-12 switch-container">
                                             <div class="row no-gutters">
@@ -3863,6 +3891,14 @@
 .customer-select-clearable >>> .el-input__suffix {
     right: 33px;
 }
+.edit-layout-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+.title-document:hover .edit-layout-btn {
+    opacity: 1;
+    pointer-events: all;
+}
 @media only screen and (min-width: 992px) {
     .table-responsive {
         overflow-x: visible !important;
@@ -3950,7 +3986,26 @@ import DocumentFormPreview from "./partials/preview.vue";
 import ConsignedForm from './partials/consigned.vue';
 import CustomFieldsRenderer from '@viewsModuleCustomField/custom_fields/custom_field_renderer.vue'
 import DocumentFormPinnedBar from './_document_pinned_bar.vue';
-import { getDefaultLayout as getDocumentDefaultLayout } from './_document_form_fields_catalog';
+import {
+    getDefaultLayout as getDocumentDefaultLayout,
+    getAvailableFields as getDocumentAvailableFields,
+} from './_document_form_fields_catalog';
+
+const RemoteSlot = {
+    name: 'RemoteSlot',
+    functional: true,
+    props: {
+        source: { type: Object, default: null },
+        slotName: { type: String, required: true },
+        slotScopeData: { type: Object, default: () => ({}) },
+    },
+    render(h, ctx) {
+        const src = ctx.props.source;
+        const slot = src && src.$scopedSlots ? src.$scopedSlots[ctx.props.slotName] : null;
+        const content = typeof slot === 'function' ? slot(ctx.props.slotScopeData) : slot;
+        return h('div', { class: 'relocated-field-slot' }, content || []);
+    },
+};
 
 export default {
     props: [
@@ -3983,6 +4038,7 @@ export default {
         ConsignedForm,
         CustomFieldsRenderer,
         DocumentFormPinnedBar,
+        RemoteSlot,
     },
     mixins: [
         functions,
@@ -4018,6 +4074,9 @@ export default {
             pinned_fields: [],
             editingLayout: false,
             layout_saving: false,
+            // Instancia de la barra de datos generales, para reubicar sus slots no fijados.
+            pinnedBarInstance: null,
+            pinnedBarReady: false,
             isVisible: false,
             is_contingency: false,
             focus_on_client: false,
@@ -4133,7 +4192,22 @@ export default {
     },
     computed: {
         layoutPinnedKeysSet() {
+            if (
+                this.editingLayout &&
+                this.pinnedBarInstance &&
+                Array.isArray(this.pinnedBarInstance.draftPins)
+            ) {
+                return new Set(this.pinnedBarInstance.draftPins.map(p => p.field_key));
+            }
             return new Set((this.pinned_fields || []).map(p => p.field_key));
+        },
+        relocatedFields() {
+            if (!this.pinnedBarReady) return [];
+            const hidden = new Set(this.hiddenLayoutFields);
+            return getDocumentAvailableFields('invoice')
+                .filter(f => f.group === 'main')
+                .filter(f => !this.layoutPinnedKeysSet.has(f.key) && !hidden.has(f.key))
+                .map(f => ({ key: f.key, field: f }));
         },
         hiddenLayoutFields() {
             const hidden = [];
@@ -4373,6 +4447,12 @@ export default {
             return fund_obj.guarantee_fund ? fund_obj.guarantee_fund : 0
         }
     },
+    mounted() {
+        this.capturePinnedBar();
+    },
+    updated() {
+        this.capturePinnedBar();
+    },
     async created() {
         await this.initComponent();
         await this.getPercentageIgv();
@@ -4545,6 +4625,11 @@ export default {
     },
     methods: {
         // ───── Datos generales personalizables (DocumentFormLayout) ─────
+        capturePinnedBar() {
+            if (this.pinnedBarInstance || !this.$refs.pinnedBar) return;
+            this.pinnedBarInstance = this.$refs.pinnedBar;
+            this.pinnedBarReady = true;
+        },
         isLayoutPinned(fieldKey) {
             return this.layoutPinnedKeysSet.has(fieldKey);
         },
@@ -4576,6 +4661,11 @@ export default {
         confirmLayoutFromHeader() {
             if (this.$refs.pinnedBar && typeof this.$refs.pinnedBar.confirmEdit === 'function') {
                 this.$refs.pinnedBar.confirmEdit();
+            }
+        },
+        cancelLayoutEditFromHeader() {
+            if (this.$refs.pinnedBar && typeof this.$refs.pinnedBar.cancelEdit === 'function') {
+                this.$refs.pinnedBar.cancelEdit();
             }
         },
         pinFromForm(fieldKey) {

@@ -1,5 +1,12 @@
 <template>
     <div :class="{ 'content-opacity': isVisible }" @click.self="toggleInformation">
+        <MiniTour
+            :steps="miniTourSteps"
+            storage-key="tour_doc_generate_buttons"
+            :version="1"
+            fab-avoid-selector=".ws-flotante"
+            auto
+        />
         <span class="module-title-marker" data-page-title="Nuevo Comprobante"></span>
         <Keypress key-event="keyup" @success="checkKey" />
         <Keypress
@@ -30,7 +37,7 @@
                             </div>
                             <div class="row p-0 m-0 col-md-6">
                                 <div class="col-md-4 d-flex align-items-end justify-content-end">
-                                    <button type="button" class="btn btn-sm second-buton" @click="toggleInformation">
+                                    <button type="button" data-tour="info-adicional" class="btn btn-sm second-buton" @click="toggleInformation">
                                         Información adicional
                                     </button>
                                 </div>
@@ -3986,6 +3993,7 @@ import DocumentFormPreview from "./partials/preview.vue";
 import ConsignedForm from './partials/consigned.vue';
 import CustomFieldsRenderer from '@viewsModuleCustomField/custom_fields/custom_field_renderer.vue'
 import DocumentFormPinnedBar from './_document_pinned_bar.vue';
+import MiniTour from "@components/MiniTour.vue";
 import {
     getDefaultLayout as getDocumentDefaultLayout,
     getAvailableFields as getDocumentAvailableFields,
@@ -4039,6 +4047,7 @@ export default {
         CustomFieldsRenderer,
         DocumentFormPinnedBar,
         RemoteSlot,
+        MiniTour,
     },
     mixins: [
         functions,
@@ -4051,6 +4060,23 @@ export default {
     ],
     data() {
         return {
+            miniTourSteps: [
+                {
+                    target: ".edit-layout-btn",
+                    tag: "Paso 1 de 2",
+                    title: "Personaliza tus campos",
+                    body: "Con este botón puedes <b>reordenar los campos</b> del formulario y <b>ajustar el ancho</b> de cada uno. Aparece al <b>pasar el cursor sobre el título</b>; configúralo una vez y el formulario quedará a tu medida.",
+                    placement: "bottom"
+                },
+                {
+                    target: "[data-tour='info-adicional']",
+                    tag: "Paso 2 de 2",
+                    badge: "Solo la primera vez",
+                    title: "Información adicional",
+                    body: "Aquí agregas datos extra al comprobante: <b>observaciones, orden de compra, guías</b> y más. Este botón se muestra la primera vez que ingresas; luego lo encontrarás dentro de las opciones del formulario.",
+                    placement: "bottom"
+                }
+            ],
             datEmision: {
                 disabledDate(time) {
                     return time.getTime() > moment();

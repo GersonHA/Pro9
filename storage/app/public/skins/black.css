@@ -3297,6 +3297,77 @@ html.dark .fp-doc-tab.active {
     border: 1px solid color-mix(in srgb, var(--black-accent) 25%, #ffffff 75%);
     background: var(--black-highlight);
 }
+.minitour-ring {
+    box-shadow: 0 0 0 3px var(--black-primary);
+}
+@keyframes minitour-pulse {
+    0% {
+        box-shadow: 0 0 0 3px var(--black-primary), 0 0 0 3px color-mix(in srgb, var(--black-primary) 20%, #ffffff00);
+    }
+    70% {
+        box-shadow: 0 0 0 3px var(--black-primary), 0 0 0 14px color-mix(in srgb, var(--black-primary) 20%, #ffffff00);
+    }
+    100% {
+        box-shadow: 0 0 0 3px var(--black-primary), 0 0 0 14px color-mix(in srgb, var(--black-primary) 20%, #ffffff00);
+    }
+}
+.minitour-tooltip,
+.minitour-arrow {
+    background-color: var(--black-content-dark);
+    color: var(--black-light);
+}
+.minitour-tooltip p {
+    color: var(--black-muted) !important;
+}
+.minitour-tooltip p b {
+    color: var(--black-light) !important;
+}
+.minitour-step-tag {
+    color: var(--black-highlight);
+}
+.minitour-dot.on {
+    background-color: var(--black-highlight);
+}
+.minitour-actions .btn-primary {
+    background-color: #ffff !important;
+    color: var(--black-dark) !important;
+}
+.minitour-actions .btn-primary:hover,
+.minitour-actions .btn-primary:focus,
+.minitour-actions .btn-primary:active {
+    color: var(--black-dark) !important;
+    border-color: oklch(calc(var(--base-l) + 0.68) calc(var(--base-c) - 0.0375) calc(var(--base-h) - 29.86)) !important;
+    background-color: oklch(calc(var(--base-l) + 0.71) calc(var(--base-c) - 0.0375) calc(var(--base-h) - 29.86)) !important;
+}
+html.dark .minitour-tooltip,
+html.dark .minitour-arrow {
+    background-color: var(--black-light);
+}
+html.dark .minitour-tooltip h2 {
+    color: var(--black-dark) !important;
+}
+html.dark .minitour-tooltip p {
+    color: color-mix(in srgb, var(--black-dark) 92%, #fff) !important;
+}
+html.dark .minitour-tooltip p b {
+    color: var(--black-dark) !important;
+}
+html.dark .minitour-actions .btn-primary {
+    background-color: var(--black-primary) !important;
+    color: #fff !important;
+}
+html.dark .minitour-actions .btn-primary:hover,
+html.dark .minitour-actions .btn-primary:focus,
+html.dark .minitour-actions .btn-primary:active {
+    background-color: color-mix(in srgb, var(--black-primary) 85%, #000) !important;
+    color: #fff !important;
+}
+html.dark .minitour-step-tag {
+    color: var(--black-primary);
+}
+html.dark .minitour-dot.on {
+    background-color: var(--black-primary);
+}
 /* ############################ ESTILOS MODO OSCURO ########################### */
 html.dark, html.dark body {
     background-color: var(--black-bg-dark) !important;

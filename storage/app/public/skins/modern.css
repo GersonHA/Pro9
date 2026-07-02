@@ -1563,6 +1563,49 @@ html.dark .fp-grand-label {
     background: #f2f4fa61;
     border-radius: 4px;
 }
+.minitour-ring {
+    box-shadow: 0 0 0 3px #2446e8;
+}
+@keyframes minitour-pulse {
+    0% {
+        box-shadow: 0 0 0 3px #2446e8, 0 0 0 3px color-mix(in srgb, #2446e8 20%, #ffffff00);
+    }
+    70% {
+        box-shadow: 0 0 0 3px #2446e8, 0 0 0 14px color-mix(in srgb, #2446e8 20%, #ffffff00);
+    }
+    100% {
+        box-shadow: 0 0 0 3px #2446e8, 0 0 0 14px color-mix(in srgb, #2446e8 20%, #ffffff00);
+    }
+}
+.minitour-tooltip,
+.minitour-arrow {
+    background-color: var(--md-content-dark);;
+}
+.minitour-tooltip p {
+    color: #808a9c !important;
+}
+.minitour-tooltip p b {
+    color: #fff !important;
+}
+.minitour-step-tag {
+    color: color-mix(in srgb, #2446e8 80%, #fff);
+}
+.minitour-dot.on {
+    background-color: color-mix(in srgb, #2446e8 80%, #fff);
+}
+html.dark .minitour-tooltip,
+html.dark .minitour-arrow {
+    background-color: #fff;
+}
+html.dark .minitour-tooltip h2 {
+    color: #333 !important;
+}
+html.dark .minitour-tooltip p {
+    color: color-mix(in srgb, #333 92%, #fff) !important;
+}
+html.dark .minitour-tooltip p b {
+    color: #333 !important;
+}
 /* theme dark */
 html.dark,html.dark body{
     background-color: var(--md-bg-dark);

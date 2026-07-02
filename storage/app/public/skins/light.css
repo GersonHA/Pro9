@@ -1884,6 +1884,50 @@ html.dark .pos-qty-btn {
     background: var(--light-color);
     border-radius: 4px;
 }
+.minitour-ring {
+    box-shadow: 0 0 0 3px var(--primary-color);
+}
+@keyframes minitour-pulse {
+    0% {
+        box-shadow: 0 0 0 3px var(--primary-color), 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, #ffffff00);
+    }
+    70% {
+        box-shadow: 0 0 0 3px var(--primary-color), 0 0 0 14px color-mix(in srgb, var(--primary-color) 20%, #ffffff00);
+    }
+    100% {
+        box-shadow: 0 0 0 3px var(--primary-color), 0 0 0 14px color-mix(in srgb, var(--primary-color) 20%, #ffffff00);
+    }
+}
+.minitour-tooltip,
+.minitour-arrow {
+    background-color: var(--contents-dark);
+    color: var(--light-color);
+}
+.minitour-tooltip p {
+    color: var(--muted) !important;
+}
+.minitour-tooltip p b {
+    color: var(--light-color) !important;
+}
+.minitour-step-tag {
+    color: var(--highlight-color);
+}
+.minitour-dot.on {
+    background-color: var(--highlight-color);
+}
+html.dark .minitour-tooltip,
+html.dark .minitour-arrow {
+    background-color: var(--light-color);
+}
+html.dark .minitour-tooltip h2 {
+    color: var(--dark-color) !important;
+}
+html.dark .minitour-tooltip p {
+    color: color-mix(in srgb, var(--dark-color) 92%, #fff) !important;
+}
+html.dark .minitour-tooltip p b {
+    color: var(--dark-color) !important;
+}
 /* modo oscuro */
 html.dark .table-responsive.payment {
     border: 1px solid var(--inputs-dark);

@@ -4073,7 +4073,7 @@ export default {
                     tag: "Paso 2 de 2",
                     badge: "Solo la primera vez",
                     title: "Información adicional",
-                    body: "Aquí agregas datos extra al comprobante: <b>observaciones, orden de compra, guías</b> y más. Este botón se muestra la primera vez que ingresas; luego lo encontrarás dentro de las opciones del formulario.",
+                    body: "Aquí agregas datos extra al comprobante: <b>observaciones, orden de compra, guías</b> y más.",
                     placement: "bottom"
                 }
             ],

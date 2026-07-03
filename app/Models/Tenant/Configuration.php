@@ -612,6 +612,43 @@ use Illuminate\Support\Facades\Log;
         }
 
         /**
+         * Verifica que exista una configuración de correo válida (SMTP del tenant
+         * o la configuración de correo del sistema).
+         *
+         * @return bool  true si hay una configuración completa, false en caso contrario
+         */
+        public static function hasMailConfig()
+        {
+            $config = self::first();
+
+            if (
+                !empty($config) &&
+                !empty($config->smtp_host) &&
+                !empty($config->smtp_port) &&
+                !empty($config->smtp_user) &&
+                !empty($config->smtp_password) &&
+                !empty($config->smtp_encryption)
+            ) {
+                return true;
+            }
+
+            $system = SystemConfiguration::first();
+
+            if (
+                !empty($system) &&
+                !empty($system->mail_host) &&
+                !empty($system->mail_port) &&
+                !empty($system->mail_username) &&
+                !empty($system->mail_password) &&
+                !empty($system->mail_encryption)
+            ) {
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
          * Devuelve un json con las propiedades excluidas
          *
          * @return string

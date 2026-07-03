@@ -40,7 +40,7 @@
 
         <hr v-if="showWelcomePanel">
 
-        <new-dashboard></new-dashboard>
+        <new-dashboard v-if="!showLegacyDashboard"></new-dashboard>
 
         <div v-if="showLegacyDashboard" class="card mb-0 row-new bg-transparent dashboard-cards mt-0">
             <div class="row px-2" v-show="showFilters">
@@ -138,7 +138,19 @@
             <div class="row mx-0 px-1">
                 <div class="col-xl-12 card-dashboard-section">
                     <div class="row">
-                    <template v-if="configuration.dashboard_sales">
+                    <div class="col-12 mb-2" :class="{ 'col-xl-8': configuration.dashboard_goal_enabled }">
+                        <weekly-sales-chart></weekly-sales-chart>
+                    </div>
+                    <div v-if="configuration.dashboard_goal_enabled" class="col-12 col-xl-4 mb-2">
+                        <month-goal></month-goal>
+                    </div>
+                    <div class="col-12 col-xl-8 mb-2">
+                        <cash-flow-chart></cash-flow-chart>
+                    </div>
+                    <div class="col-12 col-xl-4 mb-2">
+                        <sunat-status></sunat-status>
+                    </div>
+                    <template v-if="showLegacyCards && configuration.dashboard_sales">
                         <div class="col-12 col-sm-6 col-xl-3">
                             <section class="card card-dashboard">
                                 <div class="card-body" v-if="loaders.sale_note">
@@ -273,7 +285,7 @@
                             </section>
                         </div>
                     </template>
-                    <template v-if="configuration.dashboard_general">
+                    <template v-if="showLegacyCards && configuration.dashboard_general">
                         <div class="col-12 col-sm-6 col-xl-3">
                             <section class="card card-dashboard">
                                 <div class="card-body" v-if="loaders.balance">
@@ -462,56 +474,28 @@
                             </section>
                         </div>
                     </template>
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <debtors></debtors>
+                    </div>
                     <template v-if="configuration.dashboard_products">
-                        <div class="col-xl-3 col-md-6">
-                            <section class="card card-dashboard">
-                                <div class="card-body" v-if="loaders.items_by_sales">
-                                    <template>
-                                        <loader-graph :rows="4" :columns="1" :radius="100" :hideCircle="true"></loader-graph>
-                                    </template>
-                                </div>
-                                <div class="card-body pb-0" v-show="!loaders.items_by_sales">
-                                    <label>Ventas por producto</label>
-                                    <div class="mt-3">
-                                        <el-checkbox  v-model="form.enabled_move_item" @change="loadDataAditional">Ordenar por movimientos</el-checkbox><br>
-                                    </div>
-                                </div>
-                                <div class="card-body p-0" v-show="!loaders.items_by_sales">
-                                    <div class="table-responsive">
-                                        <table class="table">
-                                            <thead>
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>Código</th>
-                                                    <th>Nombre</th>
-                                                    <th class="text-end">
-                                                        Mov.
-                                                        <el-tooltip class="item" effect="dark" content="Movimientos (Cantidad de veces vendido)" placement="top-start"><i class="fa fa-info-circle"></i></el-tooltip>
-                                                    </th>
-                                                    <th class="text-end">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <template v-for="(row, index) in items_by_sales">
-                                                    <tr :key="index">
-                                                        <td>{{ index + 1 }}</td>
-                                                        <td>{{ row.internal_id }}</td>
-                                                        <td>{{ row.description }}</td>
-                                                        <td class="text-end">{{ row.move_quantity }}</td>
-                                                        <td class="text-end">{{ row.total }}</td>
-                                                    </tr>
-                                                </template>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                        <div class="col-12 col-md-6 col-xl-4">
+                            <div v-if="loaders.items_by_sales" class="card card-dashboard">
                                 <div class="card-body">
-                                    <a class="btn btn-primary btn-sm" href="dashboard/sales-by-product">Ver todo</a>
+                                    <loader-graph :rows="4" :columns="1" :radius="100" :hideCircle="true"></loader-graph>
                                 </div>
-                            </section>
+                            </div>
+                            <top-products
+                                v-else
+                                :items="items_by_sales"
+                                v-model="form.enabled_move_item"
+                                @order-change="loadDataAditional"
+                            ></top-products>
                         </div>
                     </template>
-                    <template v-if="configuration.dashboard_clients">
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <payment-methods></payment-methods>
+                    </div>
+                    <template v-if="showLegacyCards && configuration.dashboard_clients">
                         <div class="col-xl-3 col-md-6">
                             <section class="card card-dashboard">
                                 <div class="card-body" v-if="loaders.top_customers">
@@ -563,11 +547,11 @@
                         </div>
                     </template>
                     <template v-if="configuration.dashboard_products">
-                        <div class="col-xl-6 col-md-12 col-lg-12">
-                            <dashboard-stock></dashboard-stock>
+                        <div class="col-12 col-md-6 col-xl-4">
+                            <low-stock></low-stock>
                         </div>
                     </template>
-                    <template v-if="configuration.dashboard_products">
+                    <template v-if="showLegacyCards && configuration.dashboard_products">
                         <div class="col-xl-6 col-md-12 col-lg-12">
                             <dashboard-inventory></dashboard-inventory>
                         </div>
@@ -599,15 +583,24 @@ import LoaderGraph from "../components/loaders/l-graph.vue";
 import RowTop from "./RowTop.vue";
 import DashboardInventory from "./partials/dashboard_inventory.vue";
 import NewDashboard from "./partials/new_dashboard/NewDashboard.vue";
+import TopProducts from "./partials/TopProducts.vue";
+import CashFlowChart from "./partials/CashFlowChart.vue";
+import LowStock from "./partials/LowStock.vue";
+import WeeklySalesChart from "./partials/WeeklySalesChart.vue";
+import PaymentMethods from "./partials/PaymentMethods.vue";
+import SunatStatus from "./partials/SunatStatus.vue";
+import Debtors from "./partials/Debtors.vue";
+import MonthGoal from "./partials/MonthGoal.vue";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 
 export default {
   props: ["typeUser", "soapCompany",'configuration'],
-  components: { DashboardStock, LoaderGraph, RowTop, DashboardInventory, NewDashboard },
+  components: { DashboardStock, LoaderGraph, RowTop, DashboardInventory, NewDashboard, TopProducts, CashFlowChart, LowStock, WeeklySalesChart, PaymentMethods, SunatStatus, Debtors, MonthGoal },
   data() {
     return {
             showWelcomePanel: true,
-      showLegacyDashboard: false,
+      showLegacyDashboard: true,
+      showLegacyCards: false,
       showFilters: false,
       loading_search: false,
       records_base: [],

@@ -11,8 +11,11 @@ use Carbon\Carbon;
 use App\Models\Tenant\Person;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\Purchase;
+use App\Models\Tenant\Establishment;
+use Modules\Inventory\Models\ItemWarehouse;
 use Modules\Expense\Models\Expense;
 use Modules\Dashboard\Traits\TotalsTrait;
+use Illuminate\Support\Facades\DB;
 
 
 class DashboardData
@@ -77,11 +80,448 @@ class DashboardData
 
     public function globalData()
     {
-        return [
+        $monthly_kpis = $this->monthlyKpis();
+
+        return array_merge([
             'total_cpe' => Configuration::first()->quantity_documents,
             'document_total_global' => $this->document_totals_globals(),
             'sale_note_total_global' => $this->sale_note_totals_global(),
+        ], $monthly_kpis);
+    }
+
+    private function monthlyKpis($months = 6)
+    {
+        $months_es = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
+
+        $labels = [];
+        $trend = [
+            'monthly_sales' => [],
+            'average_ticket' => [],
+            'accounts_receivable' => [],
+            'net_utility' => [],
         ];
+        $current = [];
+
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $ref = Carbon::now()->startOfMonth()->subMonths($i);
+            $current = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'));
+
+            $labels[] = $months_es[(int) $ref->format('n')];
+            foreach ($trend as $key => $serie) {
+                $trend[$key][] = $current[$key];
+            }
+        }
+
+        return array_merge($current, ['trend' => array_merge(['labels' => $labels], $trend)]);
+    }
+
+    /**
+     * KPIs de un rango (todas las sucursales), normalizado a PEN.
+     * net_utility es aproximado: ventas - compras - gastos (no usa costo por producto).
+     */
+    private function kpisForRange($date_start, $date_end)
+    {
+        $documents = Document::query()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
+            ->get();
+
+        $documents_sales_total = 0;
+        $documents_note_credit = 0;
+        $documents_payment = 0;
+        $documents_count = 0;
+
+        foreach ($documents as $doc) {
+            $factor = ($doc->currency_type_id == 'USD') ? $doc->exchange_rate_sale : 1;
+
+            if (in_array($doc->document_type_id, ['01', '03', '08'])) {
+                $documents_sales_total += $doc->total * $factor;
+                $documents_payment += collect($doc->payments)->sum('payment') * $factor;
+                $documents_count++;
+            } elseif ($doc->document_type_id == '07') {
+                $documents_note_credit += $doc->total * $factor;
+            }
+        }
+
+        $documents_total = $documents_sales_total - $documents_note_credit;
+
+        $sale_notes = SaleNote::query()
+            ->where('changed', false)
+            ->whereStateTypeAccepted()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->get();
+
+        $sale_notes_total = 0;
+        $sale_notes_payment = 0;
+        $sale_notes_count = $sale_notes->count();
+
+        foreach ($sale_notes as $sn) {
+            $factor = ($sn->currency_type_id == 'USD') ? $sn->exchange_rate_sale : 1;
+            $sale_notes_total += $sn->total * $factor;
+            $sale_notes_payment += collect($sn->payments)->sum('payment') * $factor;
+        }
+
+        $purchases = Purchase::query()
+            ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->get();
+
+        $purchases_total = 0;
+        foreach ($purchases as $purchase) {
+            $factor = ($purchase->currency_type_id == 'USD') ? $purchase->exchange_rate_sale : 1;
+            $purchases_total += ($purchase->total + $purchase->total_perception) * $factor;
+        }
+
+        $expenses = Expense::query()
+            ->where('state_type_id', '05')
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->get();
+
+        $expenses_total = 0;
+        foreach ($expenses as $expense) {
+            $factor = ($expense->currency_type_id == 'USD') ? $expense->exchange_rate_sale : 1;
+            $expenses_total += $expense->total * $factor;
+        }
+
+        $monthly_sales = $documents_total + $sale_notes_total;
+        $sales_count = $documents_count + $sale_notes_count;
+        $average_ticket = $sales_count > 0 ? ($monthly_sales / $sales_count) : 0;
+        $accounts_receivable = max($monthly_sales - ($documents_payment + $sale_notes_payment), 0);
+        $net_utility = $monthly_sales - $purchases_total - $expenses_total;
+
+        return [
+            'monthly_sales' => round($monthly_sales, 2),
+            'average_ticket' => round($average_ticket, 2),
+            'accounts_receivable' => round($accounts_receivable, 2),
+            'net_utility' => round($net_utility, 2),
+            'income' => round($monthly_sales, 2),
+            'egress' => round($purchases_total + $expenses_total, 2),
+        ];
+    }
+
+    public function lowStock($limit = 6)
+    {
+        $establishment_id = optional(Establishment::select('id')->first())->id;
+
+        $rows = ItemWarehouse::with('item:id,description,stock_min')
+            ->whereHas('item', function ($query) {
+                $query->whereNotIsSet()
+                      ->where('status', true)
+                      ->where('unit_type_id', '!=', 'ZZ')
+                      ->where('stock_min', '>', 0);
+            })
+            ->whereHas('warehouse', function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })
+            ->get();
+
+        $low = $rows->filter(function ($row) {
+            return $row->item && (float) $row->stock <= (float) $row->item->stock_min;
+        })->sortBy(function ($row) {
+            return (float) $row->stock / (float) $row->item->stock_min;
+        });
+
+        $items = $low->take($limit)->map(function ($row) {
+            return [
+                'product' => $row->item->description,
+                'stock' => (float) $row->stock,
+                'stock_min' => (float) $row->item->stock_min,
+            ];
+        })->values();
+
+        return [
+            'items' => $items,
+            'total' => $low->count(),
+        ];
+    }
+
+    public function monthGoal()
+    {
+        $configuration = Configuration::first();
+        $goal = (float) ($configuration->dashboard_goal_amount ?? 0);
+
+        $ref = Carbon::now();
+        $sales = $this->kpisForRange(
+            $ref->copy()->startOfMonth()->format('Y-m-d'),
+            $ref->copy()->endOfMonth()->format('Y-m-d')
+        )['monthly_sales'];
+
+        $day = (int) $ref->format('j');
+        $days_in_month = (int) $ref->format('t');
+
+        return [
+            'enabled' => (bool) ($configuration->dashboard_goal_enabled ?? false),
+            'goal' => round($goal, 2),
+            'sales' => $sales,
+            'percent' => $goal > 0 ? round(($sales / $goal) * 100, 1) : 0,
+            'remaining' => round(max($goal - $sales, 0), 2),
+            'projected' => $day > 0 ? round(($sales / $day) * $days_in_month, 2) : $sales,
+        ];
+    }
+
+    public function debtors($limit = 4)
+    {
+        $document_payments = DB::table('document_payments')
+            ->select('document_id', DB::raw('SUM(payment) as total_payment'))
+            ->groupBy('document_id');
+
+        $documents = DB::connection('tenant')->table('documents')
+            ->join('persons', 'persons.id', '=', 'documents.customer_id')
+            ->leftJoinSub($document_payments, 'payments', function ($join) {
+                $join->on('documents.id', '=', 'payments.document_id');
+            })
+            ->leftJoinSub(Document::getQueryCreditNotes(), 'credit_notes', function ($join) {
+                $join->on('documents.id', '=', 'credit_notes.affected_document_id');
+            })
+            ->leftJoin('invoices', 'invoices.document_id', '=', 'documents.id')
+            ->whereIn('documents.state_type_id', ['01', '03', '05', '07', '13'])
+            ->whereIn('documents.document_type_id', ['01', '03', '08'])
+            ->where('documents.total_canceled', 0)
+            ->select(
+                'documents.customer_id',
+                'persons.name as customer_name',
+                'documents.total',
+                'documents.currency_type_id',
+                'documents.exchange_rate_sale',
+                DB::raw('IFNULL(payments.total_payment, 0) as total_payment'),
+                DB::raw('IFNULL(credit_notes.total_credit_notes, 0) as total_credit_notes'),
+                'invoices.date_of_due'
+            )->get();
+
+        $sale_note_payments = DB::table('sale_note_payments')
+            ->select('sale_note_id', DB::raw('SUM(payment) as total_payment'))
+            ->groupBy('sale_note_id');
+
+        $sale_notes = DB::connection('tenant')->table('sale_notes')
+            ->join('persons', 'persons.id', '=', 'sale_notes.customer_id')
+            ->leftJoinSub($sale_note_payments, 'payments', function ($join) {
+                $join->on('sale_notes.id', '=', 'payments.sale_note_id');
+            })
+            ->whereIn('sale_notes.state_type_id', ['01', '03', '05', '07', '13'])
+            ->where('sale_notes.changed', false)
+            ->where('sale_notes.total_canceled', false)
+            ->select(
+                'sale_notes.customer_id',
+                'persons.name as customer_name',
+                'sale_notes.total',
+                'sale_notes.currency_type_id',
+                'sale_notes.exchange_rate_sale',
+                DB::raw('IFNULL(payments.total_payment, 0) as total_payment'),
+                DB::raw('0 as total_credit_notes'),
+                DB::raw('NULL as date_of_due')
+            )->get();
+
+        $today = Carbon::today();
+        $customers = [];
+
+        foreach ($documents->concat($sale_notes) as $row) {
+            $factor = ($row->currency_type_id == 'USD') ? (float) $row->exchange_rate_sale : 1;
+            $balance = ((float) $row->total - (float) $row->total_credit_notes - (float) $row->total_payment) * $factor;
+
+            if ($balance <= 0.005) {
+                continue;
+            }
+
+            $cid = $row->customer_id;
+            if (!isset($customers[$cid])) {
+                $customers[$cid] = ['customer' => $row->customer_name, 'total_to_pay' => 0, 'due' => null];
+            }
+
+            $customers[$cid]['total_to_pay'] += $balance;
+
+            if ($row->date_of_due) {
+                $due = Carbon::parse($row->date_of_due)->startOfDay();
+                if (is_null($customers[$cid]['due']) || $due->lt($customers[$cid]['due'])) {
+                    $customers[$cid]['due'] = $due;
+                }
+            }
+        }
+
+        $list = collect($customers)->sortByDesc('total_to_pay');
+
+        $items = $list->take($limit)->map(function ($c) use ($today) {
+            $status = 'al_dia';
+            $due_text = null;
+
+            if ($c['due']) {
+                $days = $today->diffInDays($c['due'], false);
+                if ($days < 0) {
+                    $status = 'vencido';
+                    $abs = abs($days);
+                    $due_text = "venció hace {$abs} " . ($abs === 1 ? 'día' : 'días');
+                } elseif ($days === 0) {
+                    $status = 'por_vencer';
+                    $due_text = 'vence hoy';
+                } else {
+                    $status = ($days <= 7) ? 'por_vencer' : 'al_dia';
+                    $due_text = "vence en {$days} " . ($days === 1 ? 'día' : 'días');
+                }
+            }
+
+            return [
+                'customer' => $c['customer'],
+                'total_to_pay' => round($c['total_to_pay'], 2),
+                'status' => $status,
+                'due_text' => $due_text,
+            ];
+        })->values();
+
+        return [
+            'items' => $items,
+            'total' => round($list->sum('total_to_pay'), 2),
+            'count' => $list->count(),
+        ];
+    }
+
+    public function sunatStatus()
+    {
+        $counts = Document::query()
+            ->selectRaw('state_type_id, COUNT(*) as total')
+            ->groupBy('state_type_id')
+            ->pluck('total', 'state_type_id');
+
+        $sum = function ($ids) use ($counts) {
+            $total = 0;
+            foreach ((array) $ids as $id) {
+                $total += (int) ($counts[$id] ?? 0);
+            }
+            return $total;
+        };
+
+        return [
+            'accepted' => $sum('05'),
+            'pending' => $sum(['01', '03']),
+            'rejected' => $sum('09'),
+        ];
+    }
+
+    public function paymentMethods()
+    {
+        $date_start = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $date_end = Carbon::now()->endOfMonth()->format('Y-m-d');
+
+        $totals = [];
+
+        $documents = Document::query()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
+            ->whereIn('document_type_id', ['01', '03', '08'])
+            ->get();
+
+        foreach ($documents as $doc) {
+            $factor = ($doc->currency_type_id == 'USD') ? $doc->exchange_rate_sale : 1;
+            foreach ($doc->payments as $payment) {
+                $label = optional($payment->payment_method_type)->description ?: 'Otros';
+                $totals[$label] = ($totals[$label] ?? 0) + $payment->payment * $factor;
+            }
+        }
+
+        $sale_notes = SaleNote::query()
+            ->where('changed', false)
+            ->whereStateTypeAccepted()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->get();
+
+        foreach ($sale_notes as $sn) {
+            $factor = ($sn->currency_type_id == 'USD') ? $sn->exchange_rate_sale : 1;
+            foreach ($sn->payments as $payment) {
+                $label = optional($payment->payment_method_type)->description ?: 'Otros';
+                $totals[$label] = ($totals[$label] ?? 0) + $payment->payment * $factor;
+            }
+        }
+
+        arsort($totals);
+
+        $labels = [];
+        $values = [];
+        $total = 0;
+
+        foreach ($totals as $label => $amount) {
+            $amount = round($amount, 2);
+            if ($amount <= 0) {
+                continue;
+            }
+            $labels[] = $label;
+            $values[] = $amount;
+            $total += $amount;
+        }
+
+        return [
+            'labels' => $labels,
+            'values' => $values,
+            'total' => round($total, 2),
+        ];
+    }
+
+    public function salesWeek()
+    {
+        $start_current = Carbon::now()->startOfWeek(Carbon::MONDAY);
+
+        return [
+            'labels' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+            'current' => $this->dailySales($start_current),
+            'previous' => $this->dailySales($start_current->copy()->subWeek()),
+        ];
+    }
+
+    private function dailySales($week_start)
+    {
+        $date_start = $week_start->format('Y-m-d');
+        $date_end = $week_start->copy()->addDays(6)->format('Y-m-d');
+
+        $documents = Document::query()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
+            ->get();
+
+        $sale_notes = SaleNote::query()
+            ->where('changed', false)
+            ->whereStateTypeAccepted()
+            ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->get();
+
+        $values = array_fill(0, 7, 0.0);
+
+        foreach ($documents as $doc) {
+            $factor = ($doc->currency_type_id == 'USD') ? $doc->exchange_rate_sale : 1;
+            $idx = Carbon::parse($doc->date_of_issue)->dayOfWeekIso - 1;
+
+            if (in_array($doc->document_type_id, ['01', '03', '08'])) {
+                $values[$idx] += $doc->total * $factor;
+            } elseif ($doc->document_type_id == '07') {
+                $values[$idx] -= $doc->total * $factor;
+            }
+        }
+
+        foreach ($sale_notes as $sn) {
+            $factor = ($sn->currency_type_id == 'USD') ? $sn->exchange_rate_sale : 1;
+            $idx = Carbon::parse($sn->date_of_issue)->dayOfWeekIso - 1;
+            $values[$idx] += $sn->total * $factor;
+        }
+
+        return array_map(function ($value) {
+            return round(max($value, 0), 2);
+        }, $values);
+    }
+
+    public function cashFlow($months = 6)
+    {
+        $months_es = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
+
+        $labels = [];
+        $income = [];
+        $egress = [];
+
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $ref = Carbon::now()->startOfMonth()->subMonths($i);
+            $kpis = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'));
+
+            $labels[] = $months_es[(int) $ref->format('n')];
+            $income[] = $kpis['income'];
+            $egress[] = $kpis['egress'];
+        }
+
+        return compact('labels', 'income', 'egress');
     }
 
     /**

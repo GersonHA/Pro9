@@ -230,7 +230,7 @@
                             <td v-if="col.visible && col.key === 'date_of_due'" :key="col.key" class="text-center" :class="{ 'text-danger': row.balance > 0 && isDateWarning(row.date_of_due) }">{{ row.date_of_due | toDate }}</td>
                             <td v-if="col.visible && col.key === 'customer'" :key="col.key">{{ row.customer_name }}<br /><small class="text-muted"><template v-if="row.customer_identity_document_type_description">{{ row.customer_identity_document_type_description }}: </template>{{ row.customer_number }}</small></td>
                             <td v-if="col.visible && col.key === 'number'" :key="col.key">
-                                <span class="badge" :class="{ 'bg-invoices': row.document_type_id === '01', 'bg-tickets': row.document_type_id === '03' }" style="font-size: 11px;">{{ row.number }}</span>
+                                <span class="badge" :class="{ 'bg-invoices': row.document_type_id === '01', 'bg-tickets': row.document_type_id === '03', 'bg-credit-notes': row.document_type_id === '07' }" style="font-size: 11px;">{{ row.number }}</span>
                             </td>
                             <td v-if="col.visible && col.key === 'notes'" :key="col.key">
                                 <template v-for="(note, i) in row.notes">
@@ -665,6 +665,11 @@
     background-color: color-mix(in srgb, var(--warning) 10%, #ffffff) !important;
     border: 1px solid var(--warning);
     color: var(--warning);
+}
+.bg-credit-notes {
+    background-color: color-mix(in srgb, var(--info) 10%, #ffffff) !important;
+    border: 1px solid var(--info);
+    color: var(--info);
 }
 .icon-date-issue.dot {
     width: 25px !important;

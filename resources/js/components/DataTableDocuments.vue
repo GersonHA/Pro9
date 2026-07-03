@@ -25,6 +25,10 @@
                                     <span class="bg-invoices legend-cube d-flex" style="margin-bottom: 2px;"></span>
                                     <span style="line-height: normal;">Facturas</span>
                                 </div>
+                                <div class="d-flex align-items-end ms-3 gap-1">
+                                    <span class="bg-credit-notes legend-cube d-flex" style="margin-bottom: 2px;"></span>
+                                    <span style="line-height: normal;">Notas de crédito</span>
+                                </div>
                             </div>                          
                         </div>
                     </div>

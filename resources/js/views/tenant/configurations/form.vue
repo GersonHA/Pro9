@@ -3175,6 +3175,28 @@
                                         </div>
 
                                         <div class="col-12">
+                                            <label class="control-label">Meta del mes
+                                                <el-tooltip class="item" effect="dark" placement="top-start">
+                                                    <div slot="content">Muestra el gráfico de meta de ventas del mes en el dashboard</div>
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div class="form-group" :class="{ 'has-danger': errors.dashboard_goal_enabled }">
+                                                <el-switch v-model="form.dashboard_goal_enabled" @change="submit"></el-switch>
+                                                <small class="form-control-feedback" v-if="errors.dashboard_goal_enabled"
+                                                    v-text="errors.dashboard_goal_enabled[0]"></small>
+                                            </div>
+                                            <div class="form-group" v-if="form.dashboard_goal_enabled"
+                                                :class="{ 'has-danger': errors.dashboard_goal_amount }">
+                                                <label class="control-label">Monto de la meta (S/)</label>
+                                                <el-input v-model="form.dashboard_goal_amount" type="number" min="0"
+                                                    @change="submit"></el-input>
+                                                <small class="form-control-feedback" v-if="errors.dashboard_goal_amount"
+                                                    v-text="errors.dashboard_goal_amount[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
                                             <label class="control-label">Balance general - compras
                                                 <el-tooltip class="item" effect="dark" placement="top-start">
                                                     <div slot="content">Leyenda: Grafico de balance, Utilidades/Ganancias y compras</div>
@@ -3652,6 +3674,8 @@ export default {
                 dashboard_products: false,
                 dashboard_general: true,
                 dashboard_clients: true,
+                dashboard_goal_enabled: false,
+                dashboard_goal_amount: 0,
 
                 affect_all_documents: false,
                 restrict_series_selection_seller: false,

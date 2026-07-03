@@ -57,6 +57,41 @@ class DashboardController extends Controller
         return response()->json((new DashboardData())->globalData(), 200);
     }
 
+    public function cashFlow()
+    {
+        return response()->json((new DashboardData())->cashFlow(), 200);
+    }
+
+    public function lowStock()
+    {
+        return response()->json((new DashboardData())->lowStock(), 200);
+    }
+
+    public function salesWeek()
+    {
+        return response()->json((new DashboardData())->salesWeek(), 200);
+    }
+
+    public function paymentMethods()
+    {
+        return response()->json((new DashboardData())->paymentMethods(), 200);
+    }
+
+    public function sunatStatus()
+    {
+        return response()->json((new DashboardData())->sunatStatus(), 200);
+    }
+
+    public function debtors()
+    {
+        return response()->json((new DashboardData())->debtors(), 200);
+    }
+
+    public function monthGoal()
+    {
+        return response()->json((new DashboardData())->monthGoal(), 200);
+    }
+
     public function data(Request $request)
     {
         return [

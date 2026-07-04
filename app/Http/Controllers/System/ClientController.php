@@ -969,6 +969,15 @@ use Illuminate\Support\Facades\Mail;
                 \Log::info('Módulos básicos insertados');
             }
 
+            // Si el plan corresponde al giro de negocio NRUS, dejar activo únicamente
+            // el tipo de operación "Venta Interna - NRUS" (0113) y desactivar los demás.
+            if ((int) data_get($plan->module_permissions, 'business') === 6) {
+                \Log::info('Plan NRUS detectado, configurando tipos de operación...');
+                DB::connection('tenant')->table('cat_operation_types')->update(['active' => false]);
+                DB::connection('tenant')->table('cat_operation_types')->where('id', '0113')->update(['active' => true]);
+                \Log::info('Tipos de operación NRUS configurados');
+            }
+
             \Log::info('=== CLIENTE REGISTRADO EXITOSAMENTE ===', ['timestamp' => now()]);
             return [
                 'success' => true,

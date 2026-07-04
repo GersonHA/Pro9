@@ -23042,7 +23042,6 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
     0%   { background-position: -400px 0; }
     100% { background-position:  400px 0; }
 }
-<<<<<<< HEAD
 .sk-line, .sk-circle, .sk-bar, .sk-card {
     background: linear-gradient(90deg, #ececec 25%, #e0e0e0 50%, #ececec 75%);
     background-size: 800px 100%;
@@ -23087,7 +23086,6 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
     align-self: flex-end;
 }
 /* ────────────────────────────────────────────────── */
-=======
 .el-notification__title {
     font-weight: 700;
     font-size: 16px !important;
@@ -23109,7 +23107,6 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
 .el-notification .el-icon-success {
     color: var(--success);
 }
->>>>>>> main
 @media (max-width: 768px) {
     .support-sidebar {
         width: 100%;

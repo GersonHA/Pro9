@@ -71,10 +71,10 @@
                                 <el-input value="∞" disabled></el-input>
                             </template>
                             <template v-else>
-                                <el-input v-model="form.establishments_limit"></el-input>
+                                <el-input v-model="form.establishments_limit" :disabled="business === 6"></el-input>
                             </template>
 
-                            <el-checkbox v-model="form.establishments_unlimited">Ilimitado</el-checkbox><br>
+                            <el-checkbox v-model="form.establishments_unlimited" :disabled="business === 6">Ilimitado</el-checkbox><br>
 
                             <small class="form-control-feedback d-block" v-if="errors.establishments_limit" v-text="errors.establishments_limit[0]"></small>
                         </div>
@@ -97,10 +97,10 @@
                                 <el-input value="∞" disabled></el-input>
                             </template>
                             <template v-else>
-                                <el-input v-model="form.sales_limit"></el-input>
+                                <el-input v-model="form.sales_limit" :disabled="business === 6"></el-input>
                             </template>
 
-                            <el-checkbox v-model="form.sales_unlimited">Ilimitado</el-checkbox><br>
+                            <el-checkbox v-model="form.sales_unlimited" :disabled="business === 6">Ilimitado</el-checkbox><br>
                             <el-checkbox v-model="form.include_sale_notes_sales_limit">Incluir notas de venta</el-checkbox><br>
 
 
@@ -119,6 +119,7 @@
                                     <el-radio :label="2">Farmacia</el-radio>
                                     <el-radio :label="3">Hotel</el-radio>
                                     <el-radio :label="4">Restaurante</el-radio>
+                                    <el-radio :label="6">NRUS</el-radio>
                                 </el-radio-group>
                             </div>
                             <div class="col-md-6">
@@ -207,6 +208,24 @@
                 form: {},
                 collapse: 1,
                 business: null,
+                nrusSpec: {
+                    modules: {
+                        7: '*',
+                        1: ['1-1', '1-2', '1-5', '1-8', '1-15', '1-84'],
+                        17: '*',
+                        18: '*',
+                        8: '*',
+                        12: ['12-16'],
+                        52: '*',
+                        4: '*',
+                    },
+                    apps: {
+                        11: '*',
+                        14: '*',
+                        5: '*',
+                        53: '*',
+                    },
+                },
                 modules: [],
                 apps: [],
                 group_basic: [],
@@ -542,6 +561,19 @@
                 }
             },
             changeModules() {
+                if (this.business === 6) {
+                    this.form.establishments_unlimited = false;
+                    this.form.establishments_limit = 1;
+                    this.form.sales_unlimited = false;
+                    this.form.sales_limit = 8000;
+                    this.$nextTick(() => {
+                        const treeKeys = this.buildNrusKeys(this.modules, this.nrusSpec.modules);
+                        const appKeys = this.buildNrusKeys(this.apps, this.nrusSpec.apps);
+                        if (this.$refs.tree) this.$refs.tree.setCheckedKeys(treeKeys);
+                        if (this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys(appKeys);
+                    });
+                    return;
+                }
                 var group = {
                     modules: [],
                     apps: [],
@@ -563,6 +595,20 @@
                 }
                 this.$refs.tree.setCheckedKeys(group.modules);
                 this.$refs.Apptree.setCheckedKeys(group.apps);
+            },
+            buildNrusKeys(treeData, spec) {
+                const keys = [];
+                treeData.forEach(m => {
+                    const allowed = spec[m.id];
+                    if (allowed === undefined) return;
+                    keys.push(m.id);
+                    (m.childrens || []).forEach(c => {
+                        if (allowed === '*' || allowed.includes(c.id)) {
+                            keys.push(c.id);
+                        }
+                    });
+                });
+                return keys;
             },
             getIds(modules) {
                 const preSelecteds = [];

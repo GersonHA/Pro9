@@ -1275,7 +1275,7 @@
 
                                 <p
                                     class="text-end"
-                                    v-if="form.total_exportation > 0"
+                                    v-if="form.total_exportation > 0 && !isNrus"
                                 >
                                     OP.EXPORTACIÓN: {{ currency_type.symbol }}
                                     {{ form.total_exportation }}
@@ -1303,12 +1303,12 @@
                                 </p>
                                 <p
                                     class="text-end"
-                                    v-if="form.total_taxed > 0"
+                                    v-if="form.total_taxed > 0 && !isNrus"
                                 >
                                     OP.GRAVADA: {{ currency_type.symbol }}
                                     {{ form.total_taxed }}
                                 </p>
-                                <p class="text-end" v-if="form.total_igv > 0">
+                                <p class="text-end" v-if="form.total_igv > 0 && !isNrus">
                                     IGV: {{ currency_type.symbol }}
                                     {{ form.total_igv }}
                                 </p>
@@ -2202,6 +2202,9 @@ export default {
             return _.filter(this.payment_method_types, { is_credit: false });
         },
         ...mapState(["config"]),
+        isNrus: function() {
+            return !!(this.config && this.config.is_nrus);
+        },
         sms_periodo: function() {
             let text = "";
             let type = this.form.type_period;

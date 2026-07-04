@@ -900,23 +900,23 @@
                                         {{ form.total_unaffected }}
                                     </td>
                                 </tr>
-                                <tr v-if="form.total_taxed > 0" class="m-0">
+                                <tr v-if="form.total_taxed > 0 && !isNrus" class="m-0">
                                     <td>OP.GRAVADA</td>
                                     <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_taxed }}
                                     </td>
                                 </tr>
-                                <tr v-if="form.total_igv > 0" class="m-0">
+                                <tr v-if="form.total_igv > 0 && !isNrus" class="m-0">
                                     <td>IGV</td>
                                     <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
                                         {{ form.total_igv }}
                                     </td>
                                 </tr>
-                                <template v-if="form.has_retention">
+                                <template v-if="form.has_retention && !isNrus">
                                     <tr v-if="form.retention && form.retention.amount > 0" class="m-0">
-                                        <td>M. RETENCIÓN 
+                                        <td>M. RETENCIÓN
                                                     ({{
                                                         configuration.igv_retention_percentage
                                                                     }}%):
@@ -927,7 +927,7 @@
                                         </td>
                                     </tr>
                                 </template>
-                                <tr v-if="form.total_isc > 0" class="m-0">
+                                <tr v-if="form.total_isc > 0 && !isNrus" class="m-0">
                                     <td>ISC</td>
                                     <td class="text-end font-weight-semibold">
                                         {{ currency_type.symbol }}
@@ -1391,6 +1391,9 @@ export default {
             }
         },
         ...mapState(["config"]),
+        isNrus: function() {
+            return !!(this.config && this.config.is_nrus);
+        },
         canSeeHistoryPurchase: function() {
             if (this.typeUser !== "admin") {
                 return this.configuration.pos_history;

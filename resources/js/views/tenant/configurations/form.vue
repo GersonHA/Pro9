@@ -28,9 +28,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Gestión de Vendedores</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                8 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -160,9 +157,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Productos y Stock</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                11 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -377,9 +371,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Comprobantes y Transacciones</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                7 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -528,9 +519,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Ventas / POS</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -584,9 +572,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Interfaz y Parámetros Generales</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -789,9 +774,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Servidor SMTP</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -836,9 +818,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Credenciales de Acceso</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -903,9 +882,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Impuestos y Tributación</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                5 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1005,9 +981,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Tipos de Afectación</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1061,9 +1034,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Moneda y Precios</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1153,9 +1123,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Descuentos y Cargos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1269,9 +1236,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">CPE / Comprobantes Electrónicos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                6 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1395,9 +1359,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Comunicación de Baja (RA)</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1450,9 +1411,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Configuración General y Sucursales</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1541,9 +1499,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Formato de Ticket</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1620,9 +1575,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Encabezado y Logos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1696,9 +1648,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Footer / Pie de página</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1746,9 +1695,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Términos y Condiciones</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1809,9 +1755,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Información que aparece en el PDF</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                5 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1910,9 +1853,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Productos y Contenido</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -1997,9 +1937,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Comportamiento</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2074,9 +2011,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Configuración general POS</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2147,9 +2081,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Comprobantes por Defecto</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2237,9 +2168,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Búsqueda de Productos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2305,9 +2233,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Precios y Descuentos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                6 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2448,9 +2373,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">PDF e Impresión</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2586,9 +2508,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Ticket de Despacho</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2648,9 +2567,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Cliente</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2705,9 +2621,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Vendedores y Series</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2805,9 +2718,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Reportes con conversión a Soles</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 reportes
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2843,9 +2753,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Envío Automático de Comprobantes</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2892,9 +2799,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Guías de Remisión</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                3 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -2959,9 +2863,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Pagos y Deudas</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3021,9 +2922,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Tareas Programadas</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                1 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3051,9 +2949,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Validaciones y Seguridad</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                4 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3135,9 +3030,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Auditoría / Logs del Sistema</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                6 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3302,9 +3194,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Inventario y Productos</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 opciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3364,9 +3253,6 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Zona de Peligro</span>
                                             </h5>
-                                            <span class="text-muted text-uppercase px-2 options-count">
-                                                2 acciones
-                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">
@@ -3696,7 +3582,7 @@ export default {
                 search_factory_code_items: false,
                 register_series_invoice_xml: false,
                 enable_discount_by_customer: false,
-                show_item_discounts_charges_attributes: true,
+                show_item_discounts_charges_attributes: false,
                 enabled_dispatch_ticket_pdf: false,
                 price_selected_add_product: false,
                 restrict_sale_items_cpe: false,

@@ -35,7 +35,7 @@
                                     </button>
                                 </h2>
                             </div>
-                            <div class="row p-0 m-0 col-md-6">
+                            <div class="row p-0 m-0 col-md-6 justify-content-end">
                                 <div class="col-md-4 d-flex align-items-end justify-content-end">
                                     <button type="button" data-tour="info-adicional" class="btn btn-sm second-buton" @click="toggleInformation">
                                         Información adicional
@@ -61,7 +61,7 @@
                                             :disabled="isUpdateDocument"
                                         >
                                             <el-option
-                                                v-for="option in document_types"
+                                                v-for="option in documentTypesAvailable"
                                                 :key="option.id"
                                                 :label="option.description"
                                                 :value="option.id"
@@ -1852,7 +1852,7 @@
                                                     </tr>
 
                                                     <template
-                                                        v-if="form.detraction"
+                                                        v-if="form.detraction && !isNrus"
                                                     >
                                                         <tr
                                                             v-if="
@@ -1874,7 +1874,7 @@
                                                             <!-- <td>{{ currency_type.symbol }} {{ form.detraction.amount }}</td> -->
                                                         </tr>
                                                     </template>
-                                                    <template v-if=" config.enabled_guarantee_fund && (form.detraction || form.retention)">
+                                                    <template v-if=" config.enabled_guarantee_fund && (form.detraction || form.retention) && !isNrus">
                                                         <tr v-if="form.detraction.guarantee_fund > 0 || form.retention.guarantee_fund > 0">
                                                             <td width="60%">FONDO DE GARANTIA:</td>
                                                             <td>{{ currency_type.symbol }} {{ guarantee_fund }}</td>
@@ -1953,7 +1953,7 @@
                                                     </tr>
                                                     <tr
                                                         v-if="
-                                                            form.total_taxed > 0
+                                                            form.total_taxed > 0 && !isNrus
                                                         "
                                                     >
                                                         <td>OP.GRAVADA:</td>
@@ -1985,7 +1985,7 @@
                                                     </tr>
                                                     <tr
                                                         v-if="
-                                                            form.total_igv > 0
+                                                            form.total_igv > 0 && !isNrus
                                                         "
                                                     >
                                                         <td>IGV:</td>
@@ -1998,7 +1998,7 @@
                                                     </tr>
                                                     <tr
                                                         v-if="
-                                                            form.total_isc > 0
+                                                            form.total_isc > 0 && !isNrus
                                                         "
                                                     >
                                                         <td>ISC:</td>
@@ -2887,7 +2887,7 @@
 
 
 
-                                    <template v-if="form.detraction">
+                                    <template v-if="form.detraction && !isNrus">
                                         <tr v-if="form.detraction.amount > 0">
                                             <td width="60%">M. DETRACCIÓN:</td>
                                             <td>
@@ -2895,14 +2895,14 @@
                                             </td>
                                         </tr>
                                     </template>
-                                    <template v-if="config.enabled_guarantee_fund && (form.detraction || form.retention)">
+                                    <template v-if="config.enabled_guarantee_fund && (form.detraction || form.retention) && !isNrus">
                                             <tr v-if="form.detraction.guarantee_fund > 0 || form.retention.guarantee_fund > 0">
                                                 <td width="60%">FONDO DE GARANTIA:</td>
                                                 <td>{{ currency_type.symbol }} {{ guarantee_fund }}</td>
                                             </tr>
                                     </template>
 
-                                    <template v-if="form.retention">
+                                    <template v-if="form.retention && !isNrus">
                                         <tr v-if="form.retention.amount > 0">
                                             <td>
                                                 M. RETENCIÓN ({{
@@ -2917,7 +2917,7 @@
                                         </tr>
                                     </template>
 
-                                    <tr v-if="form.total_exportation > 0">
+                                    <tr v-if="form.total_exportation > 0 && !isNrus">
                                         <td>OP.EXPORTACIÓN:</td>
                                         <td>
                                             {{ currency_type.symbol }}
@@ -2945,7 +2945,7 @@
                                             {{ form.total_exonerated }}
                                         </td>
                                     </tr>
-                                    <tr v-if="form.total_taxed > 0">
+                                    <tr v-if="form.total_taxed > 0 && !isNrus">
                                         <td>OP.GRAVADA:</td>
                                         <td>
                                             {{ currency_type.symbol }}
@@ -2959,14 +2959,14 @@
                                             {{ form.total_discount }}
                                         </td>
                                     </tr>
-                                    <tr v-if="form.total_igv > 0">
+                                    <tr v-if="form.total_igv > 0 && !isNrus">
                                         <td>IGV:</td>
                                         <td>
                                             {{ currency_type.symbol }}
                                             {{ form.total_igv }}
                                         </td>
                                     </tr>
-                                    <tr v-if="form.total_isc > 0">
+                                    <tr v-if="form.total_isc > 0 && !isNrus">
                                         <td>ISC:</td>
                                         <td>
                                             {{ currency_type.symbol }}
@@ -4368,6 +4368,16 @@ export default {
             return this.configuration.global_discount_type_id === "02" ;
         },
         ...mapState(["config", "series", "all_series"]),
+        isNrus() {
+            return !!(this.config && this.config.is_nrus);
+        },
+        documentTypesAvailable() {
+            // En NRUS solo se permite emitir Boleta (03)
+            if (this.isNrus) {
+                return this.document_types.filter(dt => dt.id === "03");
+            }
+            return this.document_types;
+        },
         credit_payment_metod: function() {
             return _.filter(this.payment_method_types, { is_credit: true });
         },
@@ -4598,7 +4608,9 @@ export default {
         const clientfromDispatchesOrNotes = localStorage.getItem("client");
         if (clientfromDispatchesOrNotes) {
             const client = JSON.parse(clientfromDispatchesOrNotes);
-            if (client.identity_document_type_id == 1 || client.identity_document_type_id == 0) {
+            if (this.isNrus) {
+                this.form.document_type_id = "03";
+            } else if (client.identity_document_type_id == 1 || client.identity_document_type_id == 0) {
                 this.form.document_type_id = "03";
             } else if (client.identity_document_type_id == 6 ) {
                 this.form.document_type_id = "01";
@@ -4825,8 +4837,9 @@ export default {
                     this.establishments.length > 0
                         ? this.establishments[0].id
                         : null;
-                this.form.document_type_id =
-                    this.document_types.length > 0
+                this.form.document_type_id = this.isNrus
+                    ? "03"
+                    : this.document_types.length > 0
                         ? this.document_types[0].id
                         : null;
                 this.form.operation_type_id =
@@ -5803,6 +5816,10 @@ export default {
             }
         },
         selectDocumentType() {
+            if (this.isNrus) {
+                this.form.document_type_id = "03";
+                return;
+            }
             this.form.document_type_id = this.select_first_document_type_03
                 ? "03"
                 : "01";

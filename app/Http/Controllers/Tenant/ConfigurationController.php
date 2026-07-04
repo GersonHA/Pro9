@@ -205,7 +205,17 @@ class ConfigurationController extends Controller
 
     public function getTicketFormats()
     {
-        $formats = FormatTemplate::where('is_custom_ticket', true)->get()->transform(function($row) {
+        $is_nrus = optional(Configuration::first())->isNrus();
+
+        $query = FormatTemplate::query();
+
+        if ($is_nrus) {
+            $query->where('formats', 'nrus');
+        } else {
+            $query->where('is_custom_ticket', true)->where('formats', '!=', 'nrus');
+        }
+
+        $formats = $query->get()->transform(function($row) {
                 return $row->getCollectionData();
         });
 
@@ -355,13 +365,19 @@ class ConfigurationController extends Controller
     public function pdfTemplates()
     {
         $establishments = Establishment::select(['id','description','template_pdf'])->get();
-        return view('tenant.advanced.pdf_templates')->with('establishments', $establishments);
+        $establishment_id = auth()->user()->establishment_id;
+        return view('tenant.advanced.pdf_templates')
+            ->with('establishments', $establishments)
+            ->with('establishment_id', $establishment_id);
     }
 
     public function pdfTicketTemplates()
     {
         $establishments = Establishment::select(['id','description','template_ticket_pdf'])->get();
-        return view('tenant.advanced.pdf_ticket_templates')->with('establishments', $establishments);
+        $establishment_id = auth()->user()->establishment_id;
+        return view('tenant.advanced.pdf_ticket_templates')
+            ->with('establishments', $establishments)
+            ->with('establishment_id', $establishment_id);
     }
 
     public function pdfGuideTemplates()

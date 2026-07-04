@@ -792,6 +792,8 @@ use Illuminate\Support\Facades\Mail;
 
             $plan = Plan::findOrFail($request->input('plan_id'));
 
+            $is_nrus = (int) data_get($plan->module_permissions, 'business') === 6;
+
             $http = config('tenant.force_https') == true ? 'https://' : 'http://';
 
             // Definir variable para registro de invitado
@@ -891,7 +893,8 @@ use Illuminate\Support\Facades\Mail;
                 'address' => '-',
                 'email' => $request->input('email'),
                 'telephone' => '-',
-                'code' => '0000'
+                'code' => '0000',
+                'template_ticket_pdf' => $is_nrus ? 'nrus' : 'default',
             ]);
             \Log::info('Establishment insertado', ['establishment_id' => $establishment_id]);
 
@@ -971,7 +974,7 @@ use Illuminate\Support\Facades\Mail;
 
             // Si el plan corresponde al giro de negocio NRUS, dejar activo únicamente
             // el tipo de operación "Venta Interna - NRUS" (0113) y desactivar los demás.
-            if ((int) data_get($plan->module_permissions, 'business') === 6) {
+            if ($is_nrus) {
                 \Log::info('Plan NRUS detectado, configurando tipos de operación...');
                 DB::connection('tenant')->table('cat_operation_types')->update(['active' => false]);
                 DB::connection('tenant')->table('cat_operation_types')->where('id', '0113')->update(['active' => true]);

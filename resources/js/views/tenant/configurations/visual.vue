@@ -63,44 +63,38 @@
 
                 <div class="mt-3 theme-color-selector">
                     <h5>Selecciona un color de tema:</h5>
-                    <div class="color-selector">
-                        <button
-                            type="button"
-                            class="btn-theme-white"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'white' }"
-                            @click="onChangeTheme('white')"
-                        ></button>
-                        <button
-                            type="button"
-                            class="btn-theme-white"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'aqua' }"
-                            @click="onChangeTheme('aqua')"
-                            style="background-color: #90dad9;"
-                        ></button>
-                        <button
-                            type="button"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'acid' }"
-                            @click="onChangeTheme('acid')"
-                            style="background-color: #c1b1f1;"
-                        ></button>
-                        <button
-                            type="button"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'cupcake' }"
-                            @click="onChangeTheme('cupcake')"
-                            style="background-color: #e7dad0;"
-                        ></button>
-                        <button
-                            type="button"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'retro' }"
-                            @click="onChangeTheme('retro')"
-                            style="background-color: #ebddb7;"
-                        ></button>
-                        <button
-                            type="button"
-                            :class="{ 'theme-selected': visuals.sidebar_theme === 'lemonade' }"
-                            @click="onChangeTheme('lemonade')"
-                            style="background-color: #cddfae;"
-                        ></button>
+                    <div class="theme-select" :class="{ open: themeMenuOpen }">
+                        <button type="button" class="theme-select-trigger" @click="themeMenuOpen = !themeMenuOpen">
+                            <span class="theme-swatch" :style="{ background: activeTheme.bg }">
+                                <i v-for="(c, i) in activeTheme.dots" :key="i" :style="{ background: c }"></i>
+                            </span>
+                            <span class="theme-row-info">
+                                <span class="theme-row-name">{{ activeTheme.label }}</span>
+                                <span class="theme-row-color">{{ activeTheme.color }}</span>
+                            </span>
+                            <i class="fas fa-chevron-down theme-select-caret"></i>
+                        </button>
+                        <div class="theme-select-menu">
+                            <button
+                                v-for="t in themeList"
+                                :key="t.key"
+                                type="button"
+                                class="btn-theme-row"
+                                :class="{ 'theme-selected': visuals.sidebar_theme === t.key }"
+                                @click="selectTheme(t.key)"
+                                :title="t.label"
+                            >
+                                <span class="theme-swatch" :style="{ background: t.bg }">
+                                    <i v-for="(c, i) in t.dots" :key="i" :style="{ background: c }"></i>
+                                </span>
+                                <span class="theme-row-info">
+                                    <span class="theme-row-name">{{ t.label }}</span>
+                                    <span class="theme-row-color">{{ t.color }}</span>
+                                </span>
+                                <i class="fas fa-check theme-row-check"></i>
+                            </button>
+                        </div>
+                        <div v-if="themeMenuOpen" class="theme-select-backdrop" @click="themeMenuOpen = false"></div>
                     </div>
                 </div>
 
@@ -378,6 +372,21 @@ export default {
     },
     data() {
         return {
+            themeMenuOpen: false,
+            themeList: [
+                { key: 'white',     label: 'Clásico',     color: 'Azul',        bg: '#f5f8ff', dots: ['#3d6bf5','#8aa4f7','#3a4658','#8492a6'] },
+                { key: 'corporate', label: 'Corporativo', color: 'Azul',        bg: '#f4f7fc', dots: ['#2d5bb9','#8aa6da','#31435c','#7d8ba3'] },
+                { key: 'navy',      label: 'Marino',      color: 'Azul marino', bg: '#f3f6f9', dots: ['#28527a','#7ba0c4','#2b3a4d','#7a8798'] },
+                { key: 'slate',     label: 'Pizarra',     color: 'Gris',        bg: '#f5f6f8', dots: ['#4a5b73','#94a1b8','#3a4453','#828d9e'] },
+                { key: 'indigo',    label: 'Índigo',      color: 'Índigo',      bg: '#f5f5fb', dots: ['#4a45a8','#9995d6','#37374f','#807e9c'] },
+                { key: 'forest',    label: 'Bosque',      color: 'Verde',       bg: '#f2f8f4', dots: ['#2f6d52','#7cb598','#324338','#7a8a80'] },
+                { key: 'burgundy',  label: 'Borgoña',     color: 'Vino',        bg: '#faf4f5', dots: ['#8a3c4e','#c78896','#43333a','#94818a'] },
+                { key: 'aqua',      label: 'Aqua',        color: 'Turquesa',    bg: '#f0f9f9', dots: ['#0e94a8','#63cdd8','#294a54','#6f9098'] },
+                { key: 'acid',      label: 'Ácido',       color: 'Violeta',     bg: '#f6f4fe', dots: ['#6f52e8','#a99ff0','#39335a','#867fa4'] },
+                { key: 'cupcake',   label: 'Cupcake',     color: 'Rosa',        bg: '#fdf5f9', dots: ['#db4f8b','#f2a3c4','#4a3340','#9a8290'] },
+                { key: 'retro',     label: 'Retro',       color: 'Ámbar',       bg: '#fbf5e9', dots: ['#d1791f','#eec471','#463c30','#8f8371'] },
+                { key: 'lemonade',  label: 'Limonada',    color: 'Verde',       bg: '#f6faec', dots: ['#659f2b','#b6d97f','#3f4634','#7f8570'] },
+            ],
             themes: {},
             blackThemes: {},
             showWelcome: false,
@@ -414,9 +423,17 @@ export default {
                 .toLowerCase();
 
             return name.includes("black");
+        },
+        activeTheme() {
+            return this.themeList.find(t => t.key === (this.visuals && this.visuals.sidebar_theme))
+                || this.themeList[0];
         }
     },
     methods: {
+        selectTheme(key) {
+            this.onChangeTheme(key);
+            this.themeMenuOpen = false;
+        },
         successUploadDefaultImage(response, file) {
             if (response.message) {
                 this.$message.success(response.message);
@@ -482,10 +499,14 @@ export default {
         },
 
         applyTheme(theme) {
-            const colors = this.themes[theme];
+            let colors = this.themes[theme];
             if (!colors) {
                 console.error(`Theme "${theme}" not found.`);
                 return;
+            }
+            // Normaliza la estructura anidada de themes.json (ej. "white" -> { light, default })
+            if (typeof colors === 'object' && !colors['--primary-color']) {
+                colors = colors.default || colors.light || colors;
             }
 
             let styleTag = document.getElementById("theme-styles");
@@ -793,6 +814,124 @@ export default {
 
 .color-selector button.theme-selected {
    box-shadow: 0 0 0 4px var(--highlight-color);
+}
+
+/* Selector de temas tipo campo desplegable (muestra solo el activo) */
+.theme-select {
+    position: relative;
+}
+.theme-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--light-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+}
+.theme-select-caret {
+    margin-left: auto;
+    color: var(--muted);
+    transition: transform .2s ease;
+}
+.theme-select.open .theme-select-caret {
+    transform: rotate(180deg);
+}
+.theme-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: #fff;
+    border: 1px solid var(--accent-color);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, .12);
+    padding: 6px;
+    max-height: 340px;
+    overflow-y: auto;
+    display: none;
+}
+.theme-select.open .theme-select-menu {
+    display: block;
+}
+.theme-select-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+/* Filas del selector (swatch + nombre + color + check) */
+.theme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.btn-theme-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: auto;
+    padding: 9px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+    text-align: left;
+    transition: background .15s ease, border-color .15s ease;
+}
+.btn-theme-row:hover {
+    background: var(--accent-color);
+}
+.btn-theme-row.theme-selected {
+    background: var(--light-color);
+    border-color: var(--primary-color);
+    box-shadow: none;
+}
+.theme-swatch {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+    width: 34px;
+    height: 34px;
+    padding: 4px;
+    border-radius: 9px;
+    border: 1px solid rgba(0, 0, 0, .08);
+    flex-shrink: 0;
+}
+.theme-swatch i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+}
+.theme-row-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    flex: 1;
+}
+.theme-row-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+.theme-row-color {
+    font-size: 11px;
+    color: var(--muted);
+}
+.theme-row-check {
+    color: var(--primary-color);
+    font-size: 15px;
+    opacity: 0;
+}
+.btn-theme-row.theme-selected .theme-row-check {
+    opacity: 1;
 }
 .sidebar-example.sidebar-example-selected > div::after,
 .black-theme-selected::after {

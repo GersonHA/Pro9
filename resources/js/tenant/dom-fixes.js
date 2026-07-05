@@ -13,6 +13,15 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
         showContent();
     }, timeoutDuration);
 
+    // Normaliza la estructura anidada de themes.json (ej. "white" -> { light, default })
+    // para que siempre se apliquen variables --* planas.
+    const normalize = (obj) => {
+        if (obj && typeof obj === 'object' && !obj['--primary-color']) {
+            return obj.default || obj.light || obj;
+        }
+        return obj;
+    };
+
     const applyCachedTheme = (themeName, cachePrefix, styleId) => {
         if (!themeName) {
             return false;
@@ -22,7 +31,7 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
             return false;
         }
         try {
-            const colors = JSON.parse(cached);
+            const colors = normalize(JSON.parse(cached));
             if (!colors || typeof colors !== 'object') {
                 return false;
             }
@@ -64,7 +73,7 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
                 .then(response => response.json())
                 .then(themes => {
                     if (themes[themeToApply]) {
-                        const colors = themes[themeToApply];
+                        const colors = normalize(themes[themeToApply]);
                         let styleElement = document.getElementById('theme-styles');
                         if (!styleElement) {
                             styleElement = document.createElement('style');
@@ -92,7 +101,7 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
                 .then(response => response.json())
                 .then(themes => {
                     if (themes[blackThemeToApply]) {
-                        const colors = themes[blackThemeToApply];
+                        const colors = normalize(themes[blackThemeToApply]);
                         let styleElement = document.getElementById('black-theme-styles');
                         if (!styleElement) {
                             styleElement = document.createElement('style');

@@ -1,13 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Anaheim:wght@400..800&family=Heebo:wght@100..900&family=Host+Grotesk:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Jaldi:wght@400;700&family=Maven+Pro:wght@400..900&family=Pragati+Narrow:wght@400;700&family=Questrial&family=Roboto:ital,wght@0,100..900;1,100..900&family=Sora:wght@100..800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Nunito+Sans:wght@400;600;700;800&family=DM+Sans:wght@400;500;700&display=swap');
 
 :root{
-    --primary-color: #2b5bfb;
-    --dark-color: #273747;
-    --light-color: #f7fafc;
-    --accent-color: #e8ecf2;
-    --highlight-color: #7575e5;
-    --muted: #758595;
+    --primary-color: #3d6bf5;
+    --dark-color: #3a4658;
+    --light-color: #f5f8ff;
+    --accent-color: #e7edfc;
+    --highlight-color: #8aa4f7;
+    --muted: #8492a6;
     /* modo dark */
     --background-dark: #091029;
     --contents-dark: #0c1536;
@@ -1301,7 +1302,7 @@ ul.nav-main li.nav-parent > a:after {
 }
 .row.no-gutters .col:nth-child(3n) .card div,
 .testimonial-group div .col-sm-3.pointer:nth-child(3n) {
-    background: #2446e8 !important;
+    background: var(--primary-color) !important;
 }
 .row.no-gutters .col:nth-child(5n) .card div,
 .testimonial-group div .col-sm-3.pointer:nth-child(5n) {

@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Archivo:wght@400;500;600;700&family=Onest:wght@400;500;600;700&display=swap');
 
 :root{
     /* Color base */
@@ -9,6 +10,8 @@
     /* Claros */
     --primary-color: var(--black-primary);
     --black-primary: oklch(var(--base-l) var(--base-c) var(--base-h));
+    /* Versión vibrante del color base (para botones/acentos, no tan oscura) */
+    --black-vivid: oklch(0.58 0.15 var(--base-h));
     --black-dark: oklch(calc(var(--base-l) - 0.0786) calc(var(--base-c) + 0.0008) calc(var(--base-h) - 1.23));
     --black-accent: oklch(calc(var(--base-l) + 0.4954) calc(var(--base-c) - 0.0015) calc(var(--base-h) - 9.37 ));
     --black-highlight: oklch(calc(var(--base-l) + 0.76) calc(var(--base-c) - 0.0375) calc(var(--base-h) - 29.86));

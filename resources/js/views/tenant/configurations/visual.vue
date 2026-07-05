@@ -8,7 +8,7 @@
             <form class="style-switcher-wrap p-0" autocomplete="off">
             <div class="support-header px-3">
                 <h5 class="m-0 d-flex align-items-center title-visual">
-                    Estilos y Temas                    
+                    Estilos y Temas
                 </h5>
                 <a class="style-switcher-open close-config" href="#" style="transform: none;">
                     <svg  xmlns="http://www.w3.org/2000/svg"  width="20"  height="20"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-x"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>
@@ -23,29 +23,37 @@
                 <br />
             </div>
             <div v-if="typeUser != 'integrator'" class="p-3 body-visual">
-                <div class="visual-bg-container" style="background-color: #283046;">
-                    <a
-                        v-if="visuals.bg == 'white'"
-                        href="/configurations/change-mode"
-                        class="notification-icon btn btn-dark btn-sm btn-block w-100"
-                        data-toggle="tooltip"
-                        data-placement="bottom"
-                        title="Modo oscuro"
-                        style="text-decoration: none; color: #fff !important;"
-                    >
-                        <i class="fas fa-moon"></i> Modo oscuro
-                    </a>
-                    <a
-                        v-if="visuals.bg == 'dark'"
-                        href="/configurations/change-mode"
-                        class="notification-icon btn btn-light btn-sm btn-block btn-light-mode w-100"
-                        data-toggle="tooltip"
-                        data-placement="bottom"
-                        title="Modo día"
-                        style="text-decoration: none;"
-                    >
-                        <i class="fas fa-sun"></i> Modo Claro
-                    </a>
+                <div class="mode-switch-wrap">
+                    <h5 class="mb-2">Modo de color</h5>
+                    <div class="mode-switch" role="group" aria-label="Modo de color">
+                        <a
+                            href="/configurations/change-mode"
+                            class="mode-switch__opt"
+                            :class="{ 'is-active': visuals.bg == 'white' }"
+                            @click.prevent="setMode('white')"
+                            title="Modo claro"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+                                <path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />
+                            </svg>
+                            <span>Claro</span>
+                        </a>
+                        <a
+                            href="/configurations/change-mode"
+                            class="mode-switch__opt"
+                            :class="{ 'is-active': visuals.bg == 'dark' }"
+                            @click.prevent="setMode('dark')"
+                            title="Modo oscuro"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+                            </svg>
+                            <span>Oscuro</span>
+                        </a>
+                    </div>
                 </div>
                 <!-- <div class="pt-3">
                     <h5>Color de fondo del sidebar</h5>
@@ -61,7 +69,7 @@
                     </div>
                 </div> -->
 
-                <div class="mt-3 theme-color-selector">
+                <div v-if="!isBlackSkinSelected" class="mt-3 theme-color-selector">
                     <h5>Selecciona un color de tema:</h5>
                     <div class="theme-select" :class="{ open: themeMenuOpen }">
                         <button type="button" class="theme-select-trigger" @click="themeMenuOpen = !themeMenuOpen">
@@ -103,27 +111,38 @@
                     class="mt-3 theme-color-selector-black"
                 >
                     <h5>Selecciona un color de tema:</h5>
-                    <div class="color-selector">
-                        <button
-                            type="button"
-                            class="btn-theme-white"
-                            :class="{ 'black-theme-selected': visuals.black_theme === 'default' }"
-                            @click="onChangeBlackTheme('default')"
-                            style="background-color: oklch(0.34 0.08 259.24);"
-                        ></button>
-                        <button
-                            type="button"
-                            class="btn-theme-white"
-                            :class="{ 'black-theme-selected': visuals.black_theme === 'greenvoid' }"
-                            @click="onChangeBlackTheme('greenvoid')"
-                            style="background-color: oklch(0.4 0.08 148.33);"
-                        ></button>
-                        <button
-                            type="button"
-                            :class="{ 'black-theme-selected': visuals.black_theme === 'purplevoid' }"
-                            @click="onChangeBlackTheme('purplevoid')"
-                            style="background-color: oklch(0.34 0.09 319.44);"
-                        ></button>
+                    <div class="theme-select" :class="{ open: blackMenuOpen }">
+                        <button type="button" class="theme-select-trigger" @click="blackMenuOpen = !blackMenuOpen">
+                            <span class="theme-swatch theme-swatch-dark" :style="{ background: 'oklch(0.2 0.0417 ' + activeBlackTheme.h + ')' }">
+                                <i v-for="(c, i) in blackDots(activeBlackTheme)" :key="i" :style="{ background: c }"></i>
+                            </span>
+                            <span class="theme-row-info">
+                                <span class="theme-row-name">{{ activeBlackTheme.label }}</span>
+                                <span class="theme-row-color">{{ activeBlackTheme.color }}</span>
+                            </span>
+                            <i class="fas fa-chevron-down theme-select-caret"></i>
+                        </button>
+                        <div class="theme-select-menu">
+                            <button
+                                v-for="t in blackThemeList"
+                                :key="t.key"
+                                type="button"
+                                class="btn-theme-row"
+                                :class="{ 'theme-selected': visuals.black_theme === t.key }"
+                                @click="selectBlackTheme(t.key)"
+                                :title="t.label"
+                            >
+                                <span class="theme-swatch theme-swatch-dark" :style="{ background: 'oklch(0.2 0.0417 ' + t.h + ')' }">
+                                    <i v-for="(c, i) in blackDots(t)" :key="i" :style="{ background: c }"></i>
+                                </span>
+                                <span class="theme-row-info">
+                                    <span class="theme-row-name">{{ t.label }}</span>
+                                    <span class="theme-row-color">{{ t.color }}</span>
+                                </span>
+                                <i class="fas fa-check theme-row-check"></i>
+                            </button>
+                        </div>
+                        <div v-if="blackMenuOpen" class="theme-select-backdrop" @click="blackMenuOpen = false"></div>
                     </div>
                 </div>
 
@@ -373,6 +392,15 @@ export default {
     data() {
         return {
             themeMenuOpen: false,
+            blackMenuOpen: false,
+            blackThemeList: [
+                { key: 'default',    label: 'Medianoche', color: 'Índigo',  h: 266.36 },
+                { key: 'ocean',      label: 'Océano',     color: 'Teal',    h: 200 },
+                { key: 'greenvoid',  label: 'Esmeralda',  color: 'Verde',   h: 154.7 },
+                { key: 'bronze',     label: 'Bronce',     color: 'Ámbar',   h: 75 },
+                { key: 'crimson',    label: 'Carmesí',    color: 'Rojo',    h: 25 },
+                { key: 'purplevoid', label: 'Orquídea',   color: 'Magenta', h: 326.07 },
+            ],
             themeList: [
                 { key: 'white',     label: 'Clásico',     color: 'Azul',        bg: '#f5f8ff', dots: ['#3d6bf5','#8aa4f7','#3a4658','#8492a6'] },
                 { key: 'corporate', label: 'Corporativo', color: 'Azul',        bg: '#f4f7fc', dots: ['#2d5bb9','#8aa6da','#31435c','#7d8ba3'] },
@@ -427,12 +455,34 @@ export default {
         activeTheme() {
             return this.themeList.find(t => t.key === (this.visuals && this.visuals.sidebar_theme))
                 || this.themeList[0];
+        },
+        activeBlackTheme() {
+            return this.blackThemeList.find(t => t.key === (this.visuals && this.visuals.black_theme))
+                || this.blackThemeList[0];
         }
     },
     methods: {
+        // El endpoint change-mode alterna claro/oscuro: solo navegamos si el modo es distinto al actual
+        setMode(mode) {
+            if (this.visuals && this.visuals.bg === mode) return;
+            window.location.href = '/configurations/change-mode';
+        },
         selectTheme(key) {
             this.onChangeTheme(key);
             this.themeMenuOpen = false;
+        },
+        selectBlackTheme(key) {
+            this.onChangeBlackTheme(key);
+            this.blackMenuOpen = false;
+        },
+        // Puntos OKLCH del swatch para un tema oscuro (mismo matiz, distinta luminosidad)
+        blackDots(t) {
+            return [
+                `oklch(0.70 0.0417 ${t.h})`,
+                `oklch(0.82 0.02 ${t.h})`,
+                `oklch(0.92 0.012 ${t.h})`,
+                `oklch(0.45 0.0417 ${t.h})`,
+            ];
         },
         successUploadDefaultImage(response, file) {
             if (response.message) {
@@ -448,7 +498,7 @@ export default {
         },
         async loadThemes() {
             try {
-                const response = await fetch("/json/themes/themes.json");
+                const response = await fetch("/json/themes/themes.json?v=" + Date.now());
                 this.themes = await response.json();
             } catch (error) {
                 console.error("Error loading themes:", error);
@@ -456,7 +506,7 @@ export default {
         },
         async loadBlackThemes() {
             try {
-                const response = await fetch("/json/themes/black-themes.json");
+                const response = await fetch("/json/themes/black-themes.json?v=" + Date.now());
                 this.blackThemes = await response.json();
             } catch (error) {
                 console.error("Error loading black themes:", error);
@@ -470,7 +520,7 @@ export default {
         updateBranchSelectorConfig() {
             this.$set(this.visuals, 'branch_selector_in_sidebar', this.branchSelectorInSidebar);
             this.submit();
-            
+
             const event = new CustomEvent('branchSelectorVisibilityChanged', {
                 detail: { showInSidebar: this.branchSelectorInSidebar }
             });
@@ -493,7 +543,7 @@ export default {
                 el.style.display = this.showWelcome ? 'block' : 'none';
                 console.log('[visual] toggleWelcomeComponent: aplicada visibilidad', el.style.display);
             } catch (e) {
-                
+
                 console.warn('[visual] toggleWelcomeComponent error:', e);
             }
         },
@@ -553,7 +603,7 @@ export default {
             localStorage.setItem(`black_theme_colors_${theme}`, JSON.stringify(colors));
         },
         onChangeTheme(theme) {
-            this.visuals.sidebar_theme = theme;
+            this.$set(this.visuals, 'sidebar_theme', theme);
             this.submit();
             this.applyTheme(theme);
         },
@@ -816,7 +866,55 @@ export default {
    box-shadow: 0 0 0 4px var(--highlight-color);
 }
 
-/* Selector de temas tipo campo desplegable (muestra solo el activo) */
+/* ===== Control segmentado de modo claro/oscuro (adaptativo a claro/oscuro) ===== */
+.mode-switch-wrap h5 {
+    font-size: 14px;
+    font-weight: 600;
+    color: inherit;
+}
+.mode-switch {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: rgba(130, 130, 130, .14);
+    border-radius: 12px;
+}
+.mode-switch__opt {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: inherit;
+    opacity: .6;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    transition: background .18s ease, opacity .18s ease, box-shadow .18s ease, color .18s ease;
+}
+.mode-switch__opt:hover {
+    opacity: 1;
+}
+/* La pastilla activa usa el color del tema seleccionado.
+   En skin black el color real está en --black-primary (--primary-color lo pisa el tema claro). */
+.mode-switch__opt.is-active {
+    background: var(--black-vivid, var(--primary-color));
+    color: #fff !important;
+    opacity: 1;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+    cursor: default;
+}
+.mode-switch__opt svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+}
+
+/* ===== Selector de temas tipo campo desplegable (adaptativo) ===== */
 .theme-select {
     position: relative;
 }
@@ -826,20 +924,31 @@ export default {
     gap: 12px;
     width: 100%;
     padding: 9px 12px;
-    background: var(--light-color);
-    border: 1px solid var(--accent-color);
-    border-radius: 10px;
+    background: rgba(130, 130, 130, .10);
+    border: 1px solid rgba(130, 130, 130, .20);
+    border-radius: 12px;
     cursor: pointer;
     outline: none;
+    color: inherit;
 }
 .theme-select-caret {
     margin-left: auto;
-    color: var(--muted);
+    opacity: .55;
     transition: transform .2s ease;
 }
 .theme-select.open .theme-select-caret {
     transform: rotate(180deg);
 }
+/* El campo (trigger) hereda el color de texto del panel (claro en oscuro, oscuro en claro) */
+.theme-select-trigger .theme-row-name {
+    color: inherit;
+}
+.theme-select-trigger .theme-row-color {
+    color: inherit;
+    opacity: .6;
+}
+
+/* El menú es un popover claro, legible en ambos modos */
 .theme-select-menu {
     position: absolute;
     top: calc(100% + 6px);
@@ -847,9 +956,9 @@ export default {
     right: 0;
     z-index: 30;
     background: #fff;
-    border: 1px solid var(--accent-color);
+    border: 1px solid #e6e9ef;
     border-radius: 12px;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, .12);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .22);
     padding: 6px;
     max-height: 340px;
     overflow-y: auto;
@@ -885,13 +994,13 @@ export default {
     text-align: left;
     transition: background .15s ease, border-color .15s ease;
 }
-.btn-theme-row:hover {
-    background: var(--accent-color);
+.theme-select-menu .btn-theme-row:hover {
+    background: #f1f3f7;
 }
-.btn-theme-row.theme-selected {
-    background: var(--light-color);
-    border-color: var(--primary-color);
-    box-shadow: none;
+/* Fila activa: tinte + borde con el color del tema (--black-primary en skin black) */
+.theme-select-menu .btn-theme-row.theme-selected {
+    background: color-mix(in srgb, var(--black-vivid, var(--primary-color)) 12%, #fff);
+    border-color: var(--black-vivid, var(--primary-color));
 }
 .theme-swatch {
     display: grid;
@@ -910,6 +1019,10 @@ export default {
     height: 100%;
     border-radius: 50%;
 }
+/* Swatch para temas oscuros: borde claro para que resalte sobre el fondo negro */
+.theme-swatch-dark {
+    border-color: rgba(255, 255, 255, .18);
+}
 .theme-row-info {
     display: flex;
     flex-direction: column;
@@ -919,16 +1032,22 @@ export default {
 .theme-row-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--dark-color);
 }
 .theme-row-color {
     font-size: 11px;
-    color: var(--muted);
+}
+/* Texto de las filas dentro del menú claro */
+.theme-select-menu .theme-row-name {
+    color: #1f2733;
+}
+.theme-select-menu .theme-row-color {
+    color: #7a8699;
 }
 .theme-row-check {
-    color: var(--primary-color);
+    color: var(--black-vivid, var(--primary-color));
     font-size: 15px;
     opacity: 0;
+    flex-shrink: 0;
 }
 .btn-theme-row.theme-selected .theme-row-check {
     opacity: 1;

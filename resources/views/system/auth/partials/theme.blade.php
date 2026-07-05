@@ -32,10 +32,12 @@
         try {
             var theme = localStorage.getItem('current_theme') || 'white';
             var cached = localStorage.getItem('theme_colors_' + theme);
-            if (cached) {
-                inject(normalize(JSON.parse(cached)));
+            var parsed = cached ? normalize(JSON.parse(cached)) : null;
+            // Usa el caché solo si trae tipografía; si no, refresca desde el JSON
+            if (parsed && parsed['--font-family']) {
+                inject(parsed);
             } else {
-                fetch('/json/themes/themes.json')
+                fetch('/json/themes/themes.json?v=' + Date.now())
                     .then(function (r) { return r.json(); })
                     .then(function (all) { inject(normalize(all[theme])); })
                     .catch(function () { /* usa los colores por defecto de admin_styles.css */ });

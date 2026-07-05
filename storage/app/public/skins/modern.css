@@ -35,12 +35,12 @@
 }
 html, body {
     background: #f3f4fb;
-    font-family: "Inter", sans-serif !important;
+    font-family: var(--font-family, "Inter", sans-serif) !important;
     color: #A0ABB8 !important;
 }
 
 h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-family, 'Inter', sans-serif);
 }
 
 ul.nav-main li .nav-children li a {

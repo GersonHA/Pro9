@@ -56,6 +56,9 @@
                             <el-tag v-if="status.is_payment_status" size="mini" type="success" class="so-chip text-gray">
                                 Pago
                             </el-tag>
+                            <el-tag v-else-if="status.is_shipping_status" size="mini" class="so-chip text-gray">
+                                Envío
+                            </el-tag>
                             <el-tag v-else size="mini" type="warning" class="so-chip text-gray">
                                 Pedido
                             </el-tag>
@@ -104,6 +107,12 @@
                             >
                                 Estado de pedido
                             </el-checkbox>
+                            <el-checkbox
+                                v-model="status.is_shipping_status"
+                                @change="setType(status, 'shipping')"
+                            >
+                                Estado de envío
+                            </el-checkbox>
                         </div>
                         <span class="so-action-desc" style="padding-left: 0">
                             Define en qué columna del listado de pedidos aparece este estado.
@@ -137,7 +146,7 @@
                             v-model="status.is_initial"
                             @change="setInitial(status)"
                         >
-                            Usar como estado inicial ({{ status.is_payment_status ? 'de pago' : 'de pedido' }})
+                            Usar como estado inicial ({{ status.is_payment_status ? 'de pago' : (status.is_shipping_status ? 'de envío' : 'de pedido') }})
                         </el-checkbox>
                     </div>
 
@@ -370,16 +379,22 @@ export default {
             originalStatuses: null,
             dropped: false,
 
-            // Paleta de colores predefinidos
+            // Paleta de 15 colores vibrantes, distribuidos en todo el espectro
             colorPalette: [
-                '#909399', // gris
-                '#409EFF', // azul
-                '#67C23A', // verde
-                '#F56C6C', // rojo
-                '#E6A23C', // ámbar
+                '#64748B', // gris pizarra
+                '#EF4444', // rojo
+                '#F97316', // naranja
+                '#F59E0B', // ámbar
+                '#EAB308', // amarillo
+                '#84CC16', // lima
+                '#22C55E', // verde
+                '#10B981', // esmeralda
+                '#14B8A6', // teal
+                '#06B6D4', // cian
+                '#3B82F6', // azul
+                '#6366F1', // índigo
                 '#8B5CF6', // violeta
-                '#10B981', // verde esmeralda
-                '#EF4444', // rojo intenso
+                '#D946EF', // fucsia
                 '#EC4899', // rosa
             ],
 
@@ -403,7 +418,7 @@ export default {
         formFields() {
             return [
                 'description', 'color', 'is_initial',
-                'is_payment_status', 'is_order_status',
+                'is_payment_status', 'is_order_status', 'is_shipping_status',
                 'action_discount_stock', 'action_mark_payment',
                 'action_generate_document', 'action_send_email',
                 'action_notify_dispatch', 'action_generate_remission',
@@ -430,7 +445,7 @@ export default {
         // Garantiza que los booleanos sean boolean (no 0/1)
         normalize(status) {
             const booleans = [
-                'is_initial', 'is_payment_status', 'is_order_status',
+                'is_initial', 'is_payment_status', 'is_order_status', 'is_shipping_status',
                 'action_discount_stock', 'action_mark_payment',
                 'action_generate_document', 'action_send_email', 'action_notify_dispatch',
                 'action_generate_remission', 'action_free_reserved_stock',
@@ -476,13 +491,20 @@ export default {
                 .finally(() => { this.saving = null })
         },
 
-        // Marca un estado como inicial. El inicial es único por tipo (uno de pago y uno de pedido),
-        // así que solo se desactiva en los demás estados del mismo tipo.
+        // Grupo de un estado: 'payment' | 'shipping' | 'order'
+        typeOf(s) {
+            if (s.is_payment_status) return 'payment'
+            if (s.is_shipping_status) return 'shipping'
+            return 'order'
+        },
+
+        // Marca un estado como inicial. El inicial es único por tipo (pago, pedido o envío),
+        // así que solo se desactiva en los demás estados del mismo grupo.
         setInitial(status) {
             if (!status.is_initial) return
-            const isPayment = !!status.is_payment_status
+            const group = this.typeOf(status)
             this.statuses.forEach(s => {
-                if (s.id !== status.id && !!s.is_payment_status === isPayment) {
+                if (s.id !== status.id && this.typeOf(s) === group) {
                     s.is_initial = false
                 }
             })
@@ -491,13 +513,12 @@ export default {
         // Tipo de estado: pago y pedido son mutuamente excluyentes.
         // Siempre debe quedar exactamente uno marcado.
         setType(status, type) {
-            if (type === 'payment') {
-                status.is_order_status = !status.is_payment_status
-            } else {
-                status.is_payment_status = !status.is_order_status
-            }
+            // Radio-like entre 3 grupos: el que se tocó manda, se apagan los otros dos.
+            status.is_payment_status  = type === 'payment'  ? status.is_payment_status  : false
+            status.is_order_status    = type === 'order'    ? status.is_order_status    : false
+            status.is_shipping_status = type === 'shipping' ? status.is_shipping_status : false
             // Garantizar que al menos uno quede activo (por defecto pedido)
-            if (!status.is_payment_status && !status.is_order_status) {
+            if (!status.is_payment_status && !status.is_order_status && !status.is_shipping_status) {
                 status.is_order_status = true
             }
         },

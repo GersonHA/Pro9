@@ -269,7 +269,7 @@
 
         async function loadThemes() {
             try {
-                const response = await fetch("/json/themes/themes.json");
+                const response = await fetch("/json/themes/themes.json?v=" + Date.now());
                 themes = await response.json();
             } catch (error) {
                 console.error("Error loading themes:", error);
@@ -480,6 +480,10 @@
                 if (cachedTheme && cachedColors) {
                     try {
                         const colors = JSON.parse(cachedColors);
+                        // Caché antiguo sin tipografía -> tratarlo como inválido para forzar refresco
+                        if (!colors || !colors['--font-family']) {
+                            return false;
+                        }
                         let styleTag = document.getElementById("theme-styles");
                         if (!styleTag) {
                             styleTag = document.createElement("style");
@@ -524,7 +528,7 @@
                     return;
                 }
                 
-                const themesResponse = await fetch('/json/themes/themes.json');
+                const themesResponse = await fetch('/json/themes/themes.json?v=' + Date.now());
                 const themesData = await themesResponse.json();
                 
                 const colors = themesData[theme];

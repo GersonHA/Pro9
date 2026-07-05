@@ -35,6 +35,11 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
             if (!colors || typeof colors !== 'object') {
                 return false;
             }
+            // Caché antiguo sin tipografía (ni clara --font-family ni oscura --black-font-family)
+            // -> inválido, forzar refresco desde el JSON
+            if (!colors['--font-family'] && !colors['--black-font-family']) {
+                return false;
+            }
             let styleElement = document.getElementById(styleId);
             if (!styleElement) {
                 styleElement = document.createElement('style');
@@ -69,7 +74,7 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
 
     if (themeToApply) {
         pendingRequests.push(
-            fetch('/json/themes/themes.json')
+            fetch('/json/themes/themes.json?v=' + Date.now())
                 .then(response => response.json())
                 .then(themes => {
                     if (themes[themeToApply]) {
@@ -97,7 +102,7 @@ export function applyThemeAndShowContent(savedTheme, savedBlackTheme) {
 
     if (blackThemeToApply) {
         pendingRequests.push(
-            fetch('/json/themes/black-themes.json')
+            fetch('/json/themes/black-themes.json?v=' + Date.now())
                 .then(response => response.json())
                 .then(themes => {
                     if (themes[blackThemeToApply]) {

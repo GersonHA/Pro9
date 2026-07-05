@@ -54,6 +54,7 @@ class StatusOrdersController extends Controller
             'is_initial'               => 'boolean',
             'is_payment_status'        => 'boolean',
             'is_order_status'          => 'boolean',
+            'is_shipping_status'       => 'boolean',
             'action_generate_document' => 'boolean',
             'action_discount_stock'    => 'boolean',
             'action_mark_payment'      => 'boolean',
@@ -66,7 +67,7 @@ class StatusOrdersController extends Controller
         ]);
 
         if ($request->boolean('is_initial')) {
-            $typeColumn = $request->boolean('is_payment_status') ? 'is_payment_status' : 'is_order_status';
+            $typeColumn = $this->resolveTypeColumn($request);
             StatusOrder::where('is_initial', true)
                 ->where($typeColumn, true)
                 ->update(['is_initial' => false]);
@@ -109,6 +110,7 @@ class StatusOrdersController extends Controller
             'is_initial'               => 'boolean',
             'is_payment_status'        => 'boolean',
             'is_order_status'          => 'boolean',
+            'is_shipping_status'       => 'boolean',
             'action_generate_document' => 'boolean',
             'action_discount_stock'    => 'boolean',
             'action_mark_payment'      => 'boolean',
@@ -123,7 +125,7 @@ class StatusOrdersController extends Controller
         $status = StatusOrder::findOrFail($id);
 
         if ($request->boolean('is_initial')) {
-            $typeColumn = $request->boolean('is_payment_status') ? 'is_payment_status' : 'is_order_status';
+            $typeColumn = $this->resolveTypeColumn($request);
             StatusOrder::where('is_initial', true)
                 ->where($typeColumn, true)
                 ->where('id', '!=', $id)
@@ -191,22 +193,41 @@ class StatusOrdersController extends Controller
     }
 
     /**
-     * Resuelve los flags de tipo (pago / pedido) garantizando exclusividad mutua.
-     * Si ambos llegan marcados, prevalece "pago". Si ninguno llega, por defecto es "pedido".
+     * Resuelve los flags de tipo (pago / pedido / envío) garantizando exclusividad mutua.
+     * Prioridad si llegan varios: pago > envío > pedido. Si ninguno llega, por defecto "pedido".
      */
     protected function resolveTypeFlags(Request $request): array
     {
-        $isPayment = $request->boolean('is_payment_status');
-        $isOrder   = $request->boolean('is_order_status');
+        $isPayment  = $request->boolean('is_payment_status');
+        $isShipping = $request->boolean('is_shipping_status');
+        $isOrder    = $request->boolean('is_order_status');
 
         if ($isPayment) {
-            return ['is_payment_status' => true, 'is_order_status' => false];
+            return ['is_payment_status' => true, 'is_order_status' => false, 'is_shipping_status' => false];
+        }
+        if ($isShipping) {
+            return ['is_payment_status' => false, 'is_order_status' => false, 'is_shipping_status' => true];
         }
         if ($isOrder) {
-            return ['is_payment_status' => false, 'is_order_status' => true];
+            return ['is_payment_status' => false, 'is_order_status' => true, 'is_shipping_status' => false];
         }
 
-        return ['is_payment_status' => false, 'is_order_status' => true];
+        return ['is_payment_status' => false, 'is_order_status' => true, 'is_shipping_status' => false];
+    }
+
+    /**
+     * Devuelve la columna de tipo activa para la petición (misma prioridad que resolveTypeFlags).
+     * Se usa para acotar el "estado inicial" al mismo grupo.
+     */
+    protected function resolveTypeColumn(Request $request): string
+    {
+        if ($request->boolean('is_payment_status')) {
+            return 'is_payment_status';
+        }
+        if ($request->boolean('is_shipping_status')) {
+            return 'is_shipping_status';
+        }
+        return 'is_order_status';
     }
 
     /**
@@ -216,7 +237,7 @@ class StatusOrdersController extends Controller
     {
         $status = StatusOrder::findOrFail($id);
 
-        if ($status->order()->count() > 0 || $status->payment_order()->count() > 0) {
+        if ($status->order()->count() > 0 || $status->payment_order()->count() > 0 || $status->shipping_order()->count() > 0) {
             return response()->json([
                 'success' => false,
                 'message' => 'No se puede eliminar, tiene pedidos asociados',

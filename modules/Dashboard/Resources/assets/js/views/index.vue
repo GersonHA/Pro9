@@ -144,11 +144,35 @@
                     <div v-if="configuration.dashboard_goal_enabled" class="col-12 col-xl-4 mb-2">
                         <month-goal></month-goal>
                     </div>
+                    <div class="col-12 col-md-6 col-xl-4 mb-2">
+                        <debtors></debtors>
+                    </div>
+                    <template v-if="configuration.dashboard_products">
+                        <div class="col-12 col-md-6 col-xl-4 mb-2">
+                            <div v-if="loaders.items_by_sales" class="card card-dashboard">
+                                <div class="card-body">
+                                    <loader-graph :rows="4" :columns="1" :radius="100" :hideCircle="true"></loader-graph>
+                                </div>
+                            </div>
+                            <top-products
+                                v-else
+                                :items="items_by_sales"
+                                v-model="form.enabled_move_item"
+                                @order-change="loadDataAditional"
+                            ></top-products>
+                        </div>
+                    </template>
+                    <div class="col-12 col-md-6 col-xl-4 mb-2">
+                        <payment-methods></payment-methods>
+                    </div>
                     <div class="col-12 col-xl-8 mb-2">
                         <cash-flow-chart></cash-flow-chart>
                     </div>
-                    <div class="col-12 col-xl-4 mb-2">
+                    <div class="col-12 col-xl-4 mb-2 d-flex flex-column">
                         <sunat-status></sunat-status>
+                        <template v-if="configuration.dashboard_products">
+                            <low-stock></low-stock>
+                        </template>
                     </div>
                     <template v-if="showLegacyCards && configuration.dashboard_sales">
                         <div class="col-12 col-sm-6 col-xl-3">
@@ -474,27 +498,6 @@
                             </section>
                         </div>
                     </template>
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <debtors></debtors>
-                    </div>
-                    <template v-if="configuration.dashboard_products">
-                        <div class="col-12 col-md-6 col-xl-4">
-                            <div v-if="loaders.items_by_sales" class="card card-dashboard">
-                                <div class="card-body">
-                                    <loader-graph :rows="4" :columns="1" :radius="100" :hideCircle="true"></loader-graph>
-                                </div>
-                            </div>
-                            <top-products
-                                v-else
-                                :items="items_by_sales"
-                                v-model="form.enabled_move_item"
-                                @order-change="loadDataAditional"
-                            ></top-products>
-                        </div>
-                    </template>
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <payment-methods></payment-methods>
-                    </div>
                     <template v-if="showLegacyCards && configuration.dashboard_clients">
                         <div class="col-xl-3 col-md-6">
                             <section class="card card-dashboard">
@@ -544,11 +547,6 @@
                                     </div>
                                 </div>
                             </section>
-                        </div>
-                    </template>
-                    <template v-if="configuration.dashboard_products">
-                        <div class="col-12 col-md-6 col-xl-4">
-                            <low-stock></low-stock>
                         </div>
                     </template>
                     <template v-if="showLegacyCards && configuration.dashboard_products">

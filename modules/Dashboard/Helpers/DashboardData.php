@@ -199,29 +199,29 @@ class DashboardData
         ];
     }
 
-    public function lowStock($limit = 6)
+    public function lowStock()
     {
         $establishment_id = optional(Establishment::select('id')->first())->id;
+        $stock_limit = 10;
 
         $rows = ItemWarehouse::with('item:id,description,stock_min')
             ->whereHas('item', function ($query) {
                 $query->whereNotIsSet()
                       ->where('status', true)
-                      ->where('unit_type_id', '!=', 'ZZ')
-                      ->where('stock_min', '>', 0);
+                      ->where('unit_type_id', '!=', 'ZZ');
             })
             ->whereHas('warehouse', function ($query) use ($establishment_id) {
                 $query->where('establishment_id', $establishment_id);
             })
             ->get();
 
-        $low = $rows->filter(function ($row) {
-            return $row->item && (float) $row->stock <= (float) $row->item->stock_min;
+        $low = $rows->filter(function ($row) use ($stock_limit) {
+            return $row->item && (float) $row->stock <= $stock_limit;
         })->sortBy(function ($row) {
-            return (float) $row->stock / (float) $row->item->stock_min;
+            return (float) $row->stock;
         });
 
-        $items = $low->take($limit)->map(function ($row) {
+        $items = $low->map(function ($row) {
             return [
                 'product' => $row->item->description,
                 'stock' => (float) $row->stock,
@@ -261,7 +261,7 @@ class DashboardData
 
     public function debtors($limit = 4)
     {
-        $document_payments = DB::table('document_payments')
+        $document_payments = DB::connection('tenant')->table('document_payments')
             ->select('document_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('document_id');
 
@@ -278,8 +278,10 @@ class DashboardData
             ->whereIn('documents.document_type_id', ['01', '03', '08'])
             ->where('documents.total_canceled', 0)
             ->select(
+                'documents.id',
                 'documents.customer_id',
                 'persons.name as customer_name',
+                DB::raw("CONCAT(documents.series, '-', documents.number) as number_full"),
                 'documents.total',
                 'documents.currency_type_id',
                 'documents.exchange_rate_sale',
@@ -288,7 +290,7 @@ class DashboardData
                 'invoices.date_of_due'
             )->get();
 
-        $sale_note_payments = DB::table('sale_note_payments')
+        $sale_note_payments = DB::connection('tenant')->table('sale_note_payments')
             ->select('sale_note_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('sale_note_id');
 
@@ -301,8 +303,10 @@ class DashboardData
             ->where('sale_notes.changed', false)
             ->where('sale_notes.total_canceled', false)
             ->select(
+                'sale_notes.id',
                 'sale_notes.customer_id',
                 'persons.name as customer_name',
+                'sale_notes.filename as number_full',
                 'sale_notes.total',
                 'sale_notes.currency_type_id',
                 'sale_notes.exchange_rate_sale',
@@ -313,6 +317,40 @@ class DashboardData
 
         $today = Carbon::today();
         $customers = [];
+        $formatDebtDue = function ($date_of_due) use ($today) {
+            if (!$date_of_due) {
+                return [
+                    'due_days' => null,
+                    'due_text' => 'sin vencimiento',
+                    'status' => 'al_dia',
+                ];
+            }
+
+            $days = $today->diffInDays(Carbon::parse($date_of_due)->startOfDay(), false);
+
+            if ($days < 0) {
+                $abs = abs($days);
+                return [
+                    'due_days' => $days,
+                    'due_text' => "venció hace {$abs} " . ($abs === 1 ? 'día' : 'días'),
+                    'status' => 'vencido',
+                ];
+            }
+
+            if ($days === 0) {
+                return [
+                    'due_days' => 0,
+                    'due_text' => 'vence hoy',
+                    'status' => 'por_vencer',
+                ];
+            }
+
+            return [
+                'due_days' => $days,
+                'due_text' => $days === 1 ? 'vence mañana' : "vence en {$days} días",
+                'status' => $days <= 7 ? 'por_vencer' : 'al_dia',
+            ];
+        };
 
         foreach ($documents->concat($sale_notes) as $row) {
             $factor = ($row->currency_type_id == 'USD') ? (float) $row->exchange_rate_sale : 1;
@@ -324,17 +362,20 @@ class DashboardData
 
             $cid = $row->customer_id;
             if (!isset($customers[$cid])) {
-                $customers[$cid] = ['customer' => $row->customer_name, 'total_to_pay' => 0, 'due' => null];
+                $customers[$cid] = ['customer' => $row->customer_name, 'total_to_pay' => 0, 'due' => null, 'debts' => []];
             }
 
             $customers[$cid]['total_to_pay'] += $balance;
 
-            if ($row->date_of_due) {
-                $due = Carbon::parse($row->date_of_due)->startOfDay();
-                if (is_null($customers[$cid]['due']) || $due->lt($customers[$cid]['due'])) {
-                    $customers[$cid]['due'] = $due;
-                }
-            }
+            $due_data = $formatDebtDue($row->date_of_due);
+            $customers[$cid]['debts'][] = [
+                'id' => $row->id,
+                'number' => $row->number_full,
+                'total_to_pay' => round($balance, 2),
+                'due_days' => $due_data['due_days'],
+                'due_text' => $due_data['due_text'],
+                'status' => $due_data['status'],
+            ];
         }
 
         $list = collect($customers)->sortByDesc('total_to_pay');
@@ -363,6 +404,24 @@ class DashboardData
                 'total_to_pay' => round($c['total_to_pay'], 2),
                 'status' => $status,
                 'due_text' => $due_text,
+            ];
+        })->values();
+
+        $items = $list->take($limit)->map(function ($c) {
+            $debts = collect($c['debts'])->sortBy(function ($debt) {
+                return is_null($debt['due_days']) ? 999999 : $debt['due_days'];
+            })->values();
+            $urgent_debt = $debts->first();
+
+            return [
+                'customer' => $c['customer'],
+                'total_to_pay' => round($c['total_to_pay'], 2),
+                'status' => $urgent_debt ? $urgent_debt['status'] : 'al_dia',
+                'due_days' => $urgent_debt ? $urgent_debt['due_days'] : null,
+                'due_text' => $urgent_debt ? $urgent_debt['due_text'] : null,
+                'urgent_amount' => $urgent_debt ? $urgent_debt['total_to_pay'] : 0,
+                'debts_count' => $debts->count(),
+                'debts' => $debts,
             ];
         })->values();
 

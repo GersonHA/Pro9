@@ -3,7 +3,7 @@
     <div class="card-body">
       <h5 class="ss-title m-0">Estado SUNAT</h5>
 
-      <div class="ss-tiles">
+      <div class="ss-tiles mt-3">
         <div class="ss-tile">
           <span class="ss-value is-accepted">{{ accepted | ssNum }}</span>
           <small class="text-muted">Aceptados</small>
@@ -55,6 +55,7 @@ export default {
 <style scoped>
 .ss-panel {
   height: 100%;
+  margin-bottom: 0 !important;
 }
 .ss-title {
   font-size: 1.05rem;

@@ -32,7 +32,7 @@ export default {
       labels: [],
       values: [],
       total: 0,
-      palette: ["#0e2a33", "#0f766e", "#5e9aa0", "#c3e88d", "#f59e0b", "#94a3b8"],
+      palette: ["var(--primary)", "var(--danger)", "var(--success)", "var(--info)", "var(--warning)", "#ffdd00"],
     };
   },
   mounted() {

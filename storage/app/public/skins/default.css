@@ -19,7 +19,7 @@
     --danger: #ff0066;
     --success: #00c666;
     --warning: #ff8400;
-    --primary: #007bff;
+    --primary: var(--primary-color);
     --info: #1dadff; 
     --border-radius-lg: 14px;
     --border-radius-sm: 8px;

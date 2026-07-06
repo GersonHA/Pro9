@@ -29,7 +29,7 @@
     --danger: #e7000b;
     --success: #5ea500;
     --warning: #f54900;
-    --primary: #155dfb;
+    --primary: var(--black-primary);
     --info: #1dadff;
 }
 /* Admin Reseller*/

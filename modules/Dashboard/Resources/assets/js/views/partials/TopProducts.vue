@@ -102,6 +102,23 @@ export default {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-color: rgba(155, 161, 173, 0.32) transparent;
+  scrollbar-width: thin;
+}
+.tp-list::-webkit-scrollbar {
+  width: 5px;
+}
+.tp-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tp-list::-webkit-scrollbar-thumb {
+  background: rgba(155, 161, 173, 0.28);
+  border-radius: 999px;
+}
+.tp-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(155, 161, 173, 0.46);
 }
 .tp-item {
   display: flex;
@@ -148,7 +165,7 @@ export default {
   display: block;
   height: 100%;
   border-radius: 3px;
-  background: #0f766e;
+  background: var(--primary);
 }
 .tp-meta {
   font-size: 0.72rem;

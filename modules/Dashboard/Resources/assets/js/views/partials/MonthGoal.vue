@@ -27,11 +27,20 @@ export default {
       remaining: 0,
       projected: 0,
       arcColor: "#0e2a33",
+      themeObserver: null,
+      themeRefreshTimer: null,
     };
   },
   mounted() {
     this.resolveColor();
+    this.watchThemeChanges();
     this.fetchData();
+  },
+  beforeDestroy() {
+    if (this.themeObserver) {
+      this.themeObserver.disconnect();
+    }
+    clearTimeout(this.themeRefreshTimer);
   },
   computed: {
     chartPercent() {
@@ -64,8 +73,46 @@ export default {
   },
   methods: {
     resolveColor() {
-      const primary = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
-      if (primary) this.arcColor = primary;
+      const styles = getComputedStyle(document.documentElement);
+      const primary = styles.getPropertyValue("--primary").trim() || styles.getPropertyValue("--primary-color").trim();
+
+      if (primary && primary !== this.arcColor) {
+        this.arcColor = primary;
+      }
+    },
+    scheduleColorRefresh() {
+      clearTimeout(this.themeRefreshTimer);
+      this.themeRefreshTimer = setTimeout(() => {
+        this.resolveColor();
+      }, 50);
+    },
+    watchThemeChanges() {
+      if (typeof MutationObserver === "undefined") return;
+
+      this.themeObserver = new MutationObserver(() => {
+        this.scheduleColorRefresh();
+      });
+
+      this.themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+
+      if (document.body) {
+        this.themeObserver.observe(document.body, {
+          attributes: true,
+          attributeFilter: ["class", "style"],
+        });
+      }
+
+      if (document.head) {
+        this.themeObserver.observe(document.head, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+          attributeFilter: ["href", "class", "style"],
+        });
+      }
     },
     fetchData() {
       this.$http.get("/dashboard/month-goal").then((response) => {

@@ -213,7 +213,7 @@ export default {
 }
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(295px, 1fr));
 }
 .card-kpi {
   display: flex;

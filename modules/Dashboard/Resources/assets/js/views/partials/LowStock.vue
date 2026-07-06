@@ -1,19 +1,19 @@
 <template>
-  <section class="card card-dashboard ls-panel">
-    <div class="card-body">
+  <section class="card card-dashboard ls-panel mt-2">
+    <div class="card-body mt-0">
       <div class="ls-head">
         <h5 class="ls-title m-0">Stock por agotarse</h5>
-        <small class="text-muted">{{ total }} {{ total === 1 ? "producto" : "productos" }} bajo el mínimo</small>
+        <small class="text-muted">{{ total }} {{ total === 1 ? "producto" : "productos" }} con 10 o menos en stock</small>
       </div>
 
-      <ul class="ls-list">
+      <ul class="ls-list stock">
         <li v-for="(row, index) in items" :key="index" class="ls-item">
           <span class="ls-name text-truncate">{{ row.product }}</span>
-          <span class="ls-ratio">{{ row.stock | lsNum }}/{{ row.stock_min | lsNum }}</span>
+          <span class="ls-ratio">{{ row.stock | lsNum }}</span>
         </li>
       </ul>
 
-      <div v-if="!items.length" class="ls-empty text-muted text-center">Sin productos bajo el mínimo.</div>
+      <div v-if="!items.length" class="ls-empty text-muted text-center">Sin productos con 10 o menos en stock.</div>
     </div>
   </section>
 </template>
@@ -51,6 +51,7 @@ export default {
 <style scoped>
 .ls-panel {
   height: 100%;
+  margin-bottom: 0 !important;
 }
 .ls-head {
   margin-bottom: 1rem;
@@ -62,15 +63,33 @@ export default {
 .ls-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  max-height: 100px;
+  overflow-y: auto;
+  padding: 0 4px 0 0;
+  scrollbar-color: rgba(155, 161, 173, 0.32) transparent;
+  scrollbar-width: thin;
+}
+.ls-list::-webkit-scrollbar {
+  width: 5px;
+}
+.ls-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ls-list::-webkit-scrollbar-thumb {
+  background: rgba(155, 161, 173, 0.28);
+  border-radius: 999px;
+}
+.ls-list:hover::-webkit-scrollbar-thumb {
+  background: rgba(155, 161, 173, 0.46);
 }
 .ls-item {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 0;
   border-bottom: 1px solid #f1f3f5;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.1rem 0;
+  font-size: 14px;
 }
 .ls-item:last-child {
   border-bottom: 0;
@@ -80,9 +99,9 @@ export default {
   min-width: 0;
 }
 .ls-ratio {
+  color: var(--danger);
   flex-shrink: 0;
   font-weight: 700;
-  color: var(--danger);
 }
 .ls-empty {
   padding: 2rem 0;

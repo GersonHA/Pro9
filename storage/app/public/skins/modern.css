@@ -1654,8 +1654,7 @@ html.dark .el-input-group__prepend div.el-select .el-input__inner:hover{
 html.dark .el-select .el-input.is-disabled .el-input__inner:hover{
     border-color: var(--md-input-dark);
 }
-html.dark .card.card-dashboard .card-title, 
-html.dark .card.card-dashboard small.text-muted, html.dark .el-dialog__title,
+html.dark .card.card-dashboard .card-title, html.dark .el-dialog__title,
 html.dark label.control-label, html.dark .userbox .name, html.dark .el-select-dropdown__item.selected {
     color: #fff !important;
 }
@@ -1717,7 +1716,7 @@ html.dark .el-month-table td.current:not(.disabled) .cell {
 html.dark .card.card-reports .card-title {
     background: #111D58;
 }
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted {
+html.dark .card.card-dashboard .card-title {
     background: var(--md-input-dark);
 }
 html.dark .card-body, html.dark .card-footer{
@@ -1910,7 +1909,8 @@ html.dark .table-responsive.payment .el-input__inner {
 html.dark .table-responsive.payment .el-input__inner:focus{
     background-color: var(--md-content-dark);
 }
-ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link {
+ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link,
+html.dark .advanced-settings.el-tabs--border-card>.el-tabs__header .el-tabs__item.is-active {
     color: #fff !important;
 }
 html.dark .actions-card .card-header{
@@ -2030,6 +2030,25 @@ html.dark .el-table--border:after, html.dark .el-table--group:after, html.dark .
 html.dark .el-alert--info.is-light{
     background-color: var(--md-input-dark);
     color: #bfcbe3;
+}
+html.dark .advanced-settings .el-tabs__nav,
+html.dark .db-seg,
+html.dark .db-count {
+    background-color: var(--md-input-dark);
+}
+html.dark .db-thumb {
+    background-color: var(--md-content-dark);
+}
+html.dark .db-seg button.active {
+    color: #fff;
+}
+html.dark .db-client,
+html.dark .tp-item,
+html.dark .ls-item {
+    border-color: var(--md-border-dark);
+}
+html.dark .advanced-settings .el-tabs__content {
+    background-color: transparent !important;
 }
 @media only screen and (max-width: 991px){
     .d-lg-block{

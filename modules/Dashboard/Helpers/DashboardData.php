@@ -78,18 +78,84 @@ class DashboardData
         ];
     }
 
-    public function globalData()
+    private function resolveFilters(array $request = [])
     {
-        $monthly_kpis = $this->monthlyKpis();
+        $period = $request['period'] ?? 'last_week';
+        $date_start = $request['date_start'] ?? Carbon::now()->subDays(7)->format('Y-m-d');
+        $date_end = $request['date_end'] ?? Carbon::now()->format('Y-m-d');
+        $month_start = $request['month_start'] ?? Carbon::now()->format('Y-m');
+        $month_end = $request['month_end'] ?? Carbon::now()->format('Y-m');
+
+        $d_start = null;
+        $d_end = null;
+
+        switch ($period) {
+            case 'month':
+                $d_start = Carbon::parse($month_start.'-01')->format('Y-m-d');
+                $d_end = Carbon::parse($month_start.'-01')->endOfMonth()->format('Y-m-d');
+                break;
+            case 'between_months':
+                $d_start = Carbon::parse($month_start.'-01')->format('Y-m-d');
+                $d_end = Carbon::parse($month_end.'-01')->endOfMonth()->format('Y-m-d');
+                break;
+            case 'date':
+                $d_start = $date_start;
+                $d_end = $date_start;
+                break;
+            case 'between_dates':
+            case 'last_week':
+                $d_start = $date_start;
+                $d_end = $date_end;
+                break;
+            case 'all':
+                break;
+            default:
+                $d_start = $date_start;
+                $d_end = $date_end;
+                break;
+        }
+
+        return [
+            'establishment_id' => $request['establishment_id'] ?? null,
+            'period' => $period,
+            'date_start' => $d_start,
+            'date_end' => $d_end,
+            'month_start' => $month_start,
+            'month_end' => $month_end,
+        ];
+    }
+
+    private function applyEstablishment($query, $establishment_id, $table = null)
+    {
+        if ($establishment_id) {
+            $query->where(($table ? "{$table}." : '').'establishment_id', $establishment_id);
+        }
+
+        return $query;
+    }
+
+    private function applyDateRange($query, $date_start, $date_end, $column = 'date_of_issue')
+    {
+        if ($date_start && $date_end) {
+            $query->whereBetween($column, [$date_start, $date_end]);
+        }
+
+        return $query;
+    }
+
+    public function globalData(array $request = [])
+    {
+        $filters = $this->resolveFilters($request);
+        $monthly_kpis = $this->monthlyKpis(6, $filters);
 
         return array_merge([
             'total_cpe' => Configuration::first()->quantity_documents,
-            'document_total_global' => $this->document_totals_globals(),
-            'sale_note_total_global' => $this->sale_note_totals_global(),
+            'document_total_global' => $this->document_totals_globals($filters['date_start'], $filters['date_end']),
+            'sale_note_total_global' => $this->sale_note_totals_global($filters['date_start'], $filters['date_end']),
         ], $monthly_kpis);
     }
 
-    private function monthlyKpis($months = 6)
+    private function monthlyKpis($months = 6, array $filters = [])
     {
         $months_es = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
 
@@ -102,9 +168,25 @@ class DashboardData
         ];
         $current = [];
 
+        if (!empty($filters['date_start']) && !empty($filters['date_end']) && (($filters['period'] ?? null) !== 'month')) {
+            $current = $this->kpisForRange($filters['date_start'], $filters['date_end'], $filters['establishment_id'] ?? null);
+            $previous = $this->previousRange($filters['date_start'], $filters['date_end']);
+            $previous_data = $this->kpisForRange($previous['start'], $previous['end'], $filters['establishment_id'] ?? null);
+
+            $labels = ['Anterior', 'Actual'];
+            foreach ($trend as $key => $serie) {
+                $trend[$key][] = $previous_data[$key];
+                $trend[$key][] = $current[$key];
+            }
+
+            return array_merge($current, ['trend' => array_merge(['labels' => $labels], $trend)]);
+        }
+
+        $base = !empty($filters['date_start']) ? Carbon::parse($filters['date_start'])->startOfMonth() : Carbon::now()->startOfMonth();
+
         for ($i = $months - 1; $i >= 0; $i--) {
-            $ref = Carbon::now()->startOfMonth()->subMonths($i);
-            $current = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'));
+            $ref = $base->copy()->subMonths($i);
+            $current = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'), $filters['establishment_id'] ?? null);
 
             $labels[] = $months_es[(int) $ref->format('n')];
             foreach ($trend as $key => $serie) {
@@ -119,12 +201,54 @@ class DashboardData
      * KPIs de un rango (todas las sucursales), normalizado a PEN.
      * net_utility es aproximado: ventas - compras - gastos (no usa costo por producto).
      */
-    private function kpisForRange($date_start, $date_end)
+    private function previousRange($date_start, $date_end)
+    {
+        $start = Carbon::parse($date_start);
+        $end = Carbon::parse($date_end);
+        $days = $start->diffInDays($end) + 1;
+        $previous_end = $start->copy()->subDay();
+
+        return [
+            'start' => $previous_end->copy()->subDays($days - 1)->format('Y-m-d'),
+            'end' => $previous_end->format('Y-m-d'),
+        ];
+    }
+
+    private function previousComparisonRange(array $filters)
+    {
+        if (($filters['period'] ?? null) === 'month') {
+            $previous = Carbon::parse($filters['date_start'])->startOfMonth()->subMonth();
+
+            return [
+                'start' => $previous->copy()->startOfMonth()->format('Y-m-d'),
+                'end' => $previous->copy()->endOfMonth()->format('Y-m-d'),
+            ];
+        }
+
+        if (($filters['period'] ?? null) === 'between_months') {
+            $start = Carbon::parse($filters['date_start'])->startOfMonth();
+            $end = Carbon::parse($filters['date_end'])->startOfMonth();
+            $months = $start->diffInMonths($end) + 1;
+            $previous_start = $start->copy()->subMonths($months)->startOfMonth();
+            $previous_end = $start->copy()->subMonth()->endOfMonth();
+
+            return [
+                'start' => $previous_start->format('Y-m-d'),
+                'end' => $previous_end->format('Y-m-d'),
+            ];
+        }
+
+        return $this->previousRange($filters['date_start'], $filters['date_end']);
+    }
+
+    private function kpisForRange($date_start, $date_end, $establishment_id = null)
     {
         $documents = Document::query()
             ->whereBetween('date_of_issue', [$date_start, $date_end])
             ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
-            ->get();
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })->get();
 
         $documents_sales_total = 0;
         $documents_note_credit = 0;
@@ -149,7 +273,9 @@ class DashboardData
             ->where('changed', false)
             ->whereStateTypeAccepted()
             ->whereBetween('date_of_issue', [$date_start, $date_end])
-            ->get();
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })->get();
 
         $sale_notes_total = 0;
         $sale_notes_payment = 0;
@@ -164,7 +290,9 @@ class DashboardData
         $purchases = Purchase::query()
             ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
             ->whereBetween('date_of_issue', [$date_start, $date_end])
-            ->get();
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })->get();
 
         $purchases_total = 0;
         foreach ($purchases as $purchase) {
@@ -175,7 +303,9 @@ class DashboardData
         $expenses = Expense::query()
             ->where('state_type_id', '05')
             ->whereBetween('date_of_issue', [$date_start, $date_end])
-            ->get();
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })->get();
 
         $expenses_total = 0;
         foreach ($expenses as $expense) {
@@ -199,9 +329,10 @@ class DashboardData
         ];
     }
 
-    public function lowStock()
+    public function lowStock(array $request = [])
     {
-        $establishment_id = optional(Establishment::select('id')->first())->id;
+        $filters = $this->resolveFilters($request);
+        $establishment_id = $filters['establishment_id'] ?: optional(Establishment::select('id')->first())->id;
         $stock_limit = 10;
 
         $rows = ItemWarehouse::with('item:id,description,stock_min')
@@ -259,8 +390,15 @@ class DashboardData
         ];
     }
 
-    public function debtors($limit = 4)
+    public function debtors($request = [], $limit = 4)
     {
+        if (is_numeric($request)) {
+            $limit = (int) $request;
+            $request = [];
+        }
+
+        $filters = $this->resolveFilters((array) $request);
+
         $document_payments = DB::connection('tenant')->table('document_payments')
             ->select('document_id', DB::raw('SUM(payment) as total_payment'))
             ->groupBy('document_id');
@@ -277,6 +415,9 @@ class DashboardData
             ->whereIn('documents.state_type_id', ['01', '03', '05', '07', '13'])
             ->whereIn('documents.document_type_id', ['01', '03', '08'])
             ->where('documents.total_canceled', 0)
+            ->when($filters['establishment_id'], function ($query) use ($filters) {
+                $query->where('documents.establishment_id', $filters['establishment_id']);
+            })
             ->select(
                 'documents.id',
                 'documents.customer_id',
@@ -302,6 +443,9 @@ class DashboardData
             ->whereIn('sale_notes.state_type_id', ['01', '03', '05', '07', '13'])
             ->where('sale_notes.changed', false)
             ->where('sale_notes.total_canceled', false)
+            ->when($filters['establishment_id'], function ($query) use ($filters) {
+                $query->where('sale_notes.establishment_id', $filters['establishment_id']);
+            })
             ->select(
                 'sale_notes.id',
                 'sale_notes.customer_id',
@@ -432,10 +576,18 @@ class DashboardData
         ];
     }
 
-    public function sunatStatus()
+    public function sunatStatus(array $request = [])
     {
+        $filters = $this->resolveFilters($request);
+
         $counts = Document::query()
             ->selectRaw('state_type_id, COUNT(*) as total')
+            ->when($filters['establishment_id'], function ($query) use ($filters) {
+                $query->where('establishment_id', $filters['establishment_id']);
+            })
+            ->when($filters['date_start'] && $filters['date_end'], function ($query) use ($filters) {
+                $query->whereBetween('date_of_issue', [$filters['date_start'], $filters['date_end']]);
+            })
             ->groupBy('state_type_id')
             ->pluck('total', 'state_type_id');
 
@@ -454,10 +606,25 @@ class DashboardData
         ];
     }
 
-    public function paymentMethods()
+    private function paymentMethodsSubtitle(array $filters)
     {
-        $date_start = Carbon::now()->startOfMonth()->format('Y-m-d');
-        $date_end = Carbon::now()->endOfMonth()->format('Y-m-d');
+        $subtitles = [
+            'date' => 'Distribucion de cobros - dia seleccionado',
+            'between_dates' => 'Distribucion de cobros - rango seleccionado',
+            'month' => 'Distribucion de cobros - mes seleccionado',
+            'between_months' => 'Distribucion de cobros - meses seleccionados',
+            'last_week' => 'Distribucion de cobros - semana seleccionada',
+            'all' => 'Distribucion de cobros - todos los registros',
+        ];
+
+        return $subtitles[$filters['period'] ?? 'month'] ?? 'Distribucion de cobros - periodo filtrado';
+    }
+
+    public function paymentMethods(array $request = [])
+    {
+        $filters = $this->resolveFilters($request);
+        $date_start = $filters['date_start'] ?: Carbon::now()->startOfMonth()->format('Y-m-d');
+        $date_end = $filters['date_end'] ?: Carbon::now()->endOfMonth()->format('Y-m-d');
 
         $totals = [];
 
@@ -465,6 +632,9 @@ class DashboardData
             ->whereBetween('date_of_issue', [$date_start, $date_end])
             ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
             ->whereIn('document_type_id', ['01', '03', '08'])
+            ->when($filters['establishment_id'], function ($query) use ($filters) {
+                $query->where('establishment_id', $filters['establishment_id']);
+            })
             ->get();
 
         foreach ($documents as $doc) {
@@ -479,6 +649,9 @@ class DashboardData
             ->where('changed', false)
             ->whereStateTypeAccepted()
             ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->when($filters['establishment_id'], function ($query) use ($filters) {
+                $query->where('establishment_id', $filters['establishment_id']);
+            })
             ->get();
 
         foreach ($sale_notes as $sn) {
@@ -509,21 +682,38 @@ class DashboardData
             'labels' => $labels,
             'values' => $values,
             'total' => round($total, 2),
+            'subtitle' => $this->paymentMethodsSubtitle($filters),
         ];
     }
 
-    public function salesWeek()
+    public function salesWeek(array $request = [])
     {
+        $filters = $this->resolveFilters($request);
+
+        if (($filters['period'] ?? null) !== 'all' && !empty($filters['date_start']) && !empty($filters['date_end'])) {
+            $previous = $this->previousComparisonRange($filters);
+            $labels = $this->rangeLabels($filters['date_start'], $filters['date_end']);
+            $points = count($labels);
+
+            return [
+                'labels' => $labels,
+                'current' => $this->salesByRange($filters['date_start'], $filters['date_end'], $filters['establishment_id'], $points),
+                'previous' => $this->salesByRange($previous['start'], $previous['end'], $filters['establishment_id'], $points),
+                'subtitle' => 'Barras solidas = periodo filtrado - gris = periodo anterior',
+            ];
+        }
+
         $start_current = Carbon::now()->startOfWeek(Carbon::MONDAY);
 
         return [
             'labels' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-            'current' => $this->dailySales($start_current),
-            'previous' => $this->dailySales($start_current->copy()->subWeek()),
+            'current' => $this->dailySales($start_current, $filters['establishment_id']),
+            'previous' => $this->dailySales($start_current->copy()->subWeek(), $filters['establishment_id']),
+            'subtitle' => 'Barras solidas = esta semana - gris = semana anterior',
         ];
     }
 
-    private function dailySales($week_start)
+    private function dailySales($week_start, $establishment_id = null)
     {
         $date_start = $week_start->format('Y-m-d');
         $date_end = $week_start->copy()->addDays(6)->format('Y-m-d');
@@ -531,12 +721,18 @@ class DashboardData
         $documents = Document::query()
             ->whereBetween('date_of_issue', [$date_start, $date_end])
             ->whereIn('state_type_id', ['01', '03', '05', '07', '13'])
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })
             ->get();
 
         $sale_notes = SaleNote::query()
             ->where('changed', false)
             ->whereStateTypeAccepted()
             ->whereBetween('date_of_issue', [$date_start, $date_end])
+            ->when($establishment_id, function ($query) use ($establishment_id) {
+                $query->where('establishment_id', $establishment_id);
+            })
             ->get();
 
         $values = array_fill(0, 7, 0.0);
@@ -563,24 +759,150 @@ class DashboardData
         }, $values);
     }
 
-    public function cashFlow($months = 6)
+    private function rangeLabels($date_start, $date_end)
     {
+        $start = Carbon::parse($date_start);
+        $end = Carbon::parse($date_end);
+        $days = $start->diffInDays($end) + 1;
+        $labels = [];
+
+        if ($days <= 31) {
+            while ($start <= $end) {
+                $labels[] = $start->format('d/m');
+                $start->addDay();
+            }
+
+            return $labels;
+        }
+
+        while ($start <= $end) {
+            $labels[] = $start->format('m/Y');
+            $start = $start->copy()->endOfMonth()->addDay();
+        }
+
+        return $labels;
+    }
+
+    private function salesByRange($date_start, $date_end, $establishment_id = null, $points = null)
+    {
+        $start = Carbon::parse($date_start);
+        $end = Carbon::parse($date_end);
+        $days = $start->diffInDays($end) + 1;
+        $values = [];
+
+        if ($days <= 31) {
+            while ($start <= $end) {
+                $values[] = $this->kpisForRange($start->format('Y-m-d'), $start->format('Y-m-d'), $establishment_id)['monthly_sales'];
+                $start->addDay();
+            }
+
+            return $this->normalizeSeriesLength($values, $points);
+        }
+
+        while ($start <= $end) {
+            $bucket_end = $start->copy()->endOfMonth();
+            if ($bucket_end > $end) {
+                $bucket_end = $end->copy();
+            }
+
+            $values[] = $this->kpisForRange($start->format('Y-m-d'), $bucket_end->format('Y-m-d'), $establishment_id)['monthly_sales'];
+            $start = $bucket_end->copy()->addDay();
+        }
+
+        return $this->normalizeSeriesLength($values, $points);
+    }
+
+    private function normalizeSeriesLength(array $values, $points = null)
+    {
+        if (!$points) {
+            return $values;
+        }
+
+        if (count($values) > $points) {
+            return array_slice($values, 0, $points);
+        }
+
+        while (count($values) < $points) {
+            $values[] = 0;
+        }
+
+        return $values;
+    }
+
+    private function cashFlowSubtitle(array $filters)
+    {
+        $subtitles = [
+            'date' => 'Ingresos vs egresos - dia seleccionado',
+            'between_dates' => 'Ingresos vs egresos - rango seleccionado',
+            'month' => 'Ingresos vs egresos - mes seleccionado',
+            'between_months' => 'Ingresos vs egresos - meses seleccionados',
+            'last_week' => 'Ingresos vs egresos - semana seleccionada',
+            'all' => 'Ingresos vs egresos - ultimos 6 meses',
+        ];
+
+        return $subtitles[$filters['period'] ?? 'all'] ?? 'Ingresos vs egresos - periodo filtrado';
+    }
+
+    public function cashFlow($request = [], $months = 6)
+    {
+        if (is_numeric($request)) {
+            $months = (int) $request;
+            $request = [];
+        }
+
+        $filters = $this->resolveFilters((array) $request);
         $months_es = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
 
         $labels = [];
         $income = [];
         $egress = [];
 
+        if (($filters['period'] ?? null) !== 'all' && !empty($filters['date_start']) && !empty($filters['date_end'])) {
+            $labels = $this->rangeLabels($filters['date_start'], $filters['date_end']);
+            $start = Carbon::parse($filters['date_start']);
+            $end = Carbon::parse($filters['date_end']);
+            $days = $start->diffInDays($end) + 1;
+
+            if ($days <= 31) {
+                while ($start <= $end) {
+                    $kpis = $this->kpisForRange($start->format('Y-m-d'), $start->format('Y-m-d'), $filters['establishment_id']);
+                    $income[] = $kpis['income'];
+                    $egress[] = $kpis['egress'];
+                    $start->addDay();
+                }
+            } else {
+                while ($start <= $end) {
+                    $bucket_end = $start->copy()->endOfMonth();
+                    if ($bucket_end > $end) {
+                        $bucket_end = $end->copy();
+                    }
+
+                    $kpis = $this->kpisForRange($start->format('Y-m-d'), $bucket_end->format('Y-m-d'), $filters['establishment_id']);
+                    $income[] = $kpis['income'];
+                    $egress[] = $kpis['egress'];
+                    $start = $bucket_end->copy()->addDay();
+                }
+            }
+
+            return array_merge(compact('labels', 'income', 'egress'), [
+                'subtitle' => $this->cashFlowSubtitle($filters),
+            ]);
+        }
+
+        $base = !empty($filters['date_start']) ? Carbon::parse($filters['date_start'])->startOfMonth() : Carbon::now()->startOfMonth();
+
         for ($i = $months - 1; $i >= 0; $i--) {
-            $ref = Carbon::now()->startOfMonth()->subMonths($i);
-            $kpis = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'));
+            $ref = $base->copy()->subMonths($i);
+            $kpis = $this->kpisForRange($ref->format('Y-m-d'), $ref->copy()->endOfMonth()->format('Y-m-d'), $filters['establishment_id']);
 
             $labels[] = $months_es[(int) $ref->format('n')];
             $income[] = $kpis['income'];
             $egress[] = $kpis['egress'];
         }
 
-        return compact('labels', 'income', 'egress');
+        return array_merge(compact('labels', 'income', 'egress'), [
+            'subtitle' => $this->cashFlowSubtitle($filters),
+        ]);
     }
 
     /**

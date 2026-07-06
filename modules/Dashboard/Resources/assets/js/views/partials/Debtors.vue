@@ -88,6 +88,9 @@
 <script>
 export default {
   name: "Debtors",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       items: [],
@@ -131,9 +134,17 @@ export default {
   mounted() {
     this.fetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
+  },
   methods: {
     fetchData() {
-      this.$http.get("/dashboard/debtors").then((response) => {
+      this.$http.get("/dashboard/debtors", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.items = (data.items || []).map((row) => ({ ...row, open: false }));
         this.total = data.total || 0;
@@ -376,7 +387,6 @@ export default {
 }
 .db-debt {
   align-items: center;
-  background: #fafbfc;
   border-radius: 10px;
   display: flex;
   gap: 0.75rem;

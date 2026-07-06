@@ -3078,16 +3078,17 @@
                                                 <small class="form-control-feedback" v-if="errors.dashboard_goal_enabled"
                                                     v-text="errors.dashboard_goal_enabled[0]"></small>
                                             </div>
-                                            <div class="form-group" v-if="form.dashboard_goal_enabled"
+                                        </div>
+                                        <div class="inputs-column" v-if="form.dashboard_goal_enabled">
+                                            <label class="control-label">Monto de la meta (S/)</label>
+                                            <div class="form-group w-50"
                                                 :class="{ 'has-danger': errors.dashboard_goal_amount }">
-                                                <label class="control-label">Monto de la meta (S/)</label>
                                                 <el-input v-model="form.dashboard_goal_amount" type="number" min="0"
                                                     @change="submit"></el-input>
                                                 <small class="form-control-feedback" v-if="errors.dashboard_goal_amount"
                                                     v-text="errors.dashboard_goal_amount[0]"></small>
                                             </div>
                                         </div>
-
                                         <div class="col-12">
                                             <label class="control-label">Balance general - compras
                                                 <el-tooltip class="item" effect="dark" placement="top-start">

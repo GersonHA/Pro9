@@ -3,7 +3,7 @@
     <div class="kpi-col col">
       <div class="card card-dashboard">
         <div class="card-body card-kpi">
-          <small class="text-muted">Ventas del mes</small>
+          <small class="text-muted">{{ salesTitle }}</small>
           <div class="kpi-main">
             <div class="kpi-values">
               <h3 class="font-weight-bold m-0 text-nowrap">S/ {{ monthly_sales | formatNumber }}</h3>
@@ -92,7 +92,7 @@ import moment from "moment";
 import KpiSparkline from "./KpiSparkline.vue";
 
 export default {
-  props: ["company", 'utilities'],
+  props: ["company", "utilities", "filters"],
   components: { KpiSparkline },
   data() {
     return {
@@ -116,6 +116,14 @@ export default {
   mounted() {
     this.onFetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.onFetchData();
+      },
+    },
+  },
   computed: {
     changes() {
       const keys = ["monthly_sales", "average_ticket", "accounts_receivable", "net_utility"];
@@ -137,6 +145,19 @@ export default {
       });
       return result;
     },
+    salesTitle() {
+      const period = this.filters && this.filters.period ? this.filters.period : "month";
+      const titles = {
+        all: "Ventas totales",
+        last_week: "Ventas de la semana",
+        month: "Ventas del mes",
+        between_months: "Ventas entre meses",
+        date: "Venta del dia",
+        between_dates: "Ventas entre fechas",
+      };
+
+      return titles[period] || "Ventas";
+    },
     isDueWarning() {
       if (this.company.certificate_due) {
         const dueDate = moment(this.company.certificate_due);
@@ -150,7 +171,7 @@ export default {
   },
   methods: {
     onFetchData() {
-      this.$http.get("/dashboard/global-data").then((response) => {
+      this.$http.get("/dashboard/global-data", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.document_total_global = Number(data.document_total_global) || 0;
         this.total_cpe = Number(data.total_cpe) || 0;
@@ -213,7 +234,7 @@ export default {
 }
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(295px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
 }
 .card-kpi {
   display: flex;

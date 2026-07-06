@@ -3,7 +3,7 @@
     <div class="card-body">
       <div class="pm-head">
         <h5 class="pm-title m-0">¿Cómo me pagan?</h5>
-        <small class="text-muted">Distribución de cobros · mes actual</small>
+        <small class="text-muted">{{ subtitle }}</small>
       </div>
 
       <div v-if="labels.length" class="pm-body">
@@ -19,7 +19,7 @@
         </ul>
       </div>
 
-      <div v-else class="pm-empty text-muted text-center">Sin cobros registrados este mes.</div>
+      <div v-else class="pm-empty text-muted text-center">{{ emptyText }}</div>
     </div>
   </section>
 </template>
@@ -27,18 +27,33 @@
 <script>
 export default {
   name: "PaymentMethods",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       labels: [],
       values: [],
       total: 0,
+      subtitle: "Distribucion de cobros - mes actual",
       palette: ["var(--primary)", "var(--danger)", "var(--success)", "var(--info)", "var(--warning)", "#ffdd00"],
     };
   },
   mounted() {
     this.fetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
+  },
   computed: {
+    emptyText() {
+      return this.subtitle ? `Sin cobros registrados (${this.subtitle.toLowerCase()}).` : "Sin cobros registrados.";
+    },
     chartOptions() {
       return {
         chart: { fontFamily: "inherit" },
@@ -85,11 +100,12 @@ export default {
   },
   methods: {
     fetchData() {
-      this.$http.get("/dashboard/payment-methods").then((response) => {
+      this.$http.get("/dashboard/payment-methods", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.labels = data.labels || [];
         this.values = data.values || [];
         this.total = data.total || 0;
+        this.subtitle = data.subtitle || this.subtitle;
       });
     },
     formatK(val) {
@@ -160,5 +176,10 @@ export default {
 }
 .pm-empty {
   padding: 2rem 0;
+}
+.pm-panel ::v-deep .apexcharts-tooltip,
+.pm-panel ::v-deep .apexcharts-tooltip *,
+.pm-panel ::v-deep .apexcharts-tooltip-title {
+  color: #fff !important;
 }
 </style>

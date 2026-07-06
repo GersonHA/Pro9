@@ -4,7 +4,7 @@
       <div class="cf-head">
         <div>
           <h5 class="cf-title m-0">Flujo de caja</h5>
-          <small class="text-muted">Ingresos vs egresos · últimos 6 meses</small>
+          <small class="text-muted">{{ subtitle }}</small>
         </div>
         <div class="cf-legend">
           <span class="cf-legend-item"><i class="cf-dot cf-dot--income"></i>Ingresos</span>
@@ -19,11 +19,15 @@
 <script>
 export default {
   name: "CashFlowChart",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       labels: [],
       income: [],
       egress: [],
+      subtitle: "Ingresos vs egresos - ultimos 6 meses",
       incomeColor: "#00c666",
       egressColor: "#ff8400",
     };
@@ -31,6 +35,14 @@ export default {
   mounted() {
     this.resolveColors();
     this.fetchData();
+  },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
   },
   computed: {
     series() {
@@ -86,11 +98,12 @@ export default {
       if (warning) this.egressColor = warning;
     },
     fetchData() {
-      this.$http.get("/dashboard/cash-flow").then((response) => {
+      this.$http.get("/dashboard/cash-flow", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.labels = data.labels || [];
         this.income = data.income || [];
         this.egress = data.egress || [];
+        this.subtitle = data.subtitle || this.subtitle;
       });
     },
     formatK(val) {

@@ -23805,3 +23805,9 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
 .pinned-bar-editing .btn-add-new {
     display: none;
 }
+.dashboard .apexcharts-tooltip,
+.dashboard .apexcharts-tooltip-title,
+.dashboard .apexcharts-xaxistooltip,
+.dashboard .apexcharts-yaxistooltip {
+    color: #17202a !important;
+}

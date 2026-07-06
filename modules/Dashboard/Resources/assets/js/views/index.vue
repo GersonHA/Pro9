@@ -7,7 +7,7 @@
             <div>
                 <h2>Dashboard</h2>
             </div>
-            <div class="d-flex align-items-center h-100 d-none">
+            <div class="d-flex align-items-center h-100">
               {{ filterLabel }}
               <el-button
                 type="primary"
@@ -133,19 +133,19 @@
                 </div>
             </div>
 
-            <RowTop :company="company" :utilities="utilities"></RowTop>
+            <RowTop :company="company" :utilities="utilities" :filters="form"></RowTop>
 
             <div class="row mx-0 px-1">
                 <div class="col-xl-12 card-dashboard-section">
                     <div class="row">
                     <div class="col-12 mb-2" :class="{ 'col-xl-8': configuration.dashboard_goal_enabled }">
-                        <weekly-sales-chart></weekly-sales-chart>
+                        <weekly-sales-chart :filters="form"></weekly-sales-chart>
                     </div>
                     <div v-if="configuration.dashboard_goal_enabled" class="col-12 col-xl-4 mb-2">
                         <month-goal></month-goal>
                     </div>
                     <div class="col-12 col-md-6 col-xl-4 mb-2">
-                        <debtors></debtors>
+                        <debtors :filters="form"></debtors>
                     </div>
                     <template v-if="configuration.dashboard_products">
                         <div class="col-12 col-md-6 col-xl-4 mb-2">
@@ -163,15 +163,15 @@
                         </div>
                     </template>
                     <div class="col-12 col-md-6 col-xl-4 mb-2">
-                        <payment-methods></payment-methods>
+                        <payment-methods :filters="form"></payment-methods>
                     </div>
                     <div class="col-12 col-xl-8 mb-2">
-                        <cash-flow-chart></cash-flow-chart>
+                        <cash-flow-chart :filters="form"></cash-flow-chart>
                     </div>
                     <div class="col-12 col-xl-4 mb-2 d-flex flex-column">
-                        <sunat-status></sunat-status>
+                        <sunat-status :filters="form"></sunat-status>
                         <template v-if="configuration.dashboard_products">
-                            <low-stock></low-stock>
+                            <low-stock :filters="form"></low-stock>
                         </template>
                     </div>
                     <template v-if="showLegacyCards && configuration.dashboard_sales">

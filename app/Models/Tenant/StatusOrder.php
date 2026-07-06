@@ -14,6 +14,7 @@ class StatusOrder extends ModelTenant
         'color',
         'sort_order',
         'is_initial',
+        'is_final',
         'is_payment_status',
         'is_order_status',
         'is_shipping_status',
@@ -31,6 +32,7 @@ class StatusOrder extends ModelTenant
     protected $casts = [
         'sort_order'               => 'integer',
         'is_initial'               => 'boolean',
+        'is_final'                 => 'boolean',
         'is_payment_status'        => 'boolean',
         'is_order_status'          => 'boolean',
         'is_shipping_status'       => 'boolean',

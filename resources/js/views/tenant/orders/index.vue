@@ -56,8 +56,8 @@
                         <th>Fecha Emision</th>
                         <th>Medio Pago</th>
                         <th>Estado de pago</th>
-                        <th>Estado de pedido</th>
                         <th>Estado de envío</th>
+                        <th>Estado de pedido</th>
                         <th class="text-center">Documento</th>
                         <th class="text-end">Opciones</th>
                     </tr>
@@ -198,35 +198,6 @@
                         <td>
                             <div
                                 class="status-select-wrap"
-                                :class="{ 'has-color': statusColor(row.status_order_id) }"
-                                :style="selectVars(row.status_order_id)"
-                            >
-                                <span
-                                    v-if="statusColor(row.status_order_id)"
-                                    class="status-dot status-dot--inside"
-                                    :style="{ background: statusColor(row.status_order_id) }"
-                                ></span>
-                                <el-select
-                                    v-model="row.status_order_id"
-                                    placeholder="Estado de pedido"
-                                    :value="row.status_order_id"
-                                    @change="updateStatus(row, 'status_order_id')"
-                                >
-                                    <el-option
-                                        v-for="item in orderOptions"
-                                        :key="item.id"
-                                        :label="item.description"
-                                        :value="item.id"
-                                    >
-                                        <span class="status-dot" :style="{ background: item.color || '#909399' }"></span>
-                                        <span>{{ item.description }}</span>
-                                    </el-option>
-                                </el-select>
-                            </div>
-                        </td>
-                        <td>
-                            <div
-                                class="status-select-wrap"
                                 :class="{ 'has-color': statusColor(row.shipping_status_order_id) }"
                                 :style="selectVars(row.shipping_status_order_id)"
                             >
@@ -243,6 +214,35 @@
                                 >
                                     <el-option
                                         v-for="item in shippingOptions"
+                                        :key="item.id"
+                                        :label="item.description"
+                                        :value="item.id"
+                                    >
+                                        <span class="status-dot" :style="{ background: item.color || '#909399' }"></span>
+                                        <span>{{ item.description }}</span>
+                                    </el-option>
+                                </el-select>
+                            </div>
+                        </td>
+                        <td>
+                            <div
+                                class="status-select-wrap"
+                                :class="{ 'has-color': statusColor(row.status_order_id) }"
+                                :style="selectVars(row.status_order_id)"
+                            >
+                                <span
+                                    v-if="statusColor(row.status_order_id)"
+                                    class="status-dot status-dot--inside"
+                                    :style="{ background: statusColor(row.status_order_id) }"
+                                ></span>
+                                <el-select
+                                    v-model="row.status_order_id"
+                                    placeholder="Estado de pedido"
+                                    :value="row.status_order_id"
+                                    @change="updateStatus(row, 'status_order_id')"
+                                >
+                                    <el-option
+                                        v-for="item in orderOptions"
                                         :key="item.id"
                                         :label="item.description"
                                         :value="item.id"
@@ -411,7 +411,7 @@
 }
 /* Pinta el input del select con el color del estado. !important para ganarle al skin del tenant */
 .status-select-wrap.has-color .el-input__inner {
-    border-color: var(--st-color) !important;
+    border: none !important;
     background-color: color-mix(in srgb, var(--st-color) 12%, #fff) !important;
     color: color-mix(in srgb, var(--st-color) 80%, #000) !important;
     font-weight: 600;

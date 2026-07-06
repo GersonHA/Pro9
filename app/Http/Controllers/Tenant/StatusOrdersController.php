@@ -52,6 +52,7 @@ class StatusOrdersController extends Controller
             'description'              => 'required|string|max:255',
             'color'                    => 'nullable|string|max:7',
             'is_initial'               => 'boolean',
+            'is_final'                 => 'boolean',
             'is_payment_status'        => 'boolean',
             'is_order_status'          => 'boolean',
             'is_shipping_status'       => 'boolean',
@@ -73,12 +74,19 @@ class StatusOrdersController extends Controller
                 ->update(['is_initial' => false]);
         }
 
+        // Estado final: único dentro del grupo de pedido
+        if ($request->boolean('is_final')) {
+            StatusOrder::where('is_final', true)
+                ->where('is_order_status', true)
+                ->update(['is_final' => false]);
+        }
+
         // Asignar sort_order como el siguiente disponible
         $nextSortOrder = (StatusOrder::max('sort_order') ?? -1) + 1;
 
         $status = StatusOrder::create(array_merge(
             $request->only([
-                'description', 'color', 'is_initial',
+                'description', 'color', 'is_initial', 'is_final',
                 'action_generate_document', 'action_discount_stock',
                 'action_mark_payment', 'action_send_email',
                 'action_notify_dispatch', 'action_generate_remission',
@@ -108,6 +116,7 @@ class StatusOrdersController extends Controller
             'description'              => 'required|string|max:255',
             'color'                    => 'nullable|string|max:7',
             'is_initial'               => 'boolean',
+            'is_final'                 => 'boolean',
             'is_payment_status'        => 'boolean',
             'is_order_status'          => 'boolean',
             'is_shipping_status'       => 'boolean',
@@ -132,9 +141,17 @@ class StatusOrdersController extends Controller
                 ->update(['is_initial' => false]);
         }
 
+        // Estado final: único dentro del grupo de pedido
+        if ($request->boolean('is_final')) {
+            StatusOrder::where('is_final', true)
+                ->where('is_order_status', true)
+                ->where('id', '!=', $id)
+                ->update(['is_final' => false]);
+        }
+
         $status->update(array_merge(
             $request->only([
-                'description', 'color', 'is_initial',
+                'description', 'color', 'is_initial', 'is_final',
                 'action_generate_document', 'action_discount_stock',
                 'action_mark_payment', 'action_send_email',
                 'action_notify_dispatch', 'action_generate_remission',

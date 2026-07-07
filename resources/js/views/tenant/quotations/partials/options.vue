@@ -1162,8 +1162,9 @@ export default {
         clickToPrint(format) {
             // Si no hay external id, no hará nada.
             if(this.form.external_id == null) return null;
+            const timestamp = new Date().getTime();
             window.open(
-                `/${this.resource}/print/${this.form.external_id}/${format}`,
+                `/${this.resource}/print/${this.form.external_id}/${format}?v=${timestamp}`,
                 "_blank"
             );
         },

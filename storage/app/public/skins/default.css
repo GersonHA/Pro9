@@ -3040,7 +3040,7 @@ html.dark .card {
 html.dark .table > thead > tr > th, html.dark .table > tbody > tr > th, html.dark .table > tfoot > tr > th, html.dark .table > thead > tr > td, html.dark .table > tbody > tr > td, html.dark .table > tfoot > tr > td, html.dark .table-bordered {
     background-color: transparent;
 }
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted {
+html.dark .card.card-dashboard .card-title {
     background: var(--contents-dark);
 }
 html.dark ul.nav-main li.nav-expanded > a,

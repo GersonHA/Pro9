@@ -1173,11 +1173,11 @@ export default {
                 this.form.discount_amount = 0;
             }
 
-            if (this.is_dispatch) {
+            /*if (this.is_dispatch) {
                if (this.form.location_id.length !== 3 || !this.form.address) {
                     return this.$message.error('Falta agregar Ubigeo o dirección');
                } 
-            }
+            }*/
 
             let hasErrorInAdditionalAddresses = false;
             let addressWithError = null;

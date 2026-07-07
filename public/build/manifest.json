@@ -65,7 +65,7 @@
     "css": [
       "assets/app-a76849c6.css"
     ],
-    "file": "assets/app-8f8dd2db.js",
+    "file": "assets/app-a51ff3b1.js",
     "imports": [
       "_vue-clipboard-9e0535ce.js",
       "__plugin-vue2_normalizer-fcd81e8a.js",
@@ -82,7 +82,7 @@
     "css": [
       "assets/system-312d4358.css"
     ],
-    "file": "assets/system-1e6cdb06.js",
+    "file": "assets/system-567e227b.js",
     "imports": [
       "_vue-clipboard-9e0535ce.js",
       "__plugin-vue2_normalizer-fcd81e8a.js"

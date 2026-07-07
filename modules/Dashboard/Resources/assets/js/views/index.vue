@@ -1026,6 +1026,9 @@ export default {
       const labels = Array.isArray(graph.labels) ? graph.labels : [];
       return labels;
     },
+    generalFormattedLabels() {
+      return this.generalLabels.map((label, index) => this.formatGeneralChartLabel(label, index));
+    },
     generalColors() {
       return this.generalDatasets.map((dataset, index) => {
         const label = (dataset.label || "").toLowerCase();
@@ -1088,7 +1091,7 @@ export default {
         grid: { borderColor: "#eef0f3", strokeDashArray: 4, padding: { left: 8, right: 8 } },
         markers: { size: 0, hover: { size: 5 } },
         xaxis: {
-          categories: this.generalLabels,
+          categories: this.generalFormattedLabels,
           axisBorder: { show: false },
           axisTicks: { show: false },
           labels: { style: { colors: "#9ca3af", fontSize: "12px" } },
@@ -1409,6 +1412,36 @@ export default {
       if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
       if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
       return num.toFixed(0);
+    },
+    formatGeneralChartLabel(label, index) {
+      const value = String(label || "");
+
+      if (moment(value, "YYYY-MM-DD", true).isValid()) {
+        return moment(value, "YYYY-MM-DD").format("DD/MM");
+      }
+
+      if (/^\d{1,2}d$/.test(value)) {
+        const startDate = this.getGeneralChartStartDate();
+
+        if (startDate && startDate.isValid()) {
+          return startDate.clone().add(index, "days").format("DD/MM");
+        }
+
+        return value.replace("d", "");
+      }
+
+      return value;
+    },
+    getGeneralChartStartDate() {
+      if (["last_week", "date", "between_dates"].includes(this.form.period) && this.form.date_start) {
+        return moment(this.form.date_start, "YYYY-MM-DD", true);
+      }
+
+      if (["month", "between_months"].includes(this.form.period) && this.form.month_start) {
+        return moment(this.form.month_start, "YYYY-MM", true).startOf("month");
+      }
+
+      return null;
     },
   },
   filters: {

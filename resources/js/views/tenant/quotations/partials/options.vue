@@ -97,6 +97,7 @@
                         :wsPhone="form.customer_telephone"
                         :wsFile="form.print_ticket"
                         :wsDocument="form.number"
+                        :wsFileA4="form.pdf_a4_filename"
                         :wsMessage="form.message_text"
                         :wsData="form.pdf_a4_data"
                     />

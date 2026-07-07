@@ -40,6 +40,7 @@ class QrApiController extends Controller
         return [
             'qr_api_enable_ws' => (bool) ($data->qr_api_enable ?? false),
             'qr_api_use_bot_instance' => (bool) ($data->qr_api_use_bot_instance ?? false),
+            'qr_api_pdf_format' => $data->qr_api_pdf_format ?? 'ticket',
             'qr_api_instance' => $data->qr_api_instance,
             'qr_api_connected_phone' => $data->qr_api_connected_phone,
             'qr_api_profile_name' => $data->qr_api_profile_name,
@@ -54,10 +55,15 @@ class QrApiController extends Controller
         $request->validate([
             'qr_api_enable_ws' => 'required|boolean',
             'qr_api_use_bot_instance' => 'sometimes|boolean',
+            'qr_api_pdf_format' => 'sometimes|in:a4,ticket',
         ]);
 
         $config = Configuration::first();
         $config->qr_api_enable = (bool) $request->qr_api_enable_ws;
+
+        if ($request->has('qr_api_pdf_format')) {
+            $config->qr_api_pdf_format = $request->qr_api_pdf_format;
+        }
 
         if ($request->has('qr_api_use_bot_instance')) {
             $newValue = (bool) $request->qr_api_use_bot_instance;

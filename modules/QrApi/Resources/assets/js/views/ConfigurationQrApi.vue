@@ -22,6 +22,16 @@
             <div v-if="form.qr_api_enable_ws">
                 <hr>
                 <div class="form-group">
+                    <label class="control-label me-3">Formato del PDF enviado</label>
+                    <el-radio-group
+                        v-model="form.qr_api_pdf_format"
+                        class="pdf-format-group"
+                        @change="updateEnable">
+                        <el-radio-button label="ticket">Ticket</el-radio-button>
+                        <el-radio-button label="a4">A4</el-radio-button>
+                    </el-radio-group>
+                </div>
+                <div class="form-group">
                     <label class="control-label me-3">Usar el mismo número del bot</label>
                     <el-switch
                         :value="form.qr_api_use_bot_instance"
@@ -159,6 +169,7 @@ export default {
             form: {
                 qr_api_enable_ws: false,
                 qr_api_use_bot_instance: false,
+                qr_api_pdf_format: 'ticket',
                 qr_api_instance: null,
                 qr_api_connected_phone: null,
                 qr_api_profile_name: null,
@@ -214,6 +225,7 @@ export default {
                 await this.$http.post(`/${this.resource}/configuration/update`, {
                     qr_api_enable_ws: this.form.qr_api_enable_ws,
                     qr_api_use_bot_instance: this.form.qr_api_use_bot_instance,
+                    qr_api_pdf_format: this.form.qr_api_pdf_format,
                 });
                 this.$message({ message: 'Configuración actualizada', type: 'success' });
             } catch (e) {
@@ -439,6 +451,10 @@ export default {
 </script>
 
 <style scoped>
+.pdf-format-group ::v-deep .el-radio-button__inner {
+    font-size: 16px;
+    padding: 10px 20px;
+}
 .qr-action-row {
     display: flex;
     flex-wrap: wrap;

@@ -213,6 +213,7 @@ use Illuminate\Support\Facades\Mail;
                 $row->document_not_sent = $quantity_pending_documents['document_not_sent'];
                 $row->document_to_be_canceled = $quantity_pending_documents['document_to_be_canceled'];
                 $row->monthly_sales_total = 0;
+                $row->count_whatsapp_month = 0;
 
                 if ($row->start_billing_cycle) {
 
@@ -252,6 +253,10 @@ use Illuminate\Support\Facades\Mail;
                     //dd($row->count_sales_notes);
 
                     $row->monthly_sales_total = $client_helper->getSalesTotal($init->format('Y-m-d'), $end->format('Y-m-d'), $row->plan);
+
+                    // $end viene a medianoche (pensado para columnas de tipo date); whatsapp_message_logs.created_at
+                    // es datetime, asi que se extiende al fin del dia para no perder los envios de hoy
+                    $row->count_whatsapp_month = DB::connection('tenant')->table('whatsapp_message_logs')->whereBetween('created_at', [$init, (clone $end)->endOfDay()])->count();
                 }
 
                 $row->quantity_establishments = $this->getQuantityRecordsFromTable('establishments');

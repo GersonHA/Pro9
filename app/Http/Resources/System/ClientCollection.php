@@ -78,6 +78,11 @@ class ClientCollection extends ResourceCollection
                 'sales_unlimited' => $row->plan->sales_unlimited,
                 'sale_notes_quantity_if_include' => $row->sale_notes_quantity_if_include ?? 0,
                 'enable_list_product' => $row->enable_list_product,
+
+                // para limite de mensajes de whatsapp
+                'count_whatsapp_month' => $row->count_whatsapp_month ?? 0,
+                'max_whatsapp_messages' => (int) $row->plan->whatsapp_messages_limit,
+                'whatsapp_messages_unlimited' => (bool) $row->plan->whatsapp_messages_unlimited,
             ];
         });
     }

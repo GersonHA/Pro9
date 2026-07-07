@@ -4,6 +4,8 @@ namespace Modules\QrApi\Http\Controllers;
 
 use App\CoreFacturalo\Helpers\Storage\StorageDocument;
 use App\Models\Tenant\Configuration;
+use App\Models\Tenant\WhatsappMessageLog;
+use App\Traits\LockedEmissionTrait;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +15,7 @@ use Modules\WhatsAppBot\Services\Evolution\EvolutionClient;
 class QrApiController extends Controller
 {
     use StorageDocument;
+    use LockedEmissionTrait;
 
     private const NO_INSTANCE_MSG = 'QR Api no tiene una instancia conectada.';
 
@@ -303,6 +306,14 @@ class QrApiController extends Controller
             'link' => 'sometimes|nullable|string',
         ]);
 
+        $exceed_limit = $this->exceedLimitWhatsappMessages();
+        if ($exceed_limit['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => $exceed_limit['message'],
+            ], 422);
+        }
+
         $config = Configuration::first();
 
         if(!$config->qr_api_enable) {
@@ -350,6 +361,12 @@ class QrApiController extends Controller
         }
 
         if ($mediaOk || $textOk) {
+            WhatsappMessageLog::create([
+                'phone' => $request->number,
+                'filename' => $request->filename,
+                'status' => 'sent',
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $mediaResponse,

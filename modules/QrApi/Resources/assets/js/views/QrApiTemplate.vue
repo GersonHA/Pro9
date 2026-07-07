@@ -79,7 +79,8 @@ export default {
                             }
                         })
                         .catch(error => {
-                            return this.$message.error('No se puede enviar')
+                            const message = error.response?.data?.message || 'No se puede enviar'
+                            return this.$message.error(message)
                         })
                         .finally(() => {
                             this.loading_submit = false

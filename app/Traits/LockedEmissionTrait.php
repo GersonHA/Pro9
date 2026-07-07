@@ -10,8 +10,10 @@ use App\Models\System\{
 };
 use App\Models\Tenant\{
     Configuration,
-    SaleNote
+    SaleNote,
+    WhatsappMessageLog
 };
+use Carbon\Carbon;
 use Exception;
 use Modules\Document\Helpers\DocumentHelper;
 use Modules\Dashboard\Helpers\DashboardData;
@@ -212,6 +214,49 @@ trait LockedEmissionTrait
             'success' => $success,
             'message' => $message,
         ];
+    }
+
+
+    /**
+     *
+     * Validar el limite de mensajes de WhatsApp enviados en el ciclo de facturacion
+     *
+     * @return array
+     */
+    public function exceedLimitWhatsappMessages()
+    {
+        $plan = $this->getClientPlan(['id', 'name', 'whatsapp_messages_limit', 'whatsapp_messages_unlimited']);
+
+        if($plan->isWhatsappMessagesUnlimited())
+        {
+            return $this->getResponse(false);
+        }
+
+        //fecha de inicio del ciclo de facturacion
+        $start_billing_cycle = DocumentHelper::getStartBillingCycleFromSystem();
+
+        if($start_billing_cycle)
+        {
+            $start_end_date = DocumentHelper::getStartEndDateForFilterDocument($start_billing_cycle);
+            $start_date = $start_end_date['start_date'];
+            $end_date = $start_end_date['end_date'];
+        }
+        else
+        {
+            $start_date = Carbon::now()->startOfMonth();
+            $end_date = Carbon::now()->endOfMonth();
+        }
+
+        //end_date viene a medianoche (pensado para comparar contra columnas de tipo date);
+        //whatsapp_message_logs.created_at es datetime, asi que se extiende al fin del dia
+        $quantity_messages = WhatsappMessageLog::whereBetween('created_at', [$start_date, (clone $end_date)->endOfDay()])->count();
+
+        if($quantity_messages >= $plan->whatsapp_messages_limit)
+        {
+            return $this->getResponse(true, "Ha alcanzado el límite de {$plan->whatsapp_messages_limit} mensajes de WhatsApp permitidos en su plan para este ciclo");
+        }
+
+        return $this->getResponse(false);
     }
 
 }

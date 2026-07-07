@@ -108,6 +108,23 @@
                         </div>
                     </div>
 
+                    <div class="col-md-6">
+                        <div class="form-group" :class="{'has-danger': errors.whatsapp_messages_limit}">
+                            <label class="control-label">Límite de mensajes de WhatsApp (Ciclo Facturación)</label>
+
+                            <template v-if="form.whatsapp_messages_unlimited">
+                                <el-input value="∞" disabled></el-input>
+                            </template>
+                            <template v-else>
+                                <el-input v-model="form.whatsapp_messages_limit"></el-input>
+                            </template>
+
+                            <el-checkbox v-model="form.whatsapp_messages_unlimited">Ilimitado</el-checkbox><br>
+
+                            <small class="form-control-feedback d-block" v-if="errors.whatsapp_messages_limit" v-text="errors.whatsapp_messages_limit[0]"></small>
+                        </div>
+                    </div>
+
                 </div>
                 <el-collapse v-model="collapse" class="mt-3">
                     <el-collapse-item name="1" title="Módulos predeterminados sugeridos (Opcional)">
@@ -299,6 +316,10 @@
                     sales_unlimited : true,
                     include_sale_notes_sales_limit : false,
                     include_sale_notes_limit_documents: false,
+
+                    whatsapp_messages_limit : 0,
+                    whatsapp_messages_unlimited : true,
+
                     module_permissions: null
                 }
                 this.business = null;
@@ -329,7 +350,12 @@
                 if(!this.form.sales_unlimited)
                 {
                     if(isNaN(this.form.sales_limit)) return this.getResponseValidations(false, 'Límite de ventas no es un número válido.')
-                } 
+                }
+
+                if(!this.form.whatsapp_messages_unlimited)
+                {
+                    if(isNaN(this.form.whatsapp_messages_limit)) return this.getResponseValidations(false, 'Límite de mensajes de WhatsApp no es un número válido.')
+                }
 
                 return this.getResponseValidations()
             },

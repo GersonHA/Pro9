@@ -30,6 +30,9 @@ class PlanCollection extends ResourceCollection
                 'sales_limit' => $row->sales_limit,
                 'sales_unlimited' => $row->sales_unlimited,
                 'include_sale_notes_sales_limit' => $row->include_sale_notes_sales_limit,
+
+                'whatsapp_messages_limit' => $row->whatsapp_messages_limit,
+                'whatsapp_messages_unlimited' => $row->whatsapp_messages_unlimited,
             ];
         });
     }

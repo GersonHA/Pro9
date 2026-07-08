@@ -301,9 +301,10 @@
                         name="1"
                         title="Módulos">
                         <div class="row">
-                            <span class="ms-4">Giro de negocio <small>(opcional)</small></span>
+                            <span>Giro de negocio <small>(opcional)</small></span>
                             <div class="col-12">
                                 <el-radio-group v-model="business" @change="changeModules">
+                                    <el-radio v-if="business === 0" :label="0">Personalizado</el-radio>
                                     <el-radio :label="5">Completo</el-radio>
                                     <el-radio :label="1">Básico</el-radio>
                                     <el-radio :label="2">Farmacia</el-radio>
@@ -798,9 +799,11 @@ export default {
             soap_password: null,
             collapse: 1,
             business: null,
+            applyingBusinessModules: false,
             nrusSpec: {
                 modules: {
                     7: '*',
+                    2: '*',
                     1: ['1-1', '1-2', '1-5', '1-8', '1-15', '1-84'],
                     17: '*',
                     18: '*',
@@ -871,6 +874,7 @@ export default {
     },
     methods: {
         FixChildren(currentObj, treeStatus) {
+            this.markCustomBusiness()
             let element = this.$refs.tree
             if (currentObj !== undefined) {
                 let selected = treeStatus.checkedKeys.indexOf(currentObj.id) // -1 is unchecked
@@ -885,6 +889,7 @@ export default {
             }
         },
         FixAppChildren(currentObj, treeStatus) {
+            this.markCustomBusiness()
             let element = this.$refs.Apptree
             if (currentObj !== undefined) {
                 let selected = treeStatus.checkedKeys.indexOf(currentObj.id) // -1 is unchecked
@@ -897,6 +902,10 @@ export default {
                     }
                 }
             }
+        },
+        markCustomBusiness() {
+            if (this.applyingBusinessModules || this.business === 6 || this.business === 0) return;
+            this.business = 0;
         },
         //funcion fusion fixchildren
         FixSameValueToChild(treeList, isSelected, element) {
@@ -933,7 +942,7 @@ export default {
                 price: 0,
                 plan_period_id: 1,
                 locked_emission: false,
-                type: null,
+                type: 'admin',
                 is_update: false,
                 modules: [],
                 apps: [],
@@ -982,7 +991,7 @@ export default {
             }
         },
         applyPlanModules(permissions) {
-            this.business = permissions.business || null;
+            this.business = permissions.business ?? null;
             const preSelecteds = [];
             const preAppSelecteds = [];
             
@@ -1014,8 +1023,10 @@ export default {
                 })
             });
 
+            this.applyingBusinessModules = true;
             if (this.$refs.tree) this.$refs.tree.setCheckedKeys(preSelecteds);
             if (this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys(preAppSelecteds);
+            this.applyingBusinessModules = false;
         },
         create() {
             if (this.recordId) {
@@ -1045,9 +1056,11 @@ export default {
                         preAppSelecteds.push(c.id);
                     });
                 });
+                this.applyingBusinessModules = true;
                 setTimeout(() => {
                     this.$refs.tree.setCheckedKeys(preSelecteds);
                     this.$refs.Apptree.setCheckedKeys(preAppSelecteds);
+                    this.applyingBusinessModules = false;
                 }, 1000);
             }
 
@@ -1089,9 +1102,11 @@ export default {
                         });
 
 
+                        this.applyingBusinessModules = true;
                         setTimeout(() => {
                             this.$refs.tree.setCheckedKeys(preSelecteds);
                             this.$refs.Apptree.setCheckedKeys(preAppSelecteds);
+                            this.applyingBusinessModules = false;
                         }, 1000);
                     })
             }
@@ -1193,12 +1208,16 @@ export default {
             this.form.name = data.name;
         },
         changeModules() {
+            if (this.business === 0) return;
+
+            this.applyingBusinessModules = true;
             if (this.business === 6) {
                 this.$nextTick(() => {
                     const treeKeys = this.buildNrusKeys(this.modules, this.nrusSpec.modules);
                     const appKeys = this.buildNrusKeys(this.apps, this.nrusSpec.apps);
                     if (this.$refs.tree) this.$refs.tree.setCheckedKeys(treeKeys);
                     if (this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys(appKeys);
+                    this.applyingBusinessModules = false;
                 });
                 return;
             }
@@ -1241,6 +1260,7 @@ export default {
                     ...group.levels
                 ]);
                 this.$refs.Apptree.setCheckedKeys(group.apps);
+                this.applyingBusinessModules = false;
             });
         },
         buildNrusKeys(treeData, spec) {

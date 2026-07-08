@@ -97,7 +97,7 @@
                                 <el-input value="∞" disabled></el-input>
                             </template>
                             <template v-else>
-                                <el-input v-model="form.sales_limit" :disabled="business === 6"></el-input>
+                                <el-input v-model="form.sales_limit" @input="normalizeNrusSalesLimit"></el-input>
                             </template>
 
                             <el-checkbox v-model="form.sales_unlimited" :disabled="business === 6">Ilimitado</el-checkbox><br>
@@ -132,6 +132,7 @@
                             <span class="ms-4">Giro de negocio <small>(opcional)</small></span>
                             <div class="col-12">
                                 <el-radio-group v-model="business" @change="changeModules">
+                                    <el-radio v-if="business === 0" :label="0">Personalizado</el-radio>
                                     <el-radio :label="1">Básico</el-radio>
                                     <el-radio :label="2">Farmacia</el-radio>
                                     <el-radio :label="3">Hotel</el-radio>
@@ -147,7 +148,7 @@
                                     <el-tree
                                         ref="tree"
                                         :check-strictly="true"
-                                        :data="modules"
+                                        :data="visibleModules"
                                         :props="defaultProps"
                                         accordion
                                         highlight-current
@@ -165,7 +166,7 @@
                                     <el-tree
                                         ref="Apptree"
                                         :check-strictly="true"
-                                        :data="apps"
+                                        :data="visibleApps"
                                         :props="defaultAppsProps"
                                         accordion
                                         highlight-current
@@ -225,9 +226,11 @@
                 form: {},
                 collapse: 1,
                 business: null,
+                applyingBusinessModules: false,
                 nrusSpec: {
                     modules: {
                         7: '*',
+                        2: '*',
                         1: ['1-1', '1-2', '1-5', '1-8', '1-15', '1-84'],
                         17: '*',
                         18: '*',
@@ -266,6 +269,18 @@
         computed: {
             popularLockedByOtherPlan() {
                 return !!(this.popular_plan && this.popular_plan.id !== this.form.id);
+            },
+            visibleModules() {
+                if (this.business === 6) {
+                    return this.modules.filter(m => this.nrusSpec.modules[m.id] !== undefined);
+                }
+                return this.modules;
+            },
+            visibleApps() {
+                if (this.business === 6) {
+                    return this.apps.filter(m => this.nrusSpec.apps[m.id] !== undefined);
+                }
+                return this.apps;
             }
         },
         created() 
@@ -340,6 +355,15 @@
                         })
                 }
             },
+            normalizeNrusSalesLimit() {
+                if (this.business !== 6 || this.form.sales_unlimited) return;
+
+                const salesLimit = Number(this.form.sales_limit);
+                if (!isNaN(salesLimit) && salesLimit > 8000) {
+                    this.form.sales_limit = 8000;
+                    this.$message.warning('El máximo permitido para NRUS es de 8000.');
+                }
+            },
             validateInputs()
             {
                 if(!this.form.establishments_unlimited)
@@ -350,6 +374,8 @@
                 if(!this.form.sales_unlimited)
                 {
                     if(isNaN(this.form.sales_limit)) return this.getResponseValidations(false, 'Límite de ventas no es un número válido.')
+                    this.normalizeNrusSalesLimit()
+                    if(this.business === 6 && Number(this.form.sales_limit) > 8000) return this.getResponseValidations(false, 'El límite de ventas mensual para NRUS no puede ser mayor a 8000.')
                 }
 
                 if(!this.form.whatsapp_messages_unlimited)
@@ -474,9 +500,11 @@
                     });
                 }
                 
+                this.applyingBusinessModules = true;
                 setTimeout(() => {
                     if(this.$refs.tree) this.$refs.tree.setCheckedKeys(preSelecteds);
                     if(this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys(preAppSelecteds);
+                    this.applyingBusinessModules = false;
                 }, 500);
             },
             transform(){
@@ -540,6 +568,7 @@
                 this.initForm()
             },
             FixChildren(currentObj, treeStatus) {
+                this.markCustomBusiness()
                 let element = this.$refs.tree
                 if (currentObj !== undefined) {
                     let selected = treeStatus.checkedKeys.indexOf(currentObj.id)
@@ -554,6 +583,7 @@
                 }
             },
             FixAppChildren(currentObj, treeStatus) {
+                this.markCustomBusiness()
                 let element = this.$refs.Apptree
                 if (currentObj !== undefined) {
                     let selected = treeStatus.checkedKeys.indexOf(currentObj.id)
@@ -566,6 +596,10 @@
                         }
                     }
                 }
+            },
+            markCustomBusiness() {
+                if (this.applyingBusinessModules || this.business === 6 || this.business === 0) return;
+                this.business = 0;
             },
             FixSameValueToChild(treeList, isSelected, element) {
                 if (treeList !== undefined && element !== undefined) {
@@ -587,16 +621,19 @@
                 }
             },
             changeModules() {
+                if (this.business === 0) return;
+
+                this.applyingBusinessModules = true;
                 if (this.business === 6) {
                     this.form.establishments_unlimited = false;
                     this.form.establishments_limit = 1;
                     this.form.sales_unlimited = false;
-                    this.form.sales_limit = 8000;
                     this.$nextTick(() => {
                         const treeKeys = this.buildNrusKeys(this.modules, this.nrusSpec.modules);
                         const appKeys = this.buildNrusKeys(this.apps, this.nrusSpec.apps);
                         if (this.$refs.tree) this.$refs.tree.setCheckedKeys(treeKeys);
                         if (this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys(appKeys);
+                        this.applyingBusinessModules = false;
                     });
                     return;
                 }
@@ -621,6 +658,7 @@
                 }
                 this.$refs.tree.setCheckedKeys(group.modules);
                 this.$refs.Apptree.setCheckedKeys(group.apps);
+                this.applyingBusinessModules = false;
             },
             buildNrusKeys(treeData, spec) {
                 const keys = [];

@@ -874,7 +874,8 @@ use Illuminate\Support\Facades\Mail;
                     'header' => 'light',
                     'navbar' => 'fixed',
                     'sidebars' => 'light',
-                    'sidebar_theme' => 'white'
+                    'sidebar_theme' => 'white',
+                    'show_welcome_panel' => false
                 ]),
                 'skin_id' => $tenantSkinId,
                 'top_menu_a_id' => 1,

@@ -159,6 +159,34 @@ use Illuminate\Support\Facades\Mail;
                 'global_smtp_config');
         }
 
+        /**
+         *
+         * Validar el override de mensajes de WhatsApp para un cliente: no puede
+         * ser menor al limite del plan (si el plan no es ilimitado).
+         *
+         * @param  int $plan_id
+         * @param  mixed $override
+         * @return string|null
+         */
+        private function validateWhatsappMessagesOverride($plan_id, $override)
+        {
+            if ($override === null || $override === '') {
+                return null;
+            }
+
+            if (!is_numeric($override)) {
+                return 'El valor de mensajes de WhatsApp no es un número válido.';
+            }
+
+            $plan = Plan::find($plan_id);
+
+            if ($plan && !$plan->whatsapp_messages_unlimited && (int) $override < (int) $plan->whatsapp_messages_limit) {
+                return "El límite de mensajes de WhatsApp para este cliente no puede ser menor al de su plan ({$plan->whatsapp_messages_limit}).";
+            }
+
+            return null;
+        }
+
         private function prepareModules(Module $module): Module
         {
             $levels = [];
@@ -515,6 +543,14 @@ use Illuminate\Support\Facades\Mail;
 
                 $client = Client::findOrFail($request->id);
 
+                $whatsapp_override_error = $this->validateWhatsappMessagesOverride($request->plan_id, $request->whatsapp_messages_limit_override);
+                if ($whatsapp_override_error) {
+                    return [
+                        'success' => false,
+                        'message' => $whatsapp_override_error,
+                    ];
+                }
+
                 $client
                     ->setSmtpHost($smtp_host)
                     ->setSmtpPort($smtp_port)
@@ -525,6 +561,7 @@ use Illuminate\Support\Facades\Mail;
                     $client->setSmtpPassword($smtp_password);
                 }
                 $client->plan_id = $request->plan_id;
+                $client->whatsapp_messages_limit_override = ($request->whatsapp_messages_limit_override === '' ? null : $request->whatsapp_messages_limit_override);
                 $client->price = $request->price;
                 $client->plan_period_id = $request->plan_period_id;
                 $client->phone_ws = $request->phone_ws;
@@ -686,6 +723,14 @@ use Illuminate\Support\Facades\Mail;
                 ];
             }
 
+            $whatsapp_override_error = $this->validateWhatsappMessagesOverride($request->input('plan_id'), $request->input('whatsapp_messages_limit_override'));
+            if ($whatsapp_override_error) {
+                return [
+                    'success' => false,
+                    'message' => $whatsapp_override_error,
+                ];
+            }
+
             $hostname = new Hostname();
             $website = new Website();
 
@@ -751,6 +796,7 @@ use Illuminate\Support\Facades\Mail;
                     'number' => $request->input('number'),
                     'plan_id' => $request->input('plan_id'),
                     'locked_emission' => $request->input('locked_emission'),
+                    'whatsapp_messages_limit_override' => $request->input('whatsapp_messages_limit_override') !== '' ? $request->input('whatsapp_messages_limit_override') : null,
                     'enable_list_product' => $request->input('enable_list_product'),
                     'price' => $request->input('price'),
                     'plan_period_id' => $request->input('plan_period_id'),
@@ -1062,6 +1108,9 @@ use Illuminate\Support\Facades\Mail;
 
             // dd($request->all());
             $client = Client::findOrFail($request->id);
+            $client->whatsapp_messages_limit_override = null;
+            $client->save();
+
             $tenancy = app(Environment::class);
             $tenancy->tenant($client->hostname->website);
 

@@ -22,6 +22,33 @@
             <div v-if="form.qr_api_enable_ws">
                 <hr>
                 <div class="form-group">
+                    <label class="control-label me-3 d-block mb-2">Mensajes de WhatsApp — ciclo actual</label>
+                    <div v-if="form.whatsapp_messages_unlimited" class="whatsapp-usage-text">
+                        <span class="whatsapp-usage-main text-success"><i class="fas fa-infinity"></i></span>
+                        <small class="text-muted d-block">Mensajes ilimitados en tu plan</small>
+                    </div>
+                    <div v-else class="whatsapp-gauge-wrap">
+                        <div class="whatsapp-gauge">
+                            <svg width="84" height="84" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#eef0f2" stroke-width="3.5"/>
+                                <circle
+                                    cx="18" cy="18" r="15.9155" fill="none"
+                                    :stroke="whatsappUsageColor" stroke-width="3.5"
+                                    stroke-linecap="round"
+                                    :stroke-dasharray="`${whatsappUsagePct} ${100 - whatsappUsagePct}`"
+                                    transform="rotate(-90 18 18)">
+                                </circle>
+                            </svg>
+                        </div>
+                        <div class="whatsapp-usage-text">
+                            <span class="whatsapp-usage-main" :style="{ color: whatsappUsageColor }">
+                                {{ form.whatsapp_messages_used }} / {{ form.whatsapp_messages_limit }}
+                            </span>
+                            <small class="text-muted d-block">mensajes enviados este ciclo</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label class="control-label me-3">Formato del PDF enviado</label>
                     <el-radio-group
                         v-model="form.qr_api_pdf_format"
@@ -176,6 +203,9 @@ export default {
                 qr_api_connection_state: 'disconnected',
                 evolution_instance: null,
                 evolution_connected_phone: null,
+                whatsapp_messages_used: 0,
+                whatsapp_messages_limit: null,
+                whatsapp_messages_unlimited: false,
             },
             instanceName: '',
             qrImage: null,
@@ -199,6 +229,17 @@ export default {
         },
         canStart() {
             return /^[A-Za-z0-9_\-]{3,40}$/.test(this.instanceName);
+        },
+        whatsappUsagePct() {
+            if (this.form.whatsapp_messages_unlimited || !this.form.whatsapp_messages_limit) return 0;
+            const pct = (this.form.whatsapp_messages_used / this.form.whatsapp_messages_limit) * 100;
+            return Math.min(100, Math.round(pct));
+        },
+        whatsappUsageColor() {
+            const pct = this.whatsappUsagePct;
+            if (pct >= 100) return '#ef4444';
+            if (pct >= 80) return '#f59e0b';
+            return '#16a34a';
         },
     },
     created() {
@@ -451,6 +492,22 @@ export default {
 </script>
 
 <style scoped>
+.whatsapp-gauge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.whatsapp-gauge {
+    flex-shrink: 0;
+    line-height: 0;
+}
+.whatsapp-gauge circle {
+    transition: stroke-dasharray 0.4s ease, stroke 0.4s ease;
+}
+.whatsapp-usage-main {
+    font-size: 20px;
+    font-weight: 700;
+}
 .pdf-format-group ::v-deep .el-radio-button__inner {
     font-size: 16px;
     padding: 10px 20px;

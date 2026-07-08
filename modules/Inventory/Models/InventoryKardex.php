@@ -178,6 +178,12 @@ class InventoryKardex extends ModelTenant
             // 'item' => $item->getCollectionData(),
             'item_warehouse_price' => $price,
             'warehouse' => $warehouseName,
+            'input' => null,
+            'output' => null,
+            'balance' => 0,
+            'type_transaction' => null,
+            'date_of_register'=> null,
+            'guide_id' => null,
         ];
         $inventory_kardexable = $this->inventory_kardexable;
         $qty = $this->quantity;
@@ -295,8 +301,9 @@ class InventoryKardex extends ModelTenant
                 }
             
                 // $inventory_transfer = InventoryTransfer::query()->where('id', $inventory_kardexable->inventories_transfer_id)->first();
-                $inventory_transfer = $inventory_kardexable->inventories_transfer->first();
+                $inventory_transfer = $inventory_kardexable->inventories_transfer;
                 if($inventory_transfer) {
+                    $inventory_transfer = $inventory_transfer->first();
                     $data['number'] = $inventory_transfer->series.'-'.$inventory_transfer->number;
                     $data['date_of_issue'] = $inventory_transfer->created_at->format('Y-m-d');
                 }

@@ -37,6 +37,7 @@ class QrApiController extends Controller
     public function getConfig()
     {
         $data = Configuration::first();
+        $whatsapp_usage = $this->getWhatsappMessagesUsage();
         return [
             'qr_api_enable_ws' => (bool) ($data->qr_api_enable ?? false),
             'qr_api_use_bot_instance' => (bool) ($data->qr_api_use_bot_instance ?? false),
@@ -47,6 +48,9 @@ class QrApiController extends Controller
             'qr_api_connection_state' => $data->qr_api_connection_state ?? 'disconnected',
             'evolution_instance' => $data->evolution_instance,
             'evolution_connected_phone' => $data->evolution_connected_phone,
+            'whatsapp_messages_used' => $whatsapp_usage['used'],
+            'whatsapp_messages_limit' => $whatsapp_usage['limit'],
+            'whatsapp_messages_unlimited' => $whatsapp_usage['unlimited'],
         ];
     }
 

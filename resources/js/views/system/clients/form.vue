@@ -240,6 +240,25 @@
                                 v-text="errors.locked_emission[0]">
                             </small>
                         </div>
+                        <div v-if="form.plan_id && !selectedPlanWhatsappUnlimited"
+                             :class="{'has-danger': errors.whatsapp_messages_limit_override}"
+                             class="form-group">
+                            <label class="control-label">
+                                Límite de mensajes de WhatsApp para este cliente
+                            </label>
+                            <el-input
+                                v-model="form.whatsapp_messages_limit_override"
+                                :placeholder="`Usar el del plan (${selectedPlanWhatsappLimit})`">
+                            </el-input>
+                            <small class="form-text text-muted d-block">
+                                Vacío = usa el límite del plan. Mínimo {{ selectedPlanWhatsappLimit }}. Se resetea al renovar.
+                            </small>
+                            <small
+                                v-if="errors.whatsapp_messages_limit_override"
+                                class="form-control-feedback d-block"
+                                v-text="errors.whatsapp_messages_limit_override[0]">
+                            </small>
+                        </div>
                     </div>
                     <h4 class="mt-4">
                         Información de contacto
@@ -837,6 +856,15 @@ export default {
             }
             return this.apps;
         },
+        selectedPlan() {
+            return this.plans.find(p => p.id === this.form.plan_id);
+        },
+        selectedPlanWhatsappUnlimited() {
+            return !!(this.selectedPlan && this.selectedPlan.whatsapp_messages_unlimited);
+        },
+        selectedPlanWhatsappLimit() {
+            return this.selectedPlan ? this.selectedPlan.whatsapp_messages_limit : 0;
+        },
     },
     updated() {
         // Set default values ​​for multiple selection trees
@@ -942,6 +970,7 @@ export default {
                 price: 0,
                 plan_period_id: 1,
                 locked_emission: false,
+                whatsapp_messages_limit_override: null,
                 type: 'admin',
                 is_update: false,
                 modules: [],

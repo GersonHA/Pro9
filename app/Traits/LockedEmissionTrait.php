@@ -57,7 +57,8 @@ trait LockedEmissionTrait
                     ->select([
                         'id',
                         'name',
-                        'plan_id'
+                        'plan_id',
+                        'whatsapp_messages_limit_override'
                     ])
                     ->first();
     }
@@ -219,18 +220,25 @@ trait LockedEmissionTrait
 
     /**
      *
-     * Validar el limite de mensajes de WhatsApp enviados en el ciclo de facturacion
+     * Obtener el consumo de mensajes de WhatsApp del ciclo de facturacion actual,
+     * junto con el limite efectivo (el override del cliente reemplaza al del
+     * plan si esta seteado; nunca puede ser menor al del plan, eso ya se valida
+     * al guardarlo en App\Http\Controllers\System\ClientController)
      *
-     * @return array
+     * @return array{used: int|null, limit: int|null, unlimited: bool}
      */
-    public function exceedLimitWhatsappMessages()
+    public function getWhatsappMessagesUsage()
     {
-        $plan = $this->getClientPlan(['id', 'name', 'whatsapp_messages_limit', 'whatsapp_messages_unlimited']);
+        $tenant_hostname = $this->getTenantHostname();
+        $client = $this->getClientByHostname($tenant_hostname->id);
+        $plan = $this->getPlan(['id', 'name', 'whatsapp_messages_limit', 'whatsapp_messages_unlimited'], $client->plan_id);
 
         if($plan->isWhatsappMessagesUnlimited())
         {
-            return $this->getResponse(false);
+            return ['used' => null, 'limit' => null, 'unlimited' => true];
         }
+
+        $limit = $client->whatsapp_messages_limit_override ?? $plan->whatsapp_messages_limit;
 
         //fecha de inicio del ciclo de facturacion
         $start_billing_cycle = DocumentHelper::getStartBillingCycleFromSystem();
@@ -249,11 +257,30 @@ trait LockedEmissionTrait
 
         //end_date viene a medianoche (pensado para comparar contra columnas de tipo date);
         //whatsapp_message_logs.created_at es datetime, asi que se extiende al fin del dia
-        $quantity_messages = WhatsappMessageLog::whereBetween('created_at', [$start_date, (clone $end_date)->endOfDay()])->count();
+        $used = WhatsappMessageLog::whereBetween('created_at', [$start_date, (clone $end_date)->endOfDay()])->count();
 
-        if($quantity_messages >= $plan->whatsapp_messages_limit)
+        return ['used' => $used, 'limit' => $limit, 'unlimited' => false];
+    }
+
+
+    /**
+     *
+     * Validar el limite de mensajes de WhatsApp enviados en el ciclo de facturacion
+     *
+     * @return array
+     */
+    public function exceedLimitWhatsappMessages()
+    {
+        $usage = $this->getWhatsappMessagesUsage();
+
+        if($usage['unlimited'])
         {
-            return $this->getResponse(true, "Ha alcanzado el límite de {$plan->whatsapp_messages_limit} mensajes de WhatsApp permitidos en su plan para este ciclo");
+            return $this->getResponse(false);
+        }
+
+        if($usage['used'] >= $usage['limit'])
+        {
+            return $this->getResponse(true, "Ha alcanzado el límite de {$usage['limit']} mensajes de WhatsApp permitidos en su plan para este ciclo");
         }
 
         return $this->getResponse(false);

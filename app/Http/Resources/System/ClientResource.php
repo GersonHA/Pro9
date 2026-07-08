@@ -42,6 +42,7 @@
                 'plan_period_id' => $this->plan_period_id,
                 'locked' => (bool)$this->locked,
                 'locked_emission' => (bool)$this->locked_emission,
+                'whatsapp_messages_limit_override' => $this->whatsapp_messages_limit_override,
                 'modules' => $this->modules,
                 'apps' => $this->apps,
                 'levels' => $this->levels,

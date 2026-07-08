@@ -43,3 +43,30 @@ public/porto-light/js/bloquear_cliente.js
 .github/copilot-instructions.md
 
 .antigravitycli
+
+# Grafo de conocimiento generado por graphify (390 MB; graph.json supera el
+# límite de 100 MB de GitHub). Es regenerable con `graphify update .` — no va a git.
+/graphify-out/
+
+# ── Alineado con el .gitignore de pro8 ──────────────────────────────
+# Instrucciones de agentes / editor (no forman parte de la app)
+CLAUDE.md
+.claude/
+.agents/
+.kimi/
+skills-lock.json
+.codegpt
+
+# Scripts de despliegue y assets JS legacy compilados
+deploy.sh
+/public/js/app.js
+/public/js/app.js.map
+
+# Cerebro / knowledge base (cuando se traslade a Pro9): imágenes y estado
+# local de Obsidian — el texto sí va a git, los binarios pesados no.
+FacturoomBrain/**/.obsidian/workspace.json
+FacturoomBrain/**/*.png
+FacturoomBrain/**/*.jpg
+FacturoomBrain/**/*.jpeg
+FacturoomBrain/**/*.gif
+FacturoomBrain/**/*.webp

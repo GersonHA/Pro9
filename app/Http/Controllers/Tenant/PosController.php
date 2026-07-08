@@ -46,7 +46,7 @@ class PosController extends Controller
 
         $company = Company::select('soap_type_id')->first();
         $soap_company = $company->soap_type_id;
-        $business_turns = BusinessTurn::select('active')->where('id', 4)->first();
+        $business_turns = BusinessTurn::select('active')->where('id', 4)->first() ?? (object)['active' => false];
 
         return view('tenant.pos.index', compact('configuration', 'soap_company', 'business_turns'));
     }
@@ -76,6 +76,10 @@ class PosController extends Controller
             ->orWhere(function ($query) use ($request) {
                 $query->where('internal_id', 'like', "%{$request->input_item}%")
                     ->orWhere('barcode', "{$request->input_item}");
+                // Búsqueda Avanzada: columnas extra dentro del mismo grupo OR.
+                foreach (\App\Models\Tenant\Item::extendedSearchColumns() as $col) {
+                    $query->orWhere($col, 'like', "%{$request->input_item}%");
+                }
             })
             ->orWhereHas('category', function ($query) use ($request) {
                 $query->where('name', 'like', '%' . $request->input_item . '%');
@@ -173,7 +177,7 @@ class PosController extends Controller
         $user = User::findOrFail(auth()->user()->id);
 
         $items = $this->table('items');
-        $config_tap = BusinessTurn::configurationTaps()->first();
+        $config_tap = BusinessTurn::configurationTaps()->first() ?? (object)['save_plates_client' => false];
 
         $categories = Category::all();
         $payment_method_types = PaymentMethodType::getPaymentMethodTypes();
@@ -518,7 +522,7 @@ class PosController extends Controller
 
         $company = Company::select('soap_type_id')->first();
         $soap_company = $company->soap_type_id;
-        $business_turns = BusinessTurn::select('active')->where('id', 4)->first();
+        $business_turns = BusinessTurn::select('active')->where('id', 4)->first() ?? (object)['active' => false];
 
         return view('tenant.pos.fast', compact('configuration', 'soap_company', 'business_turns'));
     }
@@ -533,7 +537,7 @@ class PosController extends Controller
 
         $company = Company::select('soap_type_id')->first();
         $soap_company = $company->soap_type_id;
-        $business_turns = BusinessTurn::select('active')->where('id', 4)->first();
+        $business_turns = BusinessTurn::select('active')->where('id', 4)->first() ?? (object)['active' => false];
 
         return view('tenant.pos.garage', compact('configuration', 'soap_company', 'business_turns'));
     }

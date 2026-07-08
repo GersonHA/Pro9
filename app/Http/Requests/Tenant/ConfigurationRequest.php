@@ -18,6 +18,10 @@ class ConfigurationRequest extends FormRequest
             'send_auto' => ['required', 'boolean'],
             'cron' => ['required', 'boolean'],
             'decimal_quantity' => ['required', 'integer'],
+            'enable_extended_search' => 'nullable|boolean',
+            'search_by_second_name' => 'nullable|boolean',
+            'search_by_model' => 'nullable|boolean',
+            'search_by_extra_name' => 'nullable|boolean',
 
 
             // 'subtotal_account' => ['required'],

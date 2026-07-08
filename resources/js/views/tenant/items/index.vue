@@ -95,6 +95,12 @@
                                 @click.prevent="clickExportBartender()"
                                 >TXT para impresoras tiqueteras</a
                             >
+                            <a
+                                class="dropdown-item text-1"
+                                href="#"
+                                @click.prevent="exportPresentations()"
+                                >Presentaciones</a
+                            >
                         </div>
                     </div>
                     <div class="btn-group flex-wrap dropdown">
@@ -147,6 +153,12 @@
                                 href="#"
                                 @click.prevent="clickImportUpdatePrice()"
                                 >Actualizar precios</a
+                            >
+                            <a
+                                class="dropdown-item text-1"
+                                href="#"
+                                @click.prevent="clickImportPresentations()"
+                                >Presentaciones</a
                             >
                         </div>
                     </div>
@@ -426,6 +438,10 @@
                 :showDialog.sync="showImporUpdatePrice"
             ></items-import-update-price>
 
+            <items-import-presentations
+                :showDialog.sync="showImportPresentationsDialog"
+            ></items-import-presentations>
+
             <items-import-tags
                 :showDialog.sync="showDialogTagsExports"
             ></items-import-tags>
@@ -478,6 +494,7 @@ import { mapActions, mapState } from "vuex";
 import ItemsImportUpdatePrice from "./partials/update_prices.vue";
 import ItemsImportTags from "./partials/export_tag.vue";
 import ItemsExportBartender from "./partials/export_bartender.vue";
+import ItemsImportPresentations from "./partials/import_presentations.vue";
 
 export default {
     props: ["configuration", "typeUser", "type"],
@@ -496,7 +513,8 @@ export default {
         ItemsHistory,
         ItemsImportTags,
         ItemsImportUpdatePrice,
-        ItemsExportBartender
+        ItemsExportBartender,
+        ItemsImportPresentations
     },
     data() {
         return {
@@ -515,6 +533,7 @@ export default {
             showImportListPriceDialog: false,
             showImportExtraWithExtraInfo: false,
             showImporUpdatePrice: false,
+            showImportPresentationsDialog: false,
             showWarehousesDetail: false,
             resource: "items",
             recordId: null,
@@ -953,6 +972,12 @@ export default {
         },
         clickImportUpdatePrice() {
             this.showImporUpdatePrice = true;
+        },
+        clickImportPresentations() {
+            this.showImportPresentationsDialog = true;
+        },
+        exportPresentations() {
+            window.open("/items/export/presentations");
         },
         clickDelete(id) {
             this.destroy(`/${this.resource}/${id}`).then(() =>

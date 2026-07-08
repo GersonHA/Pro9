@@ -379,6 +379,10 @@ use Illuminate\Support\Facades\Log;
             'bot_exit_command',
             'bot_pause_command',
             'bot_session_ttl_minutes',
+            'enable_extended_search',
+            'search_by_second_name',
+            'search_by_model',
+            'search_by_extra_name',
         ];
 
         protected $casts = [
@@ -535,6 +539,10 @@ use Illuminate\Support\Facades\Log;
             'enable_weight_in_dispatches' => 'bool',
             'enabled_guarantee_fund' => 'bool',
             'auto_send_pdf_email' => 'bool',
+            'enable_extended_search' => 'boolean',
+            'search_by_second_name' => 'boolean',
+            'search_by_model' => 'boolean',
+            'search_by_extra_name' => 'boolean',
         ];
 
         // printer_name_documents es string nullable — no requiere cast adicional
@@ -909,6 +917,10 @@ use Illuminate\Support\Facades\Log;
                 'smtp_password' => $this->smtp_password,
                 'smtp_encryption' => $this->smtp_encryption,
                 'enabled_guarantee_fund' => $this->enabled_guarantee_fund,
+                'enable_extended_search' => (bool)$this->enable_extended_search,
+                'search_by_second_name' => (bool)$this->search_by_second_name,
+                'search_by_model' => (bool)$this->search_by_model,
+                'search_by_extra_name' => (bool)$this->search_by_extra_name,
             ];
         }
 

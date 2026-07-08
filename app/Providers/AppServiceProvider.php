@@ -77,6 +77,14 @@ class AppServiceProvider extends ServiceProvider
             $host = str_replace('ssl://', '', $host);
         }
 
+        // Si el tenant no tiene SMTP configurado en la BD, NO forzamos el driver
+        // smtp con host vacío: Symfony Mailer exige un host string y reventaría
+        // el arranque (este método corre en boot(), en cada request). Dejamos el
+        // default del .env (log en local) como fallback seguro.
+        if (empty($host)) {
+            return;
+        }
+
         Config::set('mail.driver', 'smtp');
         Config::set('mail.host', $host);
         Config::set('mail.port', (int) $config->mail_port);

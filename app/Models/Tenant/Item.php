@@ -1301,6 +1301,24 @@ class Item extends ModelTenant
     }
 
     /**
+     * Columnas extra sobre las que buscar productos cuando la Búsqueda Avanzada
+     * está activa. Fuente única para todos los buscadores del sistema. Devuelve []
+     * si el maestro está apagado → sin cambio de comportamiento.
+     */
+    public static function extendedSearchColumns(): array
+    {
+        $config = \App\Models\Tenant\Configuration::first();
+        if (!$config || !$config->enable_extended_search) {
+            return [];
+        }
+        $columns = [];
+        if ($config->search_by_model)       $columns[] = 'model';
+        if ($config->search_by_second_name) $columns[] = 'second_name';
+        if ($config->search_by_extra_name)  $columns[] = 'name';
+        return $columns;
+    }
+
+    /**
      * Obtener item_unit_types con prices dinámicos
      * Maneja tanto arrays (ya transformados) como relaciones Eloquent
      *

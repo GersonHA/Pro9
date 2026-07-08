@@ -15,6 +15,8 @@ use App\Http\Resources\Tenant\ItemResource;
 use App\Imports\CatalogImport;
 use App\Imports\ItemsImport;
 use App\Imports\ItemsImportRestaurant;
+use App\Imports\ItemPresentationsImport;
+use App\Exports\ItemPresentationsExport;
 use App\Models\Tenant\Catalogs\AffectationIgvType;
 use App\Models\Tenant\Catalogs\AttributeType;
 use App\Models\Tenant\Catalogs\CatColorsItem;
@@ -1027,6 +1029,47 @@ class ItemController extends Controller
         ];
     }
 
+    /**
+     * Importa masivamente presentaciones (item_unit_types) desde Excel.
+     * Los precios se persisten en item_unit_type_prices (ver ItemPresentationsImport).
+     *
+     * @param Request $request
+     * @return array
+     */
+    public function importPresentations(Request $request)
+    {
+        if ($request->hasFile('file')) {
+            try {
+                (new ItemPresentationsImport())->import($request->file('file'), null, Excel::XLSX);
+                return [
+                    'success' => true,
+                    'message' => 'Presentaciones importadas correctamente',
+                ];
+            } catch (Exception $e) {
+                Log::error('Error al importar presentaciones: '.$e->getMessage());
+                return [
+                    'success' => false,
+                    'message' => 'Error al importar: '.$e->getMessage(),
+                ];
+            }
+        }
+        return [
+            'success' => false,
+            'message' => 'No se ha subido ningún archivo',
+        ];
+    }
+
+    /**
+     * Exporta las presentaciones (item_unit_types) a Excel para migración masiva.
+     *
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function exportPresentations(Request $request)
+    {
+        return (new ItemPresentationsExport())->download('Migracion_Presentaciones_'.date('YmdHis').'.xlsx');
+    }
+
     public function importRestaurant(Request $request)
     {
         $request->validate([
@@ -1673,7 +1716,8 @@ class ItemController extends Controller
     public function itemLast()
     {
         $record = Item::latest()->first();
-        return json_encode(['data' => $record->id]);
+        // Guard: tenant nuevo sin productos → $record es null; evitamos el 500.
+        return json_encode(['data' => $record ? $record->id : null]);
     }
 
     public function tablesImport()

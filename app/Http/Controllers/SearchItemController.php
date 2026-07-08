@@ -263,6 +263,12 @@
 
                 if($search_factory_code_items) $whereItem[] = ['factory_code', 'like', '%' . $input . '%'];
 
+                // Búsqueda Avanzada (system-wide): columnas extra según config. Se suman al
+                // mismo grupo OR de $whereItem para no alterar la precedencia existente.
+                foreach (\App\Models\Tenant\Item::extendedSearchColumns() as $col) {
+                    $whereItem[] = [$col, 'like', '%' . str_replace(' ', '%', $input) . '%'];
+                }
+
                 foreach ($whereItem as $index => $wItem) {
                     if ($index < 1) {
                         $item->Where([$wItem]);

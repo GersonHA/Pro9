@@ -277,6 +277,7 @@ if ($hostname) {
             Route::delete('items/{item}', 'Tenant\ItemController@destroy');
             Route::delete('items/item-unit-type/{item}', 'Tenant\ItemController@destroyItemUnitType');
             Route::post('items/import', 'Tenant\ItemController@import');
+            Route::post('items/import_presentations', 'Tenant\ItemController@importPresentations');
             Route::post('items/import/restaurant', 'Tenant\ItemController@importRestaurant');
             Route::post('items/catalog', 'Tenant\ItemController@catalog');
             Route::get('items/import/tables', 'Tenant\ItemController@tablesImport');
@@ -292,6 +293,7 @@ if ($hostname) {
             Route::get('items/export', 'Tenant\ItemController@export')->name('tenant.items.export');
             Route::get('items/export/wp', 'Tenant\ItemController@exportWp')->name('tenant.items.export.wp');
             Route::get('items/export/digemid', 'Tenant\ItemController@exportDigemid');
+            Route::get('items/export/presentations', 'Tenant\ItemController@exportPresentations');
             Route::get('items/search-items', 'Tenant\ItemController@searchItems');
             Route::get('items/search/item/{item}', 'Tenant\ItemController@searchItemById');
             Route::get('items/item/tables', 'Tenant\ItemController@item_tables');

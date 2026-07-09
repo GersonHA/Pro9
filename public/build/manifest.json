@@ -22,19 +22,11 @@
     "file": "assets/_plugin-vue2_normalizer-ceb821ee.css",
     "src": "_plugin-vue2_normalizer.css"
   },
-<<<<<<< HEAD
   "_vue-clipboard-12cd6a12.js": {
     "css": [
       "assets/vue-clipboard-c6ef2298.css"
     ],
     "file": "assets/vue-clipboard-12cd6a12.js",
-=======
-  "_vue-clipboard-7acdf9c6.js": {
-    "css": [
-      "assets/vue-clipboard-2de710db.css"
-    ],
-    "file": "assets/vue-clipboard-7acdf9c6.js",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
     "imports": [
       "__plugin-vue2_normalizer-fcd81e8a.js"
     ]
@@ -66,28 +58,16 @@
     "src": "node_modules/element-ui/lib/theme-chalk/fonts/element-icons.woff"
   },
   "resources/js/app.css": {
-<<<<<<< HEAD
-    "file": "assets/app-9c6409cd.css",
-=======
-    "file": "assets/app-1918e9b5.css",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
+    "file": "assets/app-8629fa9c.css",
     "src": "resources/js/app.css"
   },
   "resources/js/app.js": {
     "css": [
-<<<<<<< HEAD
-      "assets/app-9c6409cd.css"
+      "assets/app-8629fa9c.css"
     ],
-    "file": "assets/app-97bd9c87.js",
+    "file": "assets/app-e3b2b824.js",
     "imports": [
       "_vue-clipboard-12cd6a12.js",
-=======
-      "assets/app-1918e9b5.css"
-    ],
-    "file": "assets/app-ba09005c.js",
-    "imports": [
-      "_vue-clipboard-7acdf9c6.js",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
       "__plugin-vue2_normalizer-fcd81e8a.js",
       "_claim_form-f1cc00aa.js"
     ],
@@ -95,39 +75,23 @@
     "src": "resources/js/app.js"
   },
   "resources/js/system.css": {
-<<<<<<< HEAD
-    "file": "assets/system-74b6209b.css",
-=======
     "file": "assets/system-991d3536.css",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
     "src": "resources/js/system.css"
   },
   "resources/js/system.js": {
     "css": [
-<<<<<<< HEAD
-      "assets/system-74b6209b.css"
-    ],
-    "file": "assets/system-b6180f3f.js",
-    "imports": [
-      "_vue-clipboard-12cd6a12.js",
-=======
       "assets/system-991d3536.css"
     ],
-    "file": "assets/system-a428af79.js",
+    "file": "assets/system-72d3b273.js",
     "imports": [
-      "_vue-clipboard-7acdf9c6.js",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
+      "_vue-clipboard-12cd6a12.js",
       "__plugin-vue2_normalizer-fcd81e8a.js"
     ],
     "isEntry": true,
     "src": "resources/js/system.js"
   },
   "vue-clipboard.css": {
-<<<<<<< HEAD
     "file": "assets/vue-clipboard-c6ef2298.css",
-=======
-    "file": "assets/vue-clipboard-2de710db.css",
->>>>>>> 79cf75799df2551709bdc87e3bd42406f7f0f88f
     "src": "vue-clipboard.css"
   }
 }

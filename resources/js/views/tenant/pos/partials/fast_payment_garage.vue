@@ -125,12 +125,12 @@
             <!-- Botón Pagar -->
             <div class="px-1 pt-1 pb-1">
                 <el-button
-                    :disabled="button_payment"
+                    :disabled="form.document_type_id === 'COT' ? false : button_payment"
                     :loading="loading_submit"
                     class="fp-pay-btn w-100"
                     @click="clickPayment"
                 >
-                    Pagar
+                    {{ form.document_type_id === 'COT' ? 'Generar Cotización' : 'Pagar' }}
                 </el-button>
             </div>
 
@@ -991,6 +991,13 @@ export default {
         filterSeries() {
             this.userSelectedDocType = true;
 
+            // La cotización no usa serie de comprobante: se limpia y se evita el warning.
+            if (this.form.document_type_id === 'COT') {
+                this.series = []
+                this.form.series_id = null
+                return
+            }
+
             this.form.series_id = null
             this.series = _.filter(this.all_series, {'document_type_id': this.form.document_type_id});
             this.form.series_id = (this.series.length > 0) ? this.series[0].id : null
@@ -1107,6 +1114,53 @@ export default {
         },
         async clickPayment() {
             // if(this.has_card && !this.form_payment.card_brand_id) return this.$message.error('Seleccione una tarjeta');
+
+            // --- COTIZACIÓN: genera la cotización y corta antes de toda la lógica de cobro/pago ---
+            if (this.form.document_type_id === 'COT') {
+                if (this.rowsItems < 1) {
+                    return this.$message.warning('Debe agregar productos antes de generar la cotización');
+                }
+
+                if (!this.form.customer_id) {
+                    this.$emit('customer-required');
+                    return this.$message.warning('Debe seleccionar un cliente');
+                }
+
+                this.loading_submit = true
+                this.locked_submit = true
+
+                const payload = {
+                    ...this.form,
+                    date_of_issue: moment().format('YYYY-MM-DD'),
+                    time_of_issue: moment().format('HH:mm:ss'),
+                    prefix: 'COT',
+                    series_id: null,
+                    payments: []
+                }
+
+                await this.$http.post(`/quotations`, payload).then(response => {
+                    if (response.data.success) {
+                        this.documentNewId = response.data.data.id
+                        this.resource_options = 'quotations'
+                        this.statusDocument = {}
+                        this.showDialogOptions = true
+                        this.cleanLocalStoragePayment()
+                        this.$eventHub.$emit('saleSuccess')
+                        this.initDataComponent()
+                    } else {
+                        this.$message.error(response.data.message)
+                    }
+                }).catch(error => {
+                    const msg = error.response?.data?.message || 'No se pudo generar la cotización'
+                    this.$message.error(msg)
+                }).then(() => {
+                    this.loading_submit = false
+                    this.locked_submit = false
+                })
+
+                return
+            }
+            // --- fin cotización ---
 
             if (this.rowsItems < 1) {
                 return this.$message.warning('Debe agregar productos antes de pagar');

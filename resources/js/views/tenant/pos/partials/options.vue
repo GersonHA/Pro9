@@ -383,6 +383,12 @@ export default {
                         "_blank"
                     );
                 }
+            } else if (this.resource == "quotations") {
+                // Cotización generada desde el POS: descarga vía la ruta nativa de Pro9.
+                window.open(
+                    `/quotations/download/${external_id}/${format}`,
+                    "_blank"
+                );
             }
         },
         keyupCustomerEmail(e) {

@@ -22,6 +22,7 @@ class ConfigurationRequest extends FormRequest
             'search_by_second_name' => 'nullable|boolean',
             'search_by_model' => 'nullable|boolean',
             'search_by_extra_name' => 'nullable|boolean',
+            'show_quotation_pos' => 'nullable|boolean',
 
 
             // 'subtotal_account' => ['required'],

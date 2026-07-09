@@ -11,6 +11,7 @@
                         <el-radio-button label="01">FACTURA</el-radio-button>
                         <el-radio-button label="03">BOLETA</el-radio-button>
                         <el-radio-button label="80">N. VENTA</el-radio-button>
+                        <el-radio-button v-if="configuration.show_quotation_pos" label="COT">COTIZACIÓN</el-radio-button>
                     </el-radio-group>
                 </div>
                 <div class="col-2 px-0">
@@ -170,9 +171,9 @@
                     </div>
                     <div class="row m-0 p-0 h-25 d-flex align-items-center bg-white">
                         <div class="col-lg-6">
-                            <button :disabled="button_payment"
+                            <button :disabled="form.document_type_id === 'COT' ? false : button_payment"
                                     class="btn btn-block btn-primary"
-                                    @click="clickPayment">PAGAR
+                                    @click="clickPayment">{{ form.document_type_id === 'COT' ? 'GENERAR COTIZACIÓN' : 'PAGAR' }}
                             </button>
                         </div>
                         <div class="col-lg-6">
@@ -689,6 +690,13 @@ export default {
         },
 
         filterSeries() {
+            // La cotización no usa serie de comprobante: se limpia y se evita el warning.
+            if (this.form.document_type_id === 'COT') {
+                this.series = []
+                this.form.series_id = null
+                return
+            }
+
             this.form.series_id = null
             this.series = _.filter(this.all_series, {'document_type_id': this.form.document_type_id});
             this.form.series_id = (this.series.length > 0) ? this.series[0].id : null
@@ -758,6 +766,47 @@ export default {
         },
         async clickPayment() {
             // if(this.has_card && !this.form_payment.card_brand_id) return this.$message.error('Seleccione una tarjeta');
+
+            // --- COTIZACIÓN: genera la cotización y corta antes de toda la lógica de cobro/pago ---
+            if (this.form.document_type_id === 'COT') {
+                if (this.rowsItems < 1) {
+                    return this.$message.warning('Debe agregar productos');
+                }
+
+                this.loading_submit = true
+                this.locked_submit = true
+
+                const payload = {
+                    ...this.form,
+                    date_of_issue: moment().format('YYYY-MM-DD'),
+                    time_of_issue: moment().format('HH:mm:ss'),
+                    prefix: 'COT',
+                    series_id: null,
+                    payments: []
+                }
+
+                await this.$http.post(`/quotations`, payload).then(response => {
+                    if (response.data.success) {
+                        this.documentNewId = response.data.data.id
+                        this.resource_options = 'quotations'
+                        this.statusDocument = {}
+                        this.showDialogOptions = true
+                        this.cleanLocalStoragePayment()
+                        this.$eventHub.$emit('saleSuccess')
+                    } else {
+                        this.$message.error(response.data.message)
+                    }
+                }).catch(error => {
+                    const msg = error.response?.data?.message || 'No se pudo generar la cotización'
+                    this.$message.error(msg)
+                }).then(() => {
+                    this.loading_submit = false
+                    this.locked_submit = false
+                })
+
+                return
+            }
+            // --- fin cotización ---
 
             if(this.businessTurns.active) {
                 if(this.form.document_type_id == '01' && !this.form.plate_number) {

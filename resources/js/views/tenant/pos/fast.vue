@@ -1031,6 +1031,11 @@ export default {
             form_pos = JSON.parse(form_pos);
             if (form_pos) {
                 this.form = form_pos;
+                // La cotización es una acción puntual: no debe quedar pegada como tipo por
+                // defecto al reentrar al POS. Se restaura al comprobante por defecto.
+                if (this.form.document_type_id === 'COT') {
+                    this.form.document_type_id = (this.configuration && this.configuration.default_document_type_80) ? '80' : '03';
+                }
                 this.initDateTimeIssue();
                 // this.calculateTotal()
             }

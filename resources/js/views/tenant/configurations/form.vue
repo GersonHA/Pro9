@@ -360,6 +360,28 @@
                                             </div>
                                         </div>
 
+                                        <div class="col-12 pt-2">
+                                            <label class="control-label d-block w-100">
+                                                Búsqueda avanzada de productos
+                                                <el-tooltip class="item"
+                                                    content="Busca productos también por estos campos en todo el sistema. Por defecto se busca por Nombre, Código Interno y Código de barra."
+                                                    effect="dark" placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <el-select v-model="extendedSearchFields"
+                                                       class="extended-search-select w-100"
+                                                       multiple
+                                                       collapse-tags
+                                                       placeholder="Solo Nombre y códigos"
+                                                       style="display: block; width: 100%;"
+                                                       @change="submitExtendedSearch">
+                                                <el-option label="Descripción" value="name"></el-option>
+                                                <el-option label="Nombre secundario" value="second_name"></el-option>
+                                                <el-option label="Modelo" value="model"></el-option>
+                                            </el-select>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -2115,6 +2137,21 @@
                                         </div>
 
                                         <div class="col-12">
+                                            <label class="control-label">Mostrar cotización en el POS
+                                                <el-tooltip class="item" content="Muestra la opción Cotización junto a N. Venta en POS y Venta rápida" effect="dark"
+                                                    placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div :class="{ 'has-danger': errors.show_quotation_pos }" class="form-group">
+                                                <el-switch v-model="form.show_quotation_pos"
+                                                            @change="submit"></el-switch>
+                                                <small v-if="errors.show_quotation_pos" class="form-control-feedback"
+                                                    v-text="errors.show_quotation_pos[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
                                             <label class="control-label">
                                                 Modificar tipo de afectación
                                                 <el-tooltip class="item" effect="dark" placement="top-start">
@@ -3302,6 +3339,13 @@
 </template>
 
 <style>
+/* Combobox de búsqueda avanzada: es solo selección, no se escribe → sin cursor de texto. */
+.extended-search-select .el-select__input,
+.extended-search-select .el-input__inner {
+    caret-color: transparent;
+    cursor: pointer;
+}
+
 .el-tabs__header,
 .el-tabs__nav-wrap {
     border-top-right-radius: 5px;
@@ -3367,6 +3411,8 @@ export default {
             loading_test: false,
             resource: 'configurations',
             errors: {},
+            // Campos extra de búsqueda de producto (system-wide). Mapea a enable_extended_search + search_by_*.
+            extendedSearchFields: [],
             form: {
                 finances: {},
                 visual: {},
@@ -3400,7 +3446,7 @@ export default {
             if (response.data !== '') {
                 this.form = response.data.data;
                 this.$store.commit('setConfiguration', this.form)
-
+                this.loadExtendedSearchFields();
             }
             this.ensureDefaultCurrencyType()
             // console.log(this.placeholder)
@@ -3423,6 +3469,24 @@ export default {
         ...mapActions([
             'loadConfiguration',
         ]),
+        loadExtendedSearchFields() {
+            // Reconstruye el combobox desde las columnas de config al cargar.
+            this.extendedSearchFields = [];
+            if (this.form && this.form.enable_extended_search) {
+                if (this.form.search_by_model) this.extendedSearchFields.push('model');
+                if (this.form.search_by_second_name) this.extendedSearchFields.push('second_name');
+                if (this.form.search_by_extra_name) this.extendedSearchFields.push('name');
+            }
+        },
+        submitExtendedSearch() {
+            // Mapea la selección del combobox a las columnas y persiste (reusa submit()).
+            // Con al menos un campo → maestro ON; sin campos → OFF.
+            this.form.search_by_model = this.extendedSearchFields.includes('model');
+            this.form.search_by_second_name = this.extendedSearchFields.includes('second_name');
+            this.form.search_by_extra_name = this.extendedSearchFields.includes('name');
+            this.form.enable_extended_search = this.extendedSearchFields.length > 0;
+            this.submit();
+        },
         events() {
 
             this.$eventHub.$on('submitFormConfigurations', (form) => {
@@ -3495,6 +3559,7 @@ export default {
                 legend_footer: false,
                 default_document_type_03: false,
                 default_document_type_80: false,
+                show_quotation_pos: true,
                 search_item_by_barcode: false,
                 destination_sale: false,
                 quotation_allow_seller_generate_sale: false,

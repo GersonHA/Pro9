@@ -12,12 +12,20 @@ class AddExtendedSearchToConfigurations extends Migration
      * @return void
      */
     public function up() {
-        Schema::table('configurations', function(Blueprint $table) {
-            // Búsqueda Avanzada: maestro apagado por defecto → sin cambio de comportamiento.
-            $table->boolean('enable_extended_search')->default(false);
-            $table->boolean('search_by_second_name')->default(false);
-            $table->boolean('search_by_model')->default(false);
-            $table->boolean('search_by_extra_name')->default(false);
+        // Idempotente: si la columna ya existe (tenant donde corrió de facto), se salta.
+        // Así es segura tanto en local como en el cutover a prod (donde no existirán).
+        $columns = [
+            'enable_extended_search', // maestro apagado por defecto → sin cambio de comportamiento
+            'search_by_second_name',
+            'search_by_model',
+            'search_by_extra_name',
+        ];
+        Schema::table('configurations', function(Blueprint $table) use ($columns) {
+            foreach ($columns as $column) {
+                if (!Schema::hasColumn('configurations', $column)) {
+                    $table->boolean($column)->default(false);
+                }
+            }
         });
     }
 
@@ -27,13 +35,18 @@ class AddExtendedSearchToConfigurations extends Migration
      * @return void
      */
     public function down() {
-        Schema::table('configurations', function(Blueprint $table) {
-            $table->dropColumn([
-                'enable_extended_search',
-                'search_by_second_name',
-                'search_by_model',
-                'search_by_extra_name',
-            ]);
+        $columns = [
+            'enable_extended_search',
+            'search_by_second_name',
+            'search_by_model',
+            'search_by_extra_name',
+        ];
+        Schema::table('configurations', function(Blueprint $table) use ($columns) {
+            foreach ($columns as $column) {
+                if (Schema::hasColumn('configurations', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
         });
     }
 }

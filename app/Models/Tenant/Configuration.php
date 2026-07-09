@@ -383,6 +383,7 @@ use Illuminate\Support\Facades\Log;
             'search_by_second_name',
             'search_by_model',
             'search_by_extra_name',
+            'show_quotation_pos',
         ];
 
         protected $casts = [
@@ -543,6 +544,7 @@ use Illuminate\Support\Facades\Log;
             'search_by_second_name' => 'boolean',
             'search_by_model' => 'boolean',
             'search_by_extra_name' => 'boolean',
+            'show_quotation_pos' => 'boolean',
         ];
 
         // printer_name_documents es string nullable — no requiere cast adicional
@@ -921,6 +923,7 @@ use Illuminate\Support\Facades\Log;
                 'search_by_second_name' => (bool)$this->search_by_second_name,
                 'search_by_model' => (bool)$this->search_by_model,
                 'search_by_extra_name' => (bool)$this->search_by_extra_name,
+                'show_quotation_pos' => (bool)$this->show_quotation_pos,
             ];
         }
 

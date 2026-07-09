@@ -1103,10 +1103,16 @@ export default {
         },
         docTypeTabsAvailable() {
             // NRUS no emite Factura (01)
-            if (this.isNrus) {
-                return this.doc_type_tabs.filter(tab => tab.id !== '01');
+            let tabs = this.isNrus
+                ? this.doc_type_tabs.filter(tab => tab.id !== '01')
+                : this.doc_type_tabs;
+
+            // Cotización solo si el flag de config está activo (a la derecha de N. Venta)
+            if (this.configuration && this.configuration.show_quotation_pos) {
+                tabs = [...tabs, { id: 'COT', label: 'Cotización' }];
             }
-            return this.doc_type_tabs;
+
+            return tabs;
         },
         validteCreateProduct() {
             if (this.config) {
@@ -1398,6 +1404,11 @@ export default {
             form_pos = JSON.parse(form_pos);
             if (form_pos) {
                 this.form = form_pos;
+                // La cotización es una acción puntual: no debe quedar pegada como tipo por
+                // defecto al reentrar a venta rápida. Se restaura al comprobante por defecto.
+                if (this.form.document_type_id === 'COT') {
+                    this.form.document_type_id = (this.configuration && this.configuration.default_document_type_80) ? '80' : '03';
+                }
                 this.initDateTimeIssue();
                 // this.calculateTotal()
             }

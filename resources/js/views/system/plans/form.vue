@@ -18,7 +18,7 @@
                         <div class="form-group" :class="{'has-danger': errors.test_days}">
                             <label class="control-label">Dias de prueba</label>
                             <el-input v-model="form.test_days" :disabled="!test_days_enabled"></el-input>
-                            <el-checkbox v-model="form.test_days_enabled" @change="setTestDays">Activar días de prueba</el-checkbox><br>
+                            <el-checkbox v-model="form.test_days_enabled" @change="setTestDays">Días de prueba</el-checkbox><br>
                             <small class="form-control-feedback d-block" v-if="errors.test_days" v-text="errors.test_days[0]"></small>
                         </div>
                     </div>
@@ -27,16 +27,6 @@
                             <label class="control-label">Precio</label>
                             <el-input v-model="form.pricing"></el-input>
                             <small class="form-control-feedback" v-if="errors.pricing" v-text="errors.pricing[0]"></small>
-                            <el-checkbox
-                                v-model="form.is_popular"
-                                :disabled="popularLockedByOtherPlan"
-                                class="mt-2"
-                            >
-                                Destacar como "Popular" en la vista del cliente
-                            </el-checkbox>
-                            <small v-if="popularLockedByOtherPlan" class="form-text text-muted d-block">
-                                El plan <strong>{{ popular_plan.name }}</strong> ya está marcado como Popular. Desmárcalo primero para destacar este.
-                            </small>
                         </div>
                     </div>
                 </div>
@@ -129,15 +119,24 @@
                 <el-collapse v-model="collapse" class="mt-3">
                     <el-collapse-item name="1" title="Módulos predeterminados sugeridos (Opcional)">
                         <div class="row">
-                            <span class="ms-4">Giro de negocio <small>(opcional)</small></span>
+                            <span>Giro de negocio <small>(opcional)</small></span>
                             <div class="col-12">
                                 <el-radio-group v-model="business" @change="changeModules">
                                     <el-radio v-if="business === 0" :label="0">Personalizado</el-radio>
+                                    <el-radio :label="5">Completo</el-radio>
                                     <el-radio :label="1">Básico</el-radio>
                                     <el-radio :label="2">Farmacia</el-radio>
                                     <el-radio :label="3">Hotel</el-radio>
                                     <el-radio :label="4">Restaurante</el-radio>
-                                    <el-radio :label="6">NRUS</el-radio>
+                                    <el-radio :label="6">
+                                        NRUS
+                                        <el-tooltip class="item"
+                                                    content="Solo se permite 1 sucursal y un límite de ventas de 8000 por mes."
+                                                    effect="dark"
+                                                    placement="top">
+                                            <i class="fa fa-info-circle"></i>
+                                        </el-tooltip>
+                                    </el-radio>
                                 </el-radio-group>
                             </div>
                             <div class="col-md-6">
@@ -255,7 +254,6 @@
                 group_hotel_apps: [],
                 group_pharmacy_apps: [],
                 group_restaurant_apps: [],
-                popular_plan: null,
                 defaultProps: {
                     children: 'childrens',
                     label: 'description'
@@ -267,9 +265,6 @@
             }
         },
         computed: {
-            popularLockedByOtherPlan() {
-                return !!(this.popular_plan && this.popular_plan.id !== this.form.id);
-            },
             visibleModules() {
                 if (this.business === 6) {
                     return this.modules.filter(m => this.nrusSpec.modules[m.id] !== undefined);
@@ -296,7 +291,6 @@
                 this.group_hotel_apps = response.data.group_hotel_apps
                 this.group_pharmacy_apps = response.data.group_pharmacy_apps
                 this.group_restaurant_apps = response.data.group_restaurant_apps
-                this.popular_plan = response.data.popular_plan
             })
         },
         methods: {
@@ -346,9 +340,6 @@
             create() {
 
                 this.titleDialog = (this.recordId)? 'Editar plan':'Nuevo plan'
-                this.$http.get(`/${this.resource}/popular`).then(response => {
-                    this.popular_plan = response.data.popular_plan
-                })
                 if (this.recordId) {
                     this.$http.get(`/${this.resource}/record/${this.recordId}`).then(response => {
                             this.setData(response.data.data)
@@ -361,7 +352,32 @@
                 const salesLimit = Number(this.form.sales_limit);
                 if (!isNaN(salesLimit) && salesLimit > 8000) {
                     this.form.sales_limit = 8000;
-                    this.$message.warning('El máximo permitido para NRUS es de 8000.');
+                    this.$message.warning('NRUS permite ventas mensuales hasta S/ 8000.');
+                }
+            },
+            applyNrusLimits(showMessages = false) {
+                const messages = [];
+                const salesLimit = Number(this.form.sales_limit);
+                const establishmentsLimit = Number(this.form.establishments_limit);
+                const wasEstablishmentsUnlimited = this.form.establishments_unlimited;
+
+                if (!isNaN(salesLimit) && salesLimit > 8000) {
+                    this.form.sales_limit = 8000;
+                    messages.push('las ventas mensuales se ajustaron a S/ 8000');
+                }
+
+                if (wasEstablishmentsUnlimited || isNaN(establishmentsLimit) || establishmentsLimit !== 1) {
+                    this.form.establishments_unlimited = false;
+                    this.form.establishments_limit = 1;
+                    if (wasEstablishmentsUnlimited || isNaN(establishmentsLimit) || establishmentsLimit > 1) {
+                        messages.push('las sucursales se ajustaron a 1');
+                    }
+                }
+
+                this.form.sales_unlimited = false;
+
+                if (showMessages && messages.length) {
+                    this.$message.warning(`Para NRUS, ${messages.join(' y ')}.`);
                 }
             },
             validateInputs()
@@ -374,7 +390,7 @@
                 if(!this.form.sales_unlimited)
                 {
                     if(isNaN(this.form.sales_limit)) return this.getResponseValidations(false, 'Límite de ventas no es un número válido.')
-                    this.normalizeNrusSalesLimit()
+                    if(this.business === 6) this.applyNrusLimits()
                     if(this.business === 6 && Number(this.form.sales_limit) > 8000) return this.getResponseValidations(false, 'El límite de ventas mensual para NRUS no puede ser mayor a 8000.')
                 }
 
@@ -625,9 +641,7 @@
 
                 this.applyingBusinessModules = true;
                 if (this.business === 6) {
-                    this.form.establishments_unlimited = false;
-                    this.form.establishments_limit = 1;
-                    this.form.sales_unlimited = false;
+                    this.applyNrusLimits(true);
                     this.$nextTick(() => {
                         const treeKeys = this.buildNrusKeys(this.modules, this.nrusSpec.modules);
                         const appKeys = this.buildNrusKeys(this.apps, this.nrusSpec.apps);
@@ -655,6 +669,10 @@
                 if(this.business == 4){
                     group.modules = this.getIds(this.group_restaurant);
                     group.apps = this.getIds(this.group_restaurant_apps);
+                }
+                if(this.business == 5){
+                    group.modules = this.getIds(this.modules);
+                    group.apps = this.getIds(this.apps);
                 }
                 this.$refs.tree.setCheckedKeys(group.modules);
                 this.$refs.Apptree.setCheckedKeys(group.apps);

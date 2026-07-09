@@ -2081,6 +2081,9 @@
                                                 <span class="dot"></span>
                                                 <span class="text-primary text-uppercase">Comprobantes por Defecto</span>
                                             </h5>
+                                            <span class="text-muted text-uppercase px-2 options-count">
+                                                3 opciones
+                                            </span>
                                         </div>
                                         <div>
                                             <span class="text-muted">

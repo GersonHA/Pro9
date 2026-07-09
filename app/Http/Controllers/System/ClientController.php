@@ -383,6 +383,24 @@ use Illuminate\Support\Facades\Mail;
                 ->first();
 
             $client->config_system_env = $config->config_system_env;
+            $tenant_plan = json_decode($config->plan);
+            $business = (int) data_get($tenant_plan, 'module_permissions.business', data_get($client->plan->module_permissions, 'business'));
+
+            if ($business !== 6) {
+                $nrus_modules = collect([7, 2, 1, 17, 18, 8, 12, 52, 4])->sort()->values();
+                $nrus_apps = collect([11, 14, 5, 53])->sort()->values();
+                $selected_modules = collect($client->modules)->map(fn($id) => (int) $id)->sort()->values();
+                $selected_apps = collect($client->apps)->map(fn($id) => (int) $id)->sort()->values();
+
+                if ($selected_modules->diff($nrus_modules)->isEmpty()
+                    && $nrus_modules->diff($selected_modules)->isEmpty()
+                    && $selected_apps->diff($nrus_apps)->isEmpty()
+                    && $nrus_apps->diff($selected_apps)->isEmpty()) {
+                    $business = 6;
+                }
+            }
+
+            $client->business = $business;
 
             $client->smtp_host       = $config->smtp_host;
             $client->smtp_port       = $config->smtp_port;
@@ -572,11 +590,17 @@ use Illuminate\Support\Facades\Mail;
                 $client->save();
 
                 $plan = Plan::find($request->plan_id);
+                $selected_business = (int) $request->input('business', data_get($plan->module_permissions, 'business'));
+                $plan_for_config = $plan->toArray();
+                $module_permissions = $plan_for_config['module_permissions'] ?? [];
+                $module_permissions = is_array($module_permissions) ? $module_permissions : (array) $module_permissions;
+                $module_permissions['business'] = $selected_business;
+                $plan_for_config['module_permissions'] = $module_permissions;
 
                 $tenancy = app(Environment::class);
                 $tenancy->tenant($client->hostname->website);
                 $clientData = [
-                    'plan' => json_encode($plan),
+                    'plan' => json_encode($plan_for_config),
                     'config_system_env' => $request->config_system_env,
                     'limit_documents' => $plan->limit_documents,
                     'smtp_host' => $client->smtp_host,
@@ -842,8 +866,13 @@ use Illuminate\Support\Facades\Mail;
                 \Log::info('Company insertada');
 
             $plan = Plan::findOrFail($request->input('plan_id'));
-
-            $is_nrus = (int) data_get($plan->module_permissions, 'business') === 6;
+            $selected_business = (int) $request->input('business', data_get($plan->module_permissions, 'business'));
+            $is_nrus = $selected_business === 6;
+            $plan_for_config = $plan->toArray();
+            $module_permissions = $plan_for_config['module_permissions'] ?? [];
+            $module_permissions = is_array($module_permissions) ? $module_permissions : (array) $module_permissions;
+            $module_permissions['business'] = $selected_business;
+            $plan_for_config['module_permissions'] = $module_permissions;
 
             $http = config('tenant.force_https') == true ? 'https://' : 'http://';
 
@@ -897,7 +926,7 @@ use Illuminate\Support\Facades\Mail;
                 'locked_users' => false,
                 'limit_documents' => $plan->limit_documents,
                 'limit_users' => $plan->limit_users,
-                'plan' => json_encode($plan),
+                'plan' => json_encode($plan_for_config),
                 'date_time_start' => date('Y-m-d H:i:s'),
                 'quantity_documents' => 0,
                 'config_system_env' => $request->config_system_env,
@@ -984,7 +1013,7 @@ use Illuminate\Support\Facades\Mail;
                 'api_token' => $token,
                 'establishment_id' => $establishment_id,
                 'type' => $request->input('type'),
-                'locked' => true,
+                'locked' => false,
                 'permission_edit_cpe' => true,
                 'last_password_update' => date('Y-m-d H:i:s'),
                 'from_guest_register' => $from_guest_register
@@ -1024,7 +1053,7 @@ use Illuminate\Support\Facades\Mail;
                 \Log::info('Módulos básicos insertados');
             }
 
-            // Si el plan corresponde al giro de negocio NRUS, dejar activo únicamente
+            // Si la empresa se creó con el giro de negocio NRUS, dejar activo únicamente
             // el tipo de operación "Venta Interna - NRUS" (0113) y desactivar los demás.
             if ($is_nrus) {
                 \Log::info('Plan NRUS detectado, configurando tipos de operación...');

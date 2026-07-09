@@ -984,7 +984,7 @@ use Illuminate\Support\Facades\Mail;
                 'api_token' => $token,
                 'establishment_id' => $establishment_id,
                 'type' => $request->input('type'),
-                'locked' => true,
+                'locked' => false,
                 'permission_edit_cpe' => true,
                 'last_password_update' => date('Y-m-d H:i:s'),
                 'from_guest_register' => $from_guest_register

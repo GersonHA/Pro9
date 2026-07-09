@@ -1043,6 +1043,7 @@ if ($hostname) {
             Route::get('plans/records', 'System\PlanController@records');
             Route::get('plans/tables', 'System\PlanController@tables');
             Route::get('plans/popular', 'System\PlanController@popular');
+            Route::post('plans/popular/{plan}', 'System\PlanController@setPopular');
             Route::get('plans/record/{plan}', 'System\PlanController@record');
             Route::post('plans', 'System\PlanController@store');
             Route::delete('plans/{plan}', 'System\PlanController@destroy');

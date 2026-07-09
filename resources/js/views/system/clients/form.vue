@@ -329,7 +329,7 @@
                                     <el-radio :label="2">Farmacia</el-radio>
                                     <el-radio :label="3">Hotel</el-radio>
                                     <el-radio :label="4">Restaurante</el-radio>
-                                    <el-radio :label="6">NRUS</el-radio>
+                                    <el-radio v-if="showNrusBusinessOption" :label="6">NRUS</el-radio>
                                 </el-radio-group>
                             </div>
                             <div class="col-md-6">
@@ -859,6 +859,15 @@ export default {
         selectedPlan() {
             return this.plans.find(p => p.id === this.form.plan_id);
         },
+        selectedPlanBusiness() {
+            return Number(this.selectedPlan && this.selectedPlan.module_permissions && this.selectedPlan.module_permissions.business);
+        },
+        showNrusBusinessOption() {
+            if (!this.selectedPlan) return true;
+            if (this.selectedPlanBusiness === 6) return true;
+
+            return this.planMeetsNrusLimits(this.selectedPlan);
+        },
         selectedPlanWhatsappUnlimited() {
             return !!(this.selectedPlan && this.selectedPlan.whatsapp_messages_unlimited);
         },
@@ -1001,6 +1010,7 @@ export default {
             if (this.form.plan_id) {
                 let plan = this.plans.find(p => p.id === this.form.plan_id);
                 this.form.price = plan.pricing;
+                this.ensureVisibleBusinessOption();
 
                  if (plan.module_permissions) {
                     if (this.form.is_update) {
@@ -1019,8 +1029,24 @@ export default {
                 }
             }
         },
+        planMeetsNrusLimits(plan) {
+            const salesLimit = Number(plan.sales_limit);
+            const establishmentsLimit = Number(plan.establishments_limit);
+            const exceedsSalesLimit = plan.sales_unlimited || (!isNaN(salesLimit) && salesLimit > 8000);
+            const exceedsEstablishmentsLimit = plan.establishments_unlimited || (!isNaN(establishmentsLimit) && establishmentsLimit > 1);
+
+            return !exceedsSalesLimit && !exceedsEstablishmentsLimit;
+        },
+        ensureVisibleBusinessOption() {
+            if (this.business !== 6 || this.showNrusBusinessOption) return;
+
+            this.business = null;
+            if (this.$refs.tree) this.$refs.tree.setCheckedKeys([]);
+            if (this.$refs.Apptree) this.$refs.Apptree.setCheckedKeys([]);
+        },
         applyPlanModules(permissions) {
             this.business = permissions.business ?? null;
+            this.ensureVisibleBusinessOption();
             const preSelecteds = [];
             const preAppSelecteds = [];
             
@@ -1099,6 +1125,8 @@ export default {
                         this.$refs.tree.setCheckedKeys([]);
                         this.$refs.Apptree.setCheckedKeys([]);
                         this.form = response.data.data;
+                        this.business = this.form.business ?? null;
+                        this.ensureVisibleBusinessOption();
                         this.form.is_update = true;
                         const preSelecteds = [];
                         const preSelectedsModules = this.form.modules;
@@ -1169,6 +1197,7 @@ export default {
             })
             this.form.modules = modules;
             this.form.levels = levels;
+            this.form.business = this.business;
             this.form.regex_password_client = this.regex_password_client
 
             if (modules.length < 1) {

@@ -791,7 +791,7 @@ use Modules\Sale\Models\Agent;
             if(emptY($this->seller_id)) {
                 $this->seller_id = $this->user_id;
             }
-            $this->payments = $this->getTransformPayments();
+            $formatted_payments = $this->getTransformPayments();
             $message_text = '';
             if ( !empty($this->number_full) && !empty($this->external_id)) {
                 $message_text = "Su comprobante de nota de venta {$this->number_full} ha sido generado correctamente, puede revisarlo en el siguiente enlace: " .
@@ -839,15 +839,11 @@ use Modules\Sale\Models\Agent;
             }
             */
 
-            $date_pay=$this->payments()->select('date_of_payment')->get();
-
-            $date_of_pay='';
-            if (count($date_pay)>0) {
-                //dd(count(array($date_pay)));
-                foreach ($date_pay as $pay) {
-                    //dd($pay);
-                    $date_of_pay=$pay->date_of_payment->format('Y-m-d');
-                }
+            // La última fecha de pago sale de la relación ya cargada; el foreach original solo servía
+            // para quedarse con el último elemento.
+            $date_of_pay = '';
+            if ($this->payments->count() > 0) {
+                $date_of_pay = $this->payments->last()->date_of_payment->format('Y-m-d');
             }
 
             return [
@@ -934,7 +930,7 @@ use Modules\Sale\Models\Agent;
 // 'number' => $this->number,
                 'agent_name' => optional($this->agent)->search_description,
                 'reference_data' => $this->reference_data,
-                'payments' => $this->payments,
+                'payments' => $formatted_payments,
                 'custom_fields_data' => $this->custom_fields_data,
                 'total_discount' => $this->generalApplyNumberFormat($this->total_discount),
                 'items_for_report' => $this->getItemsforReport(),
@@ -1027,8 +1023,10 @@ use Modules\Sale\Models\Agent;
          */
         public function getTransformPayments()
         {
-            $payments = $this->payments()->get();
-            return $payments->transform(function ($row, $key) {
+            // La relación ya viene precargada por el eager loading del listado; transform() mutaría
+            // la colección original del modelo.
+            $payments = $this->payments;
+            return $payments->map(function ($row, $key) {
                 /** @var SaleNotePayment $row */
                 return [
                     'id' => $row->id,

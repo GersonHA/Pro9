@@ -1,6 +1,6 @@
 <template>
     <el-dialog :title="title" :visible="showDialog" @close="close" @open="getData" width="65%" :close-on-click-modal="false" :close-on-press-escape="false">
-        <div class="form-body">
+        <div class="form-body" v-loading="loadingFetch">
             <div class="row">
                 <div class="col-md-12" v-if="records.length > 0">
                     <div class="table-responsive table-sm">
@@ -241,24 +241,27 @@
             initForm() {
                 this.records = [];
                 this.fileList = [];
+                this.document = {};
                 this.showAddButton = true;
             },
             async getData() {
-                this.loadingFetch = true;
                 this.initForm();
-                await this.$http.get(`/${this.resource}/document/${this.documentId}`)
-                    .then(response => {
-                        this.document = response.data;
-                        this.title = 'Pagos del comprobante: '+this.document.number_full;
-                    });
-                await this.$http.get(`/${this.resource}/records/${this.documentId}`)
-                    .then(response => {
-                        this.records = response.data.data
-                    });
+                this.loadingFetch = true;
 
-                // await this.$eventHub.$emit('reloadDataUnpaid')
-                this.loadingFetch = false;
+                try {
+                    const [documentResponse, recordsResponse] = await Promise.all([
+                        this.$http.get(`/${this.resource}/document/${this.documentId}`),
+                        this.$http.get(`/${this.resource}/records/${this.documentId}`)
+                    ]);
 
+                    this.document = documentResponse.data;
+                    this.title = 'Pagos del comprobante: ' + this.document.number_full;
+                    this.records = recordsResponse.data.data;
+                } catch (error) {
+                    this.$message.error('Ocurrió un error al cargar la información de pagos.');
+                } finally {
+                    this.loadingFetch = false;
+                }
             },
             clickAddRow() {
                 this.records.push({
@@ -281,7 +284,14 @@
                 this.fileList = []
             },
             clickSubmit(index) {
-                if(this.records[index].payment > parseFloat(this.document.total_difference)) {
+                let current_payment = parseFloat(this.records[index].payment);
+
+                if (isNaN(current_payment) || current_payment <= 0) {
+                    this.$message.error('Debe ingresar un monto válido mayor a cero.');
+                    return;
+                }
+
+                if (current_payment > parseFloat(this.document.total_difference)) {
                     this.$message.error('El monto ingresado supera al monto pendiente de pago, verifique.');
                     return;
                 }
@@ -294,7 +304,7 @@
                 this.records[index].loading = true;
 
                 let paid = false
-                if( parseFloat(this.records[index].payment) == parseFloat(this.document.total_difference))
+                if (current_payment == parseFloat(this.document.total_difference))
                 {
                     paid = true
                 }
@@ -309,7 +319,7 @@
                     reference: this.records[index].reference,
                     filename: this.records[index].filename,
                     temp_path: this.records[index].temp_path,
-                    payment: this.records[index].payment,
+                    payment: current_payment,
                     paid: paid
                 };
                 this.$http.post(`/${this.resource}`, form)
@@ -351,8 +361,8 @@
             // },
             close() {
                 this.$emit('update:showDialog', false);
+                this.initForm();
                 // this.initDocumentTypes()
-                // this.initForm()
             },
             clickDelete(id) {
                 this.destroy(`/${this.resource}/${id}`).then(() =>{

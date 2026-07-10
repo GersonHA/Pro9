@@ -463,7 +463,20 @@ class SaleNoteController extends Controller
      * @return \Illuminate\Database\Eloquent\Builder
      */
     private function getRecords($request){
-        $records = SaleNote::whereTypeUser();
+        $records = SaleNote::whereTypeUser()
+            ->with([
+                'person',
+                'customer',
+                'user',
+                'establishment',
+                'state_type',
+                'currency_type',
+                'agent',
+                'documents',
+                'payments',
+                'items',
+                'quotation.sale_opportunity',
+            ]);
         // Solo devuelve matriculas
         if($request != null && $request->has('onlySuscription') && (bool)$request->onlySuscription == true){
             $records->whereNotNull('grade')->whereNotNull('section') ;

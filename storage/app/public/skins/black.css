@@ -1347,8 +1347,7 @@ html.sidebar-white ul.nav-main li.nav-active:not(.nav-parent)>a {
 html.dark .sidebar-toggle:hover {
     background-color: #161d31;
 }
-
-html body .text-primary {
+.text-primary {
     color: var(--black-primary) !important;
 }
 .fa-ellipsis-v{

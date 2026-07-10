@@ -618,6 +618,12 @@ ul.nav.list-config li:hover {
 .card{
     margin-bottom: 30px !important;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 .row-new{
     margin-top: -20px;
     margin-right: -25px;

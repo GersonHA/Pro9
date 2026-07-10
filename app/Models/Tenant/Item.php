@@ -571,17 +571,32 @@ class Item extends ModelTenant
     }
 
     /**
-     * @return int
+     * Stock del ítem en el almacén del establecimiento del usuario autenticado.
+     *
+     * @param bool $force_fresh Recarga la relación `warehouses` desde la base. Por defecto true, que es
+     *                          el comportamiento seguro. Pásalo en false SOLO si quien llama ya recargó
+     *                          la relación para toda la colección (ver ADR 0021).
      */
-    public function getStockByWarehouse()
+    public function getStockByWarehouse($force_fresh = true)
     {
-        if(auth()->user())
+        if (auth()->check())
         {
             $establishment_id = auth()->user()->establishment_id;
-            $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
-            if ($warehouse) {
-                $this->unsetRelation('warehouses');
-                $item_warehouse = $this->warehouses->where('warehouse_id', $warehouse->id)->first();
+
+            // Indexada por establecimiento: el worker de colas reutiliza el proceso entre tenants,
+            // una estática escalar serviría el almacén del anterior.
+            static $warehouse_ids = [];
+            if (!array_key_exists($establishment_id, $warehouse_ids)) {
+                $warehouse_ids[$establishment_id] = optional(
+                    Warehouse::where('establishment_id', $establishment_id)->first()
+                )->id ?? 0;
+            }
+
+            if ($warehouse_ids[$establishment_id] !== 0) {
+                if ($force_fresh) {
+                    $this->unsetRelation('warehouses');
+                }
+                $item_warehouse = $this->warehouses->where('warehouse_id', $warehouse_ids[$establishment_id])->first();
                 return ($item_warehouse) ? $item_warehouse->stock : 0;
             }
         }
@@ -594,8 +609,17 @@ class Item extends ModelTenant
      */
     public function getStockByWarehouseMain()
     {
-        $warehouse = Warehouse::where('establishment_id', 1)->first();
-        $item_warehouse = $this->warehouses->where('warehouse_id',$warehouse->id)->first();
+        static $main_warehouse_id = null;
+
+        if ($main_warehouse_id === null) {
+            $main_warehouse_id = optional(Warehouse::where('establishment_id', 1)->first())->id ?? 0;
+        }
+
+        if ($main_warehouse_id === 0) {
+            return 0;
+        }
+
+        $item_warehouse = $this->warehouses->where('warehouse_id', $main_warehouse_id)->first();
         return ($item_warehouse) ? $item_warehouse->stock : 0;
     }
 

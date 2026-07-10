@@ -18,26 +18,36 @@ class PosCollection extends ResourceCollection
      */
     public function toArray($request)
     {
-        return $this->collection->transform(function ($row, $key) {
+        $configuration = Configuration::first();
+        $default_currency = CurrencyType::first();
+        $allPricesLabel = PriceLabel::all();
+        $establishment_warehouse_id = optional(optional(auth()->user())->establishment->warehouse)->id;
 
-            $configuration = Configuration::first();
-            $sale_unit_price = $this->getSaleUnitPrice($row, $configuration);
+        $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
+        $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
+            ? asset('logo/imagen-no-disponible.jpg')
+            : asset('storage/defaults/' . $defaultImage);
+
+        // NOTA (fix A6): la relación `warehouses` viene eager-loaded del query
+        // (PosController::item() / search_items_cat() / search_items()). Llamar
+        // $this->collection->load('warehouses') aquí rompería con paginadores,
+        // porque $this->collection es un Illuminate\Support\Collection base
+        // (Laravel 9 quirk: LengthAwarePaginator::toBase() NO devuelve
+        // Eloquent\Collection), y Support\Collection no tiene load().
+
+        return $this->collection->transform(function ($row, $key) use (
+            $configuration, $default_currency, $allPricesLabel, $establishment_warehouse_id, $defaultImagePath
+        ) {
+
+            $sale_unit_price = $this->getSaleUnitPrice($row, $configuration, $establishment_warehouse_id);
 
             $currency = $row->currency_type;
-            if(empty($currency )){
-                $currency = CurrencyType::first();
+            if (empty($currency)) {
+                $currency = $default_currency;
             }
 
-            $defaultImage = $configuration->product_default_image ?? 'imagen-no-disponible.jpg';
-            $defaultImagePath = $defaultImage === 'imagen-no-disponible.jpg'
-                ? asset('logo/imagen-no-disponible.jpg')
-                : asset('storage/defaults/' . $defaultImage); 
-            
-            $allPricesLabel = PriceLabel::all();
-
-
             return [
-                'stock' => $row->getStockByWarehouse(),
+                'stock' => $row->getStockByWarehouse(false),
                 'id' => $row->id,
                 'item_id' => $row->id,
                 'full_description' => ($row->internal_id) ? $row->internal_id . ' - ' . $row->description : $row->description,
@@ -141,26 +151,21 @@ class PosCollection extends ResourceCollection
     }
 
     
-    private function getSaleUnitPrice($row, $configuration){
+    private function getSaleUnitPrice($row, $configuration, $establishment_warehouse_id){
 
         $sale_unit_price = number_format($row->sale_unit_price, $configuration->decimal_quantity, ".", "");
-        
-        if($configuration->active_warehouse_prices){
 
-            $warehouse_price = $row->warehousePrices()->where('warehouse_id', auth()->user()->establishment->warehouse->id)->first();
+        if($configuration->active_warehouse_prices && $establishment_warehouse_id){
+
+            $warehouse_price = $row->warehousePrices->where('warehouse_id', $establishment_warehouse_id)->first();
 
             if($warehouse_price){
-
                 $sale_unit_price = number_format($warehouse_price->price, $configuration->decimal_quantity, ".", "");
-
             }else{
-
-                if($row->warehousePrices()->count() > 0){
-                    $sale_unit_price = number_format($row->warehousePrices()->first()->price, $configuration->decimal_quantity, ".", "");
+                if($row->warehousePrices->count() > 0){
+                    $sale_unit_price = number_format($row->warehousePrices->first()->price, $configuration->decimal_quantity, ".", "");
                 }
-
             }
-
         }
 
         return $sale_unit_price;

@@ -70,9 +70,17 @@ class PosController extends Controller
 
         $items_query = Item::where('description', 'like', "%{$request->input_item}%")
             // ->orWhere('internal_id','like', "%{$request->input_item}%")
-            ->with(['warehouse_prices' => function ($q) use ($warehouse) {
-                $q->where('warehouse_id', $warehouse->id);
-            }])
+            ->with([
+                'warehouse_prices' => function ($q) use ($warehouse) {
+                    $q->where('warehouse_id', $warehouse->id);
+                },
+                'warehousePrices',
+                'brand',
+                'category',
+                'currency_type',
+                'warehouses.warehouse',
+                'item_unit_types',
+            ])
             ->orWhere(function ($query) use ($request) {
                 $query->where('internal_id', 'like', "%{$request->input_item}%")
                     ->orWhere('barcode', "{$request->input_item}");
@@ -428,6 +436,7 @@ class PosController extends Controller
         $items = Item::whereWarehouse()
             ->whereIsActive()
             //->where('series_enabled', 0)
+            ->with(['warehouses.warehouse', 'warehousePrices', 'brand', 'category', 'currency_type', 'item_unit_types', 'warehouses'])
             ->orderBy('description');
         $config = Configuration::first();
         if ($config->isShowServiceOnPos() !== true) {
@@ -491,10 +500,11 @@ class PosController extends Controller
      */
     public function search_items_cat(Request $request)
     {
-        $item = Item::whereWarehouse();
+        $item = Item::whereWarehouse()
+            ->with(['warehouses.warehouse', 'warehousePrices', 'brand', 'category', 'currency_type', 'item_unit_types', 'warehouses']);
             // ->whereIsActive()
             //->where('series_enabled', 0);
-            
+
         $config = Configuration::first();
         if ($config->isShowServiceOnPos() !== true) {
             $item->where('unit_type_id', '!=', 'ZZ');

@@ -1614,6 +1614,12 @@ html.dark .minitour-tooltip p {
 html.dark .minitour-tooltip p b {
     color: #333 !important;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 /* theme dark */
 html.dark,html.dark body{
     background-color: var(--md-bg-dark);

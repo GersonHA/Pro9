@@ -216,6 +216,12 @@ ul.nav-main li.nav-description {
 .card{
     margin-bottom: 15px;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 .card.card-dashboard {
     -webkit-box-shadow: none;
     box-shadow: none;

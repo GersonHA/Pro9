@@ -67,21 +67,39 @@ class PosController extends Controller
 
         $establishment_id = auth()->user()->establishment_id;
         $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
+        $input_item = trim($request->input_item ?? '');
 
-        $items_query = Item::where('description', 'like', "%{$request->input_item}%")
-            // ->orWhere('internal_id','like', "%{$request->input_item}%")
-            ->with([
-                'warehouse_prices' => function ($q) use ($warehouse) {
-                    $q->where('warehouse_id', $warehouse->id);
-                },
-                'warehousePrices',
-                'brand',
-                'category',
-                'currency_type',
-                'warehouses.warehouse',
-                'item_unit_types',
-            ])
-            ->orWhere(function ($query) use ($request) {
+        // Modo Rendimiento (cortocircuito del francotirador): búsqueda EXACTA por barcode.
+        // Devuelve solo el producto cuyo barcode coincide exactamente, sin LIKE ni OR.
+        if ($request->has('is_barcode_exact') && $request->is_barcode_exact == '1') {
+            $items_query = Item::whereRaw('FIND_IN_SET(?, barcode) > 0', [$input_item])
+                ->with([
+                    'warehouse_prices' => function ($q) use ($warehouse) {
+                        $q->where('warehouse_id', $warehouse->id);
+                    },
+                    'warehousePrices',
+                    'brand',
+                    'category',
+                    'currency_type',
+                    'warehouses.warehouse',
+                    'item_unit_types',
+                ])
+                ->whereWarehouse();
+        } else {
+            $items_query = Item::where('description', 'like', "%{$request->input_item}%")
+                // ->orWhere('internal_id','like', "%{$request->input_item}%")
+                ->with([
+                    'warehouse_prices' => function ($q) use ($warehouse) {
+                        $q->where('warehouse_id', $warehouse->id);
+                    },
+                    'warehousePrices',
+                    'brand',
+                    'category',
+                    'currency_type',
+                    'warehouses.warehouse',
+                    'item_unit_types',
+                ])
+                ->orWhere(function ($query) use ($request) {
                 $query->where('internal_id', 'like', "%{$request->input_item}%")
                     ->orWhere('barcode', "{$request->input_item}");
                 // Búsqueda Avanzada: columnas extra dentro del mismo grupo OR.
@@ -96,6 +114,7 @@ class PosController extends Controller
                 $query->where('name', 'like', '%' . $request->input_item . '%');
             })
             ->whereWarehouse();
+        }
 
         if ($configuration->isShowServiceOnPos() !== true) {
             $items_query->where('unit_type_id', '!=', 'ZZ');

@@ -32,6 +32,7 @@
                         effect="dark"
                         content="Todas las categorías"
                         placement="top-start"
+                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -48,6 +49,7 @@
                         effect="dark"
                         content="Categorías y productos"
                         placement="top-start"
+                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -65,6 +67,7 @@
                         effect="dark"
                         content="Listado de todos los productos"
                         placement="top-start"
+                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -82,6 +85,7 @@
                         effect="dark"
                         content="Regresar"
                         placement="top-start"
+                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -96,6 +100,13 @@
             </div>
             <div class="col-md-4" v-if="currency_types.length > 1">
                 <div class="pull-right h-100 d-flex align-items-center">
+                    <el-switch
+                        v-model="performance_mode"
+                        active-text="Modo Rendimiento"
+                        active-color="#ff4949"
+                        @change="togglePerformanceMode"
+                        style="margin-right: 20px;"
+                    ></el-switch>
                     <p class="pr-3 m-0 exchange-currency">
                         T.C.
                         <span>S/ {{ form.exchange_rate_sale }}</span> Cambiar
@@ -237,6 +248,7 @@
                                                 item.sets.flat().join(',\n')
                                             "
                                             placement="bottom"
+                                            :disabled="performance_mode"
                                             style="width: 10%;"
                                         >
                                             <i
@@ -372,6 +384,7 @@
                                                 effect="dark"
                                                 content="Visualizar stock"
                                                 placement="bottom-end"
+                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     style="width:100%"
@@ -393,6 +406,7 @@
                                                 effect="dark"
                                                 content="Visualizar historial de ventas del producto (precio venta) y cliente"
                                                 placement="bottom-end"
+                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     type="button"
@@ -414,6 +428,7 @@
                                                 effect="dark"
                                                 content="Visualizar historial de compras del producto (precio compra)"
                                                 placement="bottom-end"
+                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     type="button"
@@ -437,6 +452,7 @@
                                                 effect="dark"
                                                 content="Visualizar precios disponibles"
                                                 placement="bottom-end"
+                                                :disabled="performance_mode"
                                             >
                                                 <el-popover
                                                     placement="top"
@@ -582,6 +598,7 @@
                                                 effect="dark"
                                                 content="Modificar el tipo de afectación"
                                                 placement="bottom-end"
+                                                :disabled="performance_mode"
                                             >
                                                 <el-popover
                                                     placement="top"
@@ -1052,9 +1069,14 @@ export default {
                 { id: '80', label: 'N. Venta' },
             ],
             customerError: false,
+            // Modo Rendimiento: congeladores de catálogos para equipos de bajos recursos.
+            performance_mode: false,
+            limit: 30,
+            search_timer: null,
         };
     },
     async created() {
+        this.loadPerformanceMode();
         this.loadConfiguration();
 
         this.show_fast_payment_garage = false;
@@ -1167,6 +1189,35 @@ export default {
         }
     },
     methods: {
+
+        // --- METODOS DE MODO RENDIMIENTO ---
+        togglePerformanceMode() {
+            // 1. Guardamos la decisión en memoria
+            localStorage.setItem("performance_mode", this.performance_mode);
+
+            // 2. Mostramos la notificación visual
+            if (this.performance_mode) {
+                this.$message.warning("Modo Rendimiento Activado: Apagando animaciones...");
+            } else {
+                this.$message.success("Modo Rendimiento Apagado. Restaurando sistema...");
+            }
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        },
+
+        loadPerformanceMode() {
+            let savedMode = localStorage.getItem("performance_mode");
+            if (savedMode === "true") {
+                this.performance_mode = true;
+                document.body.classList.add("nuclear-performance-mode");
+            } else {
+                this.performance_mode = false;
+                document.body.classList.remove("nuclear-performance-mode");
+            }
+        },
+        // ------------------------------
+
         changeRowTotalGarage(index) {
             const item = this.form.items[index];
 
@@ -1352,6 +1403,10 @@ export default {
         },
         getRecords() {
             this.loading = true;
+
+            // Menos productos por página para no saturar (Modo Rendimiento)
+            this.limit = this.performance_mode ? 20 : 50;
+
             return this.$http
                 .get(`/${this.resource}/items?${this.getQueryParameters()}`)
                 .then(response => {
@@ -2173,11 +2228,19 @@ export default {
         async getTables() {
             await this.$http.get(`/${this.resource}/tables`).then(response => {
                 //this.all_items = response.data.items;
-                this.affectation_igv_types =
-                    response.data.affectation_igv_types;
-                this.all_customers = response.data.customers;
+                // ⚡ FASE 3: CRIO-CONGELACIÓN DE CATÁLOGOS PESADOS ⚡
+                if (this.performance_mode) {
+                    // Si el modo rendimiento está activo, congelamos las listas masivas
+                    this.affectation_igv_types = Object.freeze(response.data.affectation_igv_types);
+                    this.all_customers = Object.freeze(response.data.customers);
+                    this.currency_types = Object.freeze(response.data.currency_types);
+                } else {
+                    this.affectation_igv_types =
+                        response.data.affectation_igv_types;
+                    this.all_customers = response.data.customers;
+                    this.currency_types = response.data.currency_types;
+                }
                 this.establishment = response.data.establishment;
-                this.currency_types = response.data.currency_types;
                 this.user = response.data.user;
                 this.form.establishment_id = this.establishment.id;
                 this.form.currency_type_id =
@@ -2214,16 +2277,35 @@ export default {
                 color: "#2C8DE3"
             });
         },
-        async searchItems() {
+        searchItems() {
+            // Debounce siempre activo: evita disparar un request por cada tecla.
+            // 400ms en modo normal, 700ms en modo rendimiento (ya tenía el delay más largo).
+            if (this.search_timer) clearTimeout(this.search_timer);
+            this.search_timer = setTimeout(() => {
+                this.executeSearchItems();
+            }, this.performance_mode ? 700 : 400);
+        },
+
+        async executeSearchItems() {
             if (this.input_item.length > 0) {
                 this.loading = true;
+
+                // Aplicamos el racionamiento también al buscar (Modo Rendimiento)
+                this.limit = this.performance_mode ? 20 : 50;
+
                 let parameters = `input_item=${this.input_item}&cat=${
                     this.category_selected
                 }`;
-                
+
                 if (this.businessTurns && [true, 1, "1"].includes(this.businessTurns.active)) {
                     parameters += '&garage=1';
                 }
+
+                // Inyectamos el límite en la URL (&limit=)
+                parameters += `&limit=${this.limit}`;
+
+                // Resetear a página 1 cuando se hace una nueva búsqueda
+                this.pagination.current_page = 1;
 
                 await this.$http
                     .get(`/${this.resource}/search_items_cat?${parameters}`)
@@ -2231,7 +2313,6 @@ export default {
                         this.all_items = response.data.data;
 
                         if (response.data.data.length > 0) {
-                            // this.all_items = response.data.data;
                             this.filterItems();
                             this.pagination = response.data.meta;
                             this.pagination.per_page = parseInt(
@@ -2256,16 +2337,35 @@ export default {
                 this.loading = true;
                 let parameters = `input_item=${this.input_item}`;
 
+                // SEÑAL DEL FRANCOTIRADOR (Modo Rendimiento): barcode exacto
+                if (this.performance_mode) {
+                    parameters += `&is_barcode_exact=1`;
+                }
+
                 await this.$http
                     .get(`/${this.resource}/search_items?${parameters}`)
                     .then(response => {
-                        console.log("buah");
-                        this.items = response.data.items;
-                        this.enabledSearchItemsBarcode();
-                        this.loading = false;
-                        if (this.items.length == 0) {
-                            this.filterItems();
+                        let results = response.data.items;
+
+                        if (results.length > 0) {
+                            // (Cortocircuito Gráfico): si modo rendimiento, evita pintar la vitrina
+                            if (this.performance_mode) {
+                                this.clickAddItem(results[0], 0);
+                                this.cleanInput();
+                            } else {
+                                // Comportamiento normal (Dibuja la tarjeta y luego la agrega)
+                                this.items = results;
+                                this.enabledSearchItemsBarcode();
+                            }
+                        } else {
+                            this.$message.error(`No se encontró: ${this.input_item}`);
                         }
+                    })
+                    .catch((error) => {
+                        this.$message.error(`Error buscando: ${this.input_item}`);
+                    })
+                    .finally(() => {
+                        this.loading = false;
                     });
             } else {
                 await this.filterItems();
@@ -2282,6 +2382,13 @@ export default {
                 /** Si description es vacio aun */
                 if (i.description == null) {
                     i.description = i.internal_id;
+                }
+
+                // ❄️ Congelamos las colecciones pesadas para no violar la reactividad de Vue
+                if (this.performance_mode) {
+                    if (i.warehouses) i.warehouses = Object.freeze(i.warehouses);
+                    if (i.sets) i.sets = Object.freeze(i.sets);
+                    if (i.attributes) i.attributes = Object.freeze(i.attributes);
                 }
 
                 return i;
@@ -2326,7 +2433,9 @@ export default {
             this.$http
                 .get(`/${this.resource}/table/customers`)
                 .then(response => {
-                    this.all_customers = response.data;
+                    this.all_customers = this.performance_mode
+                        ? Object.freeze(response.data)
+                        : response.data;
                     this.form.customer_id = customer_id;
                     this.changeCustomer();
                 });

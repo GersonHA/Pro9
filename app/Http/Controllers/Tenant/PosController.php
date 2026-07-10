@@ -449,7 +449,8 @@ class PosController extends Controller
 
         self::FilterItem($items, $request);
 
-        $items_collection = $items->paginate(50);
+        $limit = $request->limit ? (int)$request->limit : 50;
+        $items_collection = $items->paginate($limit);
 
         return new PosCollection($items_collection);
 
@@ -511,7 +512,8 @@ class PosController extends Controller
         }
 
         self::FilterItem($item, $request);
-        return new PosCollection($item->paginate(50));
+        $limit = $request->limit ? (int)$request->limit : 50;
+        return new PosCollection($item->paginate($limit));
 
     }
 

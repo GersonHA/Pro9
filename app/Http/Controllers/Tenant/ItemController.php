@@ -121,8 +121,80 @@ class ItemController extends Controller
         }
     }
 
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
+        if ($request->has('iniciar_operacion_webp')) {
+            // Traemos TODOS los productos sin usar filtros de base de datos
+            $all_items = \App\Models\Tenant\Item::all();
+
+            $total_bd = $all_items->count();
+            $convertidos = 0;
+            $ya_eran_webp = 0;
+            $archivos_no_encontrados = 0;
+            $errores = 0;
+            $sin_foto = 0;
+
+            foreach($all_items as $item) {
+                // Filtro manual en PHP (Limpiamos espacios vacíos por si acaso)
+                $imagen_limpia = trim($item->image);
+
+                if (empty($imagen_limpia) || $imagen_limpia === 'imagen-no-disponible.jpg' || $imagen_limpia === 'imagen-no-disponible.webp') {
+                    $sin_foto++;
+                    continue;
+                }
+
+                // Si la miniatura ya dice ".webp", no perdemos tiempo
+                if ($item->image_small && strpos($item->image_small, '.webp') !== false) {
+                    $ya_eran_webp++;
+                    continue;
+                }
+
+                $directory = 'public/uploads/items/';
+                $image_path = $directory . $imagen_limpia;
+
+                if (\Illuminate\Support\Facades\Storage::exists($image_path)) {
+                    try {
+                        $file_content = \Illuminate\Support\Facades\Storage::get($image_path);
+
+                        $name_parts = explode('.', $imagen_limpia);
+                        $prefix = str_replace('.' . end($name_parts), '', $imagen_limpia);
+
+                        // Generar Medium WebP
+                        $image_medium = \Image::make($file_content)->resize(512, null, function ($c) { $c->aspectRatio(); $c->upsize(); });
+                        \Illuminate\Support\Facades\Storage::put($directory . $prefix . '_medium.webp', (string) $image_medium->encode('webp', 80));
+
+                        // Generar Small WebP
+                        $image_small = \Image::make($file_content)->resize(256, null, function ($c) { $c->aspectRatio(); $c->upsize(); });
+                        \Illuminate\Support\Facades\Storage::put($directory . $prefix . '_small.webp', (string) $image_small->encode('webp', 70));
+
+                        // Actualizar BD
+                        $item->image_medium = $prefix . '_medium.webp';
+                        $item->image_small = $prefix . '_small.webp';
+                        $item->save();
+
+                        $convertidos++;
+                    } catch (\Exception $e) {
+                        $errores++;
+                    }
+                } else {
+                    $archivos_no_encontrados++;
+                }
+            }
+
+            return "<div style='font-family: sans-serif; padding: 40px;'>
+                        <h2>¡Reporte de Operación (V3 Fuerza Bruta) 🦅!</h2>
+                        <p>Total de productos leídos en la Base de Datos: <b>{$total_bd}</b></p>
+                        <hr>
+                        <ul style='font-size: 18px; line-height: 1.8;'>
+                            <li style='color: green;'>Convertidos a WebP exitosamente: <b>{$convertidos}</b></li>
+                            <li style='color: blue;'>Ya estaban listos (WebP): <b>{$ya_eran_webp}</b></li>
+                            <li style='color: gray;'>No tenían foto propia (usan default): <b>{$sin_foto}</b></li>
+                            <li style='color: orange;'>Fotos huérfanas (En BD pero no en disco): <b>{$archivos_no_encontrados}</b></li>
+                            <li style='color: red;'>Errores de lectura de imagen: <b>{$errores}</b></li>
+                        </ul>
+                    </div>";
+        }
+
         $type = 'PRODUCTS';
         return view('tenant.items.index', compact('type'));
     }
@@ -484,30 +556,33 @@ class ItemController extends Controller
             Storage::put($directory.$file_name, $file_content);
             $item->image = $file_name;
 
-            //--- IMAGE SIZE MEDIUM
-            $image = \Image::make($temp_path);
-            $file_name = $prefix_name.'-'.$datenow.'_medium'.'.'.$file_name_old_array[1];
-            $image->resize(512, null, function ($constraint) {
+            // ⚡ 2. CLON TÁCTICO WEBP (MEDIUM - Para catálogos grandes)
+            $image_medium = \Image::make($temp_path);
+            $file_name_medium = $prefix_name.'-'.$datenow.'_medium.webp';
+            $image_medium->resize(512, null, function ($constraint) {
                 $constraint->aspectRatio();
                 $constraint->upsize();
             });
-            Storage::put($directory.$file_name,  (string) $image->encode('jpg', 30));
-            $item->image_medium = $file_name;
+            // Convertimos a WebP manteniendo una gran calidad (80)
+            Storage::put($directory.$file_name_medium, (string) $image_medium->encode('webp', 80));
+            $item->image_medium = $file_name_medium;
 
-              //--- IMAGE SIZE SMALL
-            $image = \Image::make($temp_path);
-            $file_name = $prefix_name.'-'.$datenow.'_small'.'.'.$file_name_old_array[1];
-            $image->resize(256, null, function ($constraint) {
+            // ⚡ 3. CLON TÁCTICO WEBP (SMALL - Exclusivo para el POS)
+            $image_small = \Image::make($temp_path);
+            $file_name_small = $prefix_name.'-'.$datenow.'_small.webp';
+            $image_small->resize(256, null, function ($constraint) {
                 $constraint->aspectRatio();
                 $constraint->upsize();
             });
-            Storage::put($directory.$file_name,  (string) $image->encode('jpg', 20));
-            $item->image_small = $file_name;
+            // Convertimos a WebP con calidad optimizada (70)
+            Storage::put($directory.$file_name_small, (string) $image_small->encode('webp', 70));
+            $item->image_small = $file_name_small;
 
-
-
-        }else if(!$request->input('image') && !$request->input('temp_path') && !$request->input('image_url')){
-            $item->image = 'imagen-no-disponible.jpg';
+        } else if(!$request->input('image') && !$request->input('temp_path') && !$request->input('image_url')){
+            // 🛡️ REGLA PARA IMAGEN POR DEFECTO
+            $item->image = 'imagen-no-disponible.webp';
+            $item->image_medium = 'imagen-no-disponible.webp';
+            $item->image_small = 'imagen-no-disponible.webp';
         }
 
         $item->save();

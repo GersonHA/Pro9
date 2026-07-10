@@ -1,5 +1,5 @@
 <template>
-    <div class="pos container-fluid p-0">
+    <div class="pos container-fluid p-0" :class="{'performance-mode': performance_mode}">
         <span class="module-title-marker" data-page-title="Punto de Venta"></span>
         <div class="row page-header pe-0 no-gutters" style="min-height:48px">
             <Keypress
@@ -33,6 +33,7 @@
                             Balanza electrónica
 
                         <el-tooltip
+                            :disabled="performance_mode"
                             class="item ms-1"
                             effect="dark"
                             placement="top-start"
@@ -91,6 +92,7 @@
                     <div class="col-6">
                         <el-button-group class="d-flex">
                             <el-tooltip
+                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Todas las categorías"
@@ -105,6 +107,7 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
+                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Categorías y productos"
@@ -120,6 +123,7 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
+                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Listado de todos los productos"
@@ -135,6 +139,7 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
+                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Regresar"
@@ -154,8 +159,15 @@
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="pull-right h-100 d-flex align-items-center" v-if="currency_types.length > 1">
-                    <p class="pe-3 exchange-currency m-0">
+                <div class="pull-right h-100 d-flex align-items-center">
+                    <el-switch
+                        v-model="performance_mode"
+                        active-text="Modo Rendimiento"
+                        active-color="#13ce66"
+                        class="me-3"
+                        @change="togglePerformanceMode"
+                    ></el-switch>
+                    <p class="pe-3 exchange-currency m-0" v-if="currency_types.length > 1">
                         T.C.
                         <span>S/ {{ form.exchange_rate_sale }}</span> Cambiar
                         Moneda
@@ -299,8 +311,9 @@
                                         {{ item.description }}
                                     </p> -->
                                     <img
-                                        :src="item.image_url"
+                                        :src="item.image_url_small"
                                         class="img-thumbail img-custom"
+                                        loading="lazy"
                                     />
                                     <p
                                         class="text-muted mb-0 "
@@ -310,6 +323,7 @@
                                             item.internal_id
                                         }}</small>
                                         <el-tooltip
+                                            :disabled="performance_mode"
                                             class="item text-center"
                                             effect="dark"
                                             :content="
@@ -452,6 +466,7 @@
                                     <el-row style="width:100%">
                                         <el-col :span="6">
                                             <el-tooltip
+                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver stock"
@@ -476,6 +491,7 @@
                                             v-if="canSeeHistoryPurchase"
                                         >
                                             <el-tooltip
+                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver historial de ventas (precio venta) y cliente"
@@ -500,6 +516,7 @@
                                             v-if="canSeePriceCost"
                                         >
                                             <el-tooltip
+                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver historial de compras (precio compra)"
@@ -521,6 +538,7 @@
                                         </el-col>
                                         <el-col :span="6">
                                             <el-tooltip
+                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver precios disponibles"
@@ -1347,10 +1365,12 @@ export default {
                     description: "Precio 3"
                 }
             ],
-            selected_option_price: null
+            selected_option_price: null,
+            performance_mode: false
         };
     },
     async created() {
+        this.loadPerformanceMode();
         await this.loadPriceOptions();
         this.loadConfiguration();
         this.enabledSearchItemByBarcode();
@@ -1460,6 +1480,36 @@ export default {
         }
     },
     methods: {
+        // --- METODOS DE MODO RENDIMIENTO ---
+        togglePerformanceMode() {
+            // 1. Guardamos la decisión en memoria
+            localStorage.setItem("pos_index_performance_mode", this.performance_mode);
+
+            // 2. Mostramos la notificación visual
+            if (this.performance_mode) {
+                this.$message.warning("Modo Rendimiento Activado: Apagando animaciones...");
+            } else {
+                this.$message.success("Modo Rendimiento Apagado. Restaurando sistema...");
+            }
+
+            // 3. Recarga táctica para limpiar RAM
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        },
+
+        loadPerformanceMode() {
+            const savedMode = localStorage.getItem("pos_index_performance_mode");
+            if (savedMode === "true") {
+                this.performance_mode = true;
+                document.body.classList.add("nuclear-performance-mode");
+            } else {
+                this.performance_mode = false;
+                document.body.classList.remove("nuclear-performance-mode");
+            }
+        },
+        // ---------------------------------------
+
         enabledSearchItemByBarcode() {
             if (this.configuration.search_item_by_barcode) {
                 this.search_item_by_barcode = true;

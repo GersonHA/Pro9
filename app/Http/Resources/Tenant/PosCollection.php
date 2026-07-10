@@ -71,9 +71,8 @@ class PosCollection extends ResourceCollection
                 'aux_quantity' => 1,
                 'edit_sale_unit_price' => $sale_unit_price,
                 'aux_sale_unit_price' => $sale_unit_price,
-                'image_url' => ($row->image && $row->image !== 'imagen-no-disponible.jpg') 
-                    ? asset('storage/uploads/items/' . $row->image)
-                    : $defaultImagePath,
+                'image_url' => $row->getImageUrl(),
+                'image_url_small' => $row->getImageUrlSmall(),
                 'warehouses' => collect($row->warehouses)->transform(function ($row) {
                     return [
                         'warehouse_description' => $row->warehouse->description,

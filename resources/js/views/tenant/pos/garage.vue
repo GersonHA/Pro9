@@ -221,8 +221,9 @@
                                     @click="clickAddItem(item, index)"
                                 >
                                     <img
-                                        :src="item.image_url"
+                                        :src="item.image_url_small"
                                         class="img-thumbail img-custom"
+                                        loading="lazy"
                                     />
                                     <p
                                         class="text-muted font-weight-lighter mb-0"

@@ -53,3 +53,25 @@ html {
     max-width: 80% !important;
     margin-right: 5% !important;
 }
+
+/* ==========================================================================
+   Modo Rendimiento (POS para equipos de bajos recursos)
+   Activa: apaga todas las animaciones y los tooltips del POS.
+   Persiste en localStorage como "pos_index_performance_mode".
+   ========================================================================== */
+
+.nuclear-performance-mode * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+}
+
+.nuclear-performance-mode .el-tooltip__popper {
+    display: none !important;
+}
+
+.nuclear-performance-mode .product-pos-container {
+    will-change: transform, scroll-position;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+}

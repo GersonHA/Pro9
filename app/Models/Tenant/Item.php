@@ -1273,7 +1273,7 @@ class Item extends ModelTenant
             'used_points_for_exchange' => null, //total de puntos
             'factory_code' => $this->factory_code,
             'restrict_sale_cpe' => $this->restrict_sale_cpe,
-            'image_url' => $this->getImageUrl(),
+            'image_url' => $this->getImageUrlSmall(),
             'name' => $this->name,
             'preparation_area_id' => $this->preparation_area_id,
             'preparation_area' => $this->preparationArea
@@ -1707,9 +1707,9 @@ class Item extends ModelTenant
             ->setInArray('has_isc',false)
             ->setInArray('has_plastic_bag_taxes',false)
             ->setInArray('warehouse_id',$warehouse)
-            ->setInArray('image','imagen-no-disponible.jpg')
-            ->setInArray('image_medium','imagen-no-disponible.jpg')
-            ->setInArray('image_small','imagen-no-disponible.jpg')
+            ->setInArray('image','imagen-no-disponible.webp')
+            ->setInArray('image_medium','imagen-no-disponible.webp')
+            ->setInArray('image_small','imagen-no-disponible.webp')
             ->setInArray('date_of_due',$today)
             ->setInArray('item_code',$this->cod_digemid)
             ->setInArray('brand_id',null)
@@ -2823,7 +2823,7 @@ class Item extends ModelTenant
             'has_igv' => (bool)$this->has_igv,
             'sale_unit_price' => (float) $this->sale_unit_price,
             'show_sale_unit_price' => $show_sale_unit_price,
-            'image_url' => $this->getImageUrl(),
+            'image_url' => $this->getImageUrlSmall(),
             'purchase_affectation_igv_type_id' => $this->purchase_affectation_igv_type_id,
             'purchase_unit_price' => $this->purchase_unit_price,
             'category_id' => $this->category_id,
@@ -2891,7 +2891,22 @@ class Item extends ModelTenant
      */
     public function getImageUrl()
     {
-        return ($this->image !== 'imagen-no-disponible.jpg') ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image) : asset("/logo/{$this->image}");
+        return ($this->image !== 'imagen-no-disponible.jpg' && $this->image !== 'imagen-no-disponible.webp' && !empty($this->image))
+            ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image)
+            : asset("/logo/imagen-no-disponible.webp");
+    }
+
+    /**
+     * Obtener url del clon táctico (WebP) para el POS
+     *
+     * @return string
+     */
+    public function getImageUrlSmall()
+    {
+        $img = $this->image_small ?: $this->image;
+        return ($img !== 'imagen-no-disponible.jpg' && $img !== 'imagen-no-disponible.webp' && !empty($img))
+            ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $img)
+            : asset("/logo/imagen-no-disponible.webp");
     }
 
 
@@ -3071,7 +3086,7 @@ class Item extends ModelTenant
                 return $row->getCollectionData($decimal_units);
             }),
             'stock' => $this->getWarehouseCurrentStock($warehouse),
-            'image_url' => $this->getImageUrl(),
+            'image_url' => $this->getImageUrlSmall(),
             'brand_id' => $this->brand_id,
             'category_id' => $this->category_id,
             'is_set' => $this->is_set,

@@ -667,21 +667,19 @@
                             <div class="col-md-12 form-group mb-3">
                                 <el-checkbox
                                     v-model="form.create_default_cash"
-                                    :disabled="form.id !== null || form.default_cash_id !== null"
+                                    :disabled="form.id !== null"
+                                    @change="onCreateDefaultCashChange"
                                 >
-                                    <span :class="{ 'text-muted': form.id !== null || form.default_cash_id !== null }">
+                                    <span :class="{ 'text-muted': form.id !== null }">
                                         Generar caja de apertura al vendedor
                                     </span>
                                 </el-checkbox>
                                 <br>
-                                <small class="form-text text-muted" v-if="form.id !== null && !form.default_cash_id">
+                                <small class="form-text text-muted" v-if="form.id !== null">
                                     Este usuario ya fue creado: la caja inicial solo se puede asignar al crear.
                                 </small>
-                                <small class="form-text text-muted" v-else-if="form.default_cash_id">
-                                    Desactivado: ya tiene caja proxy asignada. La caja propia se podrá crear después desde el POS.
-                                </small>
                                 <small class="form-text text-muted" v-else-if="form.create_default_cash">
-                                    El usuario nacerá con su propia caja abierta de S/ 0.00.
+                                    Al activarlo, el usuario nacerá con su propia caja abierta de S/ 0.00. El select de abajo se desactiva.
                                 </small>
                             </div>
                             <div class="col-md-12 form-group" :class="{'has-danger': errors.default_cash_id}">
@@ -1236,6 +1234,14 @@ export default {
                 })
 
 
+        },
+
+        onCreateDefaultCashChange(val) {
+            // Si el admin marca "Generar caja de apertura" al crear, limpia cualquier
+            // selección previa de proxy para que el backend no termine con ambos valores.
+            if (val) {
+                this.form.default_cash_id = null;
+            }
         },
 
         getRoutePath(level_value) {

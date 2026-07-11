@@ -73,6 +73,7 @@ class UserRequest extends FormRequest
             // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
             'start_route' => ['nullable', 'string', 'max:255'],
             'default_cash_id' => ['nullable', 'integer', 'min:0'],
+            'create_default_cash' => ['nullable'],
 
         ];
     }

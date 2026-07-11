@@ -74,61 +74,6 @@
                         </div>
                     </div>
 
-                    <!-- Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6 -->
-                    <div class="col-md-4">
-                        <div :class="{ 'has-danger': errors.default_cash_id }" class="form-group">
-                            <label class="control-label">
-                                Caja por defecto (proxy)
-                                <el-tooltip class="item" effect="dark" placement="top-start">
-                                    <i class="fa fa-info-circle"></i>
-                                    <div slot="content">
-                                        <strong>CAJA COMPARTIDA</strong><br/><br/>
-                                        Si está vacío, el usuario usa su propia caja.<br/>
-                                        Si asignas la caja de otro usuario, este vendedor facturará contra esa caja.
-                                    </div>
-                                </el-tooltip>
-                            </label>
-                            <el-input
-                                v-model.number="form.default_cash_id"
-                                type="number"
-                                min="0"
-                                placeholder="ID de caja (dejar vacío para usar la propia)"
-                                clearable
-                            ></el-input>
-                            <small
-                                v-if="errors.default_cash_id"
-                                class="form-control-feedback"
-                                v-text="errors.default_cash_id[0]"
-                            ></small>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div :class="{ 'has-danger': errors.start_route }" class="form-group">
-                            <label class="control-label">
-                                Ruta de inicio post-login
-                                <el-tooltip class="item" effect="dark" placement="top-start">
-                                    <i class="fa fa-info-circle"></i>
-                                    <div slot="content">
-                                        <strong>START ROUTE</strong><br/><br/>
-                                        Ruta personalizada a la que el usuario es redirigido después del login.<br/>
-                                        Ejemplos: <code>pos/garage</code>, <code>documents/create</code>, <code>sale-notes</code>.<br/>
-                                        Dejar vacío para ir al dashboard por defecto.
-                                    </div>
-                                </el-tooltip>
-                            </label>
-                            <el-input
-                                v-model="form.start_route"
-                                placeholder="Ej: pos/garage (vacío = dashboard)"
-                                clearable
-                            ></el-input>
-                            <small
-                                v-if="errors.start_route"
-                                class="form-control-feedback"
-                                v-text="errors.start_route[0]"
-                            ></small>
-                        </div>
-                    </div>
-
                     <!-- Zona por usuario -->
                     <!--
                     <div class="col-md-4">
@@ -697,6 +642,57 @@
                         </div>
                     </el-tab-pane>
 
+                    <el-tab-pane name="fifth">
+                        <span slot="label">Ruta de inicio</span>
+                        <div class="row">
+                            <div class="col-md-6 form-group">
+                                <label class="control-label">Módulo principal</label>
+                                <el-select v-model="selected_module_group" @change="handleModuleGroupChange" placeholder="Seleccione módulo">
+                                    <el-option v-for="mod in module_options" :key="mod.id" :label="mod.description" :value="mod.id"></el-option>
+                                </el-select>
+                            </div>
+
+                            <div class="col-md-6 form-group">
+                                <label class="control-label">Submódulo / Ruta</label>
+                                <el-select v-model="form.start_route" :disabled="!selected_module_group" placeholder="Seleccione ruta" filterable clearable>
+                                    <el-option v-for="sub in filtered_submodules" :key="sub.id" :label="sub.label" :value="sub.path"></el-option>
+                                </el-select>
+                            </div>
+                        </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane name="sixth">
+                        <span slot="label">Caja</span>
+                        <div class="row">
+                            <div class="col-md-12 form-group mb-3">
+                                <el-checkbox v-model="form.create_default_cash" :disabled="form.id !== null">
+                                    Generar caja de apertura al vendedor
+                                </el-checkbox>
+                                <br>
+                                <small class="form-text text-muted" v-if="form.create_default_cash">
+                                    El usuario se creará automáticamente con una caja propia abierta de S/ 0.00.
+                                </small>
+                            </div>
+                            <div class="col-md-12 form-group" :class="{'has-danger': errors.default_cash_id}">
+                                <label class="control-label">Caja por defecto (Opcional)</label>
+                                <el-select
+                                    v-model="form.default_cash_id"
+                                    clearable
+                                    filterable
+                                    placeholder="Seleccione una CAJA ACTIVA"
+                                    no-data-text="No hay cajas abiertas actualmente">
+                                    <el-option
+                                        v-for="cash in cashes"
+                                        :key="cash.id"
+                                        :value="cash.id"
+                                        :label="cash.description">
+                                    </el-option>
+                                </el-select>
+                                <small class="form-control-feedback" v-if="errors.default_cash_id" v-text="errors.default_cash_id[0]"></small>
+                                <small class="form-text text-muted pt-2">Si seleccionas una, el dinero irá a esta caja. Si lo dejas vacío, el usuario usará su propia caja.</small>
+                            </div>
+                        </div>
+                    </el-tab-pane>
                 </el-tabs>
             </div>
             <div class="form-actions text-end mt-4">
@@ -745,9 +741,9 @@ export default {
                 permission_force_send_by_summary: false,
                 permission_edit_item_prices: true,
                 restaurant_pin:'',
-                // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
                 start_route: null,
                 default_cash_id: null,
+                create_default_cash: false,
             },
             modules: [],
             selectAllModules: false,
@@ -757,6 +753,10 @@ export default {
             documents: [],
             series: [],
             types: [],
+            selected_module_group: null,
+            module_options: [],
+            filtered_submodules: [],
+            cashes: [],
             // define the default value
             value: null,
             // define options
@@ -793,6 +793,12 @@ export default {
             this.config_regex_password_user = response.data.config_regex_password_user
             this.identity_document_types = response.data.identity_document_types
             this.document_types = this.filterDocumentTypes(response.data.documents)
+            this.cashes = response.data.cashes;
+
+            this.module_options = this.modules.map(m => ({
+                id: m.value,
+                description: m.description
+            }));
 
             this.getSeries();
         });
@@ -1107,7 +1113,12 @@ export default {
                 await this.getSeries()
                 await this.initDataDefaultDocumentTypes(false)
 
-            } 
+                // Hidratar el selector en cascada del tab "Ruta de inicio" desde form.start_route
+                if (this.modules.length > 0 && this.form.start_route) {
+                    this.syncModuleGroupFromRoute();
+                }
+
+            }
             else 
             {
                 await this.$http.get(`/${this.resource}/tables`).then((response) => {
@@ -1208,6 +1219,74 @@ export default {
                 })
 
 
+        },
+
+        getRoutePath(level_value) {
+            if (!level_value) return null;
+            const exceptions = {
+                'new_document': '/documents/create',
+                'list_document': '/documents',
+                'order-note': '/order-notes',
+                'pos_garage': '/pos/garage',
+                'companies': '/companies/create'
+            };
+            if (exceptions[level_value]) return exceptions[level_value];
+            return '/' + level_value.replace(/_/g, '-');
+        },
+
+        handleModuleGroupChange(val) {
+            this.filtered_submodules = [];
+            const selected = this.modules.find(m => m.value === val);
+
+            if (selected && selected.childrens) {
+                this.filtered_submodules = selected.childrens.map((child, index) => {
+                    return {
+                        id: `${val}-${index}`,
+                        path: this.getRoutePath(child.value),
+                        label: child.description
+                    };
+                });
+            }
+
+            const routeExists = this.filtered_submodules.find(sub => sub.path === this.form.start_route);
+            if (!routeExists) {
+                this.form.start_route = null;
+            }
+        },
+
+        syncModuleGroupFromRoute() {
+            if (!this.form.start_route) return;
+            let savedRoute = this.form.start_route;
+            let parentValue = null;
+
+            for (let m of this.modules) {
+                if (m.childrens) {
+                    for (let child of m.childrens) {
+                        if (this.getRoutePath(child.value) === savedRoute) {
+                            parentValue = m.value;
+                            break;
+                        }
+                    }
+                }
+                if (parentValue) break;
+            }
+
+            if (parentValue) {
+                this.selected_module_group = parentValue;
+                const selected = this.modules.find(m => m.value === parentValue);
+                if (selected && selected.childrens) {
+                    this.filtered_submodules = selected.childrens.map((child, index) => {
+                        return {
+                            id: `${parentValue}-${index}`,
+                            path: this.getRoutePath(child.value),
+                            label: child.description
+                        };
+                    });
+                }
+                this.$nextTick(() => {
+                    this.form.start_route = savedRoute;
+                });
+            }
         },
 
     },

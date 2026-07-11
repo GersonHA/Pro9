@@ -14,6 +14,7 @@ use App\Models\Tenant\User;
 use App\Models\Tenant\Configuration;
 use App\Models\Tenant\Zone;
 use App\Models\Tenant\Catalogs\IdentityDocumentType;
+use App\Models\Tenant\Cash;
 use Modules\Finance\Helpers\UploadFileHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -89,8 +90,18 @@ class UserController extends Controller
         $zones = Zone::all();
 
         $identity_document_types = IdentityDocumentType::filterDataForPersons()->get();
+        $cashes = Cash::with('user')
+            ->where('state', true)
+            ->get()
+            ->transform(function($row) {
+                $cajero = $row->user ? $row->user->name : 'Desconocido';
+                return [
+                    'id' => $row->id,
+                    'description' => "{$cajero}"
+                ];
+            });
 
-        return compact('modules', 'establishments', 'types', 'documents', 'series', 'config_permission_to_edit_cpe','zones', 'identity_document_types', 'config_regex_password_user');
+        return compact('modules', 'establishments', 'types', 'documents', 'series', 'config_permission_to_edit_cpe','zones', 'identity_document_types', 'config_regex_password_user', 'cashes');
     }
 
     public function regenerateToken(User $user){
@@ -174,15 +185,34 @@ class UserController extends Controller
             $user->permission_force_send_by_summary = $request->input('permission_force_send_by_summary');
             $user->permission_edit_item_prices = $request->permission_edit_item_prices;
 
-            // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
-            $user->start_route = $request->input('start_route');
-            $user->default_cash_id = $request->input('default_cash_id');
-
             if($user->isDirty('password')) $user->last_password_update = date('Y-m-d H:i:s');
 
             $this->setAdditionalData($user, $request);
 
+            // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+            $user->start_route = $request->input('start_route');
+            $user->default_cash_id = $request->input('default_cash_id');
+
             $user->save();
+
+            // Auto-crear Caja Inicial si el admin marca el checkbox en el tab "Caja"
+            if ($request->create_default_cash) {
+                $existing_cash = Cash::where('user_id', $user->id)->where('state', true)->first();
+                if (!$existing_cash) {
+                    Cash::create([
+                        'user_id' => $user->id,
+                        'date_opening' => date('Y-m-d'),
+                        'time_opening' => date('H:i:s'),
+                        'date_closed' => null,
+                        'time_closed' => null,
+                        'beginning_balance' => 0,
+                        'final_balance' => 0,
+                        'income' => 0,
+                        'state' => true,
+                        'reference_number' => 'Caja Inicial (Auto)'
+                    ]);
+                }
+            }
 
             $this->savePhoto($user, $request);
             $this->saveDefaultDocumentTypes($user, $request);

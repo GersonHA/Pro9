@@ -297,10 +297,12 @@ use Modules\Sale\Models\Agent;
 
 
             static::created(function (self $model) {
-                $cash = Cash::where([
-                    ['user_id', auth()->id()],
-                    ['state', true],
-                ])->firstOrFail();
+                // Caja Compartida ("La Puerta Proxy") — port pro8 ad091bb6
+                $cash = User::resolveActiveCashForUser(auth()->user());
+
+                if (!$cash) {
+                    return;
+                }
 
                 $cash_document = CashDocument::where('cash_id', $cash->id)
                     ->where('sale_note_id', $model->id)->first();

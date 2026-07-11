@@ -9,6 +9,7 @@ use App\Models\Tenant\Document;
 use App\Models\Tenant\SaleNote;
 use App\Models\Tenant\CashDocumentCredit;
 use App\Models\Tenant\CashDocumentPayment;
+use App\Models\Tenant\User;
 
 
 class CashController extends Controller
@@ -84,10 +85,15 @@ class CashController extends Controller
 
     public function cash_document(Request $request) {
 
-        $cash = Cash::where([
-            ['user_id', auth()->id()],
-            ['state', true],
-        ])->firstOrFail();
+        $cash = User::resolveActiveCashForUser(auth()->user());
+
+        if (!$cash) {
+            return [
+                'success' => false,
+                'message' => 'No hay caja abierta para el usuario actual',
+                'data' => null,
+            ];
+        }
 
         $isDocument = $request->document_id !== null;
         $documentModel = $isDocument ? Document::class : SaleNote::class;
@@ -125,7 +131,7 @@ class CashController extends Controller
 
     public function opening_cash()
     {
-        $cash = Cash::where([['user_id', auth()->user()->id],['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         return [
             'success' => ($cash)?true:false,
@@ -173,7 +179,7 @@ class CashController extends Controller
     public function close() {
 
 
-        $cash = Cash::where('user_id',auth()->user()->id)->where('state',1)->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if(!$cash){
             return [

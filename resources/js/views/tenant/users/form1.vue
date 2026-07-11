@@ -73,6 +73,62 @@
                             ></small>
                         </div>
                     </div>
+
+                    <!-- Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6 -->
+                    <div class="col-md-4">
+                        <div :class="{ 'has-danger': errors.default_cash_id }" class="form-group">
+                            <label class="control-label">
+                                Caja por defecto (proxy)
+                                <el-tooltip class="item" effect="dark" placement="top-start">
+                                    <i class="fa fa-info-circle"></i>
+                                    <div slot="content">
+                                        <strong>CAJA COMPARTIDA</strong><br/><br/>
+                                        Si está vacío, el usuario usa su propia caja.<br/>
+                                        Si asignas la caja de otro usuario, este vendedor facturará contra esa caja.
+                                    </div>
+                                </el-tooltip>
+                            </label>
+                            <el-input
+                                v-model.number="form.default_cash_id"
+                                type="number"
+                                min="0"
+                                placeholder="ID de caja (dejar vacío para usar la propia)"
+                                clearable
+                            ></el-input>
+                            <small
+                                v-if="errors.default_cash_id"
+                                class="form-control-feedback"
+                                v-text="errors.default_cash_id[0]"
+                            ></small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div :class="{ 'has-danger': errors.start_route }" class="form-group">
+                            <label class="control-label">
+                                Ruta de inicio post-login
+                                <el-tooltip class="item" effect="dark" placement="top-start">
+                                    <i class="fa fa-info-circle"></i>
+                                    <div slot="content">
+                                        <strong>START ROUTE</strong><br/><br/>
+                                        Ruta personalizada a la que el usuario es redirigido después del login.<br/>
+                                        Ejemplos: <code>pos/garage</code>, <code>documents/create</code>, <code>sale-notes</code>.<br/>
+                                        Dejar vacío para ir al dashboard por defecto.
+                                    </div>
+                                </el-tooltip>
+                            </label>
+                            <el-input
+                                v-model="form.start_route"
+                                placeholder="Ej: pos/garage (vacío = dashboard)"
+                                clearable
+                            ></el-input>
+                            <small
+                                v-if="errors.start_route"
+                                class="form-control-feedback"
+                                v-text="errors.start_route[0]"
+                            ></small>
+                        </div>
+                    </div>
+
                     <!-- Zona por usuario -->
                     <!--
                     <div class="col-md-4">
@@ -688,7 +744,10 @@ export default {
                 recreate_documents: false,
                 permission_force_send_by_summary: false,
                 permission_edit_item_prices: true,
-                restaurant_pin:''
+                restaurant_pin:'',
+                // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+                start_route: null,
+                default_cash_id: null,
             },
             modules: [],
             selectAllModules: false,

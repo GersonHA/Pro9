@@ -101,7 +101,7 @@ class CashController extends Controller
     public function opening_cash()
     {
 
-        $cash = Cash::where([['user_id', auth()->user()->id],['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         return compact('cash');
     }
@@ -364,10 +364,11 @@ class CashController extends Controller
      */
     public function cash_document(Request $request)
     {
-        $cash = Cash::where([
-            ['user_id', auth()->id()],
-            ['state', true],
-        ])->firstOrFail();
+        $cash = User::resolveActiveCashForUser(auth()->user());
+
+        if (!$cash) {
+            abort(404, 'No hay caja abierta para el usuario actual.');
+        }
 
         $isDocument = $request->document_id !== null;
         $documentModel = $isDocument ? Document::class : SaleNote::class;

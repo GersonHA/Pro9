@@ -219,6 +219,10 @@ class User extends Authenticatable
         'restaurant_pin',
         'from_guest_register',
 
+        // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+        'start_route',
+        'default_cash_id',
+
     ];
 
     /**
@@ -1315,6 +1319,37 @@ $modules_levels = []){
     public function hasVerifiedEmail()
     {
         return !is_null($this->email_verified_at);
+    }
+
+    /**
+     * Resuelve la caja actualmente abierta para el usuario, aplicando el proxy de Caja
+     * Compartida ("La Puerta Proxy") si el usuario tiene `default_cash_id` asignado.
+     *
+     * Port pro8 ad091bb6 (marzo 2026). Si el usuario tiene un jefe asignado vía
+     * `default_cash_id`, devuelve la caja abierta del jefe en lugar de la propia.
+     * Si el jefe no tiene caja abierta o la FK está rota, hace fallback a la propia
+     * con escudo (devuelve null si tampoco la hay, no lanza error).
+     *
+     * Uso:
+     *   $cash = User::resolveActiveCashForUser(auth()->user());
+     *
+     * @param  User|null  $user
+     * @return Cash|null
+     */
+    public static function resolveActiveCashForUser($user)
+    {
+        if (!$user) {
+            return null;
+        }
+
+        // Interceptor de Caja (La Puerta Proxy) — port pro8 ad091bb6
+        if (!empty($user->default_cash_id)) {
+            $caja_asignada = Cash::find($user->default_cash_id);
+            $jefe_id = $caja_asignada ? $caja_asignada->user_id : $user->id;
+            return Cash::where([['user_id', $jefe_id], ['state', true]])->first();
+        }
+
+        return Cash::where([['user_id', $user->id], ['state', true]])->first();
     }
 
 }

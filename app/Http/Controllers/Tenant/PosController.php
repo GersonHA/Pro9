@@ -38,7 +38,7 @@ class PosController extends Controller
 
     public function index()
     {
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) return redirect()->route('tenant.cash.index', ['redirect_reason' => 'no_cash_pos']);
 
@@ -53,7 +53,7 @@ class PosController extends Controller
 
     public function index_full()
     {
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) return redirect()->route('tenant.cash.index', ['redirect_reason' => 'no_cash_pos']);
 
@@ -462,13 +462,17 @@ class PosController extends Controller
             $items->where('unit_type_id', '!=', 'ZZ');
         }
 
-        if ($request->garage == 1) {
-            $items->where('calculate_quantity', 1);
-        }
+        // Antes se filtraba por calculate_quantity=1 en el garage, pero eso ocultaba la mayoría de
+        // productos (los que no se venden por cantidad calculada). Se quita para mostrar todo el catálogo.
+        // Origen del fix: pro8 230c8ef5 (marzo). Ver Cerebro §A3.
+        // if ($request->garage == 1) {
+        //     $items->where('calculate_quantity', 1);
+        // }
 
         self::FilterItem($items, $request);
 
-        $limit = $request->limit ? (int)$request->limit : 50;
+        // Acotado 1..100: evita ?limit=999999 (OOM) y ?limit=-1 (Laravel ignora el LIMIT y devuelve todo).
+        $limit = min(max($request->limit ? (int)$request->limit : 50, 1), 100);
         $items_collection = $items->paginate($limit);
 
         return new PosCollection($items_collection);
@@ -531,7 +535,8 @@ class PosController extends Controller
         }
 
         self::FilterItem($item, $request);
-        $limit = $request->limit ? (int)$request->limit : 50;
+        // Acotado 1..100: evita ?limit=999999 (OOM) y ?limit=-1 (Laravel ignora el LIMIT y devuelve todo).
+        $limit = min(max($request->limit ? (int)$request->limit : 50, 1), 100);
         return new PosCollection($item->paginate($limit));
 
     }
@@ -545,7 +550,7 @@ class PosController extends Controller
      */
     public function fast()
     {
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) return redirect()->route('tenant.cash.index', ['redirect_reason' => 'no_cash_fast_sale']);
 
@@ -560,7 +565,7 @@ class PosController extends Controller
 
     public function garage()
     {
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) return redirect()->route('tenant.cash.index', ['redirect_reason' => 'no_cash_garage']);
 

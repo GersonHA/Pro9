@@ -73,6 +73,10 @@ class UserResource extends JsonResource {
             'permission_edit_item_prices' => $this->permission_edit_item_prices,
             'restaurant_pin' => $this->restaurant_pin,
             'restaurant_role_id' => $this->restaurant_role_id,
+
+            // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+            'start_route' => $this->start_route,
+            'default_cash_id' => $this->default_cash_id,
         ];
     }
 }

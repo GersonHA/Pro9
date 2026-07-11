@@ -37,6 +37,13 @@
 
             /** @var User $user */
             $user = $request->user();
+
+            // start_route (ruta post-login per-usuario): gana sobre toda la lógica de
+            // nivel-acceso. Port pro8 ad091bb6 (Caja Compartida / La Puerta Proxy).
+            if (!empty($user->start_route) && trim((string) $user->start_route, '/') !== 'dashboard') {
+                return redirect($user->start_route);
+            }
+
             $level = $user->getLevel();
             $path = explode('/', $request->path());
             $levels = $user->getLevels();

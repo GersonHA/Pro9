@@ -336,7 +336,7 @@ class DocumentController extends Controller
         if (auth()->user()->type == 'integrator')
             return redirect('/documents');
 
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) {
             if (!$this->userCanAccessCash()) {
@@ -355,7 +355,7 @@ class DocumentController extends Controller
         if (auth()->user()->type == 'integrator')
             return redirect('/documents');
 
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) {
             if (!$this->userCanAccessCash()) {
@@ -803,7 +803,7 @@ class DocumentController extends Controller
         // si ha seleccionado una caja chica
         if($find_cash >= 0) {
             // no hay id de la caja seleccionada por lo que si es abierta una nueva será seleccionada como destino
-            $cash = Cash::where([['user_id', auth()->user()->id],['state', true]])->first();
+            $cash = User::resolveActiveCashForUser(auth()->user());
             if(!$cash){
                 return false;
             }

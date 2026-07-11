@@ -174,6 +174,10 @@ class UserController extends Controller
             $user->permission_force_send_by_summary = $request->input('permission_force_send_by_summary');
             $user->permission_edit_item_prices = $request->permission_edit_item_prices;
 
+            // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+            $user->start_route = $request->input('start_route');
+            $user->default_cash_id = $request->input('default_cash_id');
+
             if($user->isDirty('password')) $user->last_password_update = date('Y-m-d H:i:s');
 
             $this->setAdditionalData($user, $request);

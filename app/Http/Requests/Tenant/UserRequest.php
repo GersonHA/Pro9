@@ -70,6 +70,10 @@ class UserRequest extends FormRequest
             'default_document_types.*.document_type_id' => 'required',
             'default_document_types.*.series_id' => 'required',
 
+            // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
+            'start_route' => ['nullable', 'string', 'max:255'],
+            'default_cash_id' => ['nullable', 'integer', 'min:0'],
+
         ];
     }
 }

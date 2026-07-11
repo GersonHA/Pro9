@@ -7,6 +7,7 @@ use App\Models\Tenant\Cash;
 use App\Models\Tenant\CashDocument;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Document;
+use App\Models\Tenant\User;
 use Modules\Finance\Traits\FinanceTrait;
 use Modules\Webhook\Services\WebhookDispatcher;
 use Modules\Webhook\Services\WebhookEvents;
@@ -88,11 +89,12 @@ class DocumentObserver
         // Antes de la lógica de caja: Cash::firstOrFail() puede lanzar excepción
         app(WebhookDispatcher::class)->dispatch(WebhookEvents::DOCUMENT_CREATED, $document);
 
-        // Esto nos verifica que es un documento generado desde el api
-        $cash = Cash::where([
-            ['user_id', auth()->id()],
-            ['state', true],
-        ])->firstOrFail();
+        // Caja Compartida ("La Puerta Proxy") — port pro8 ad091bb6
+        $cash = User::resolveActiveCashForUser(auth()->user());
+
+        if (!$cash) {
+            return;
+        }
 
         $cash_document = CashDocument::where('cash_id', $cash->id)
                     ->where('document_id', $document->id)->first();

@@ -95,7 +95,7 @@ class SaleNoteController extends Controller
 
     public function create($id = null)
     {
-        $cash = Cash::where([['user_id', auth()->user()->id], ['state', true]])->first();
+        $cash = User::resolveActiveCashForUser(auth()->user());
 
         if (!$cash) {
             return redirect()->route('tenant.cash.index', ['redirect_reason' => 'no_cash_sale_note']);

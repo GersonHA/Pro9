@@ -665,18 +665,30 @@
                         <span slot="label">Caja</span>
                         <div class="row">
                             <div class="col-md-12 form-group mb-3">
-                                <el-checkbox v-model="form.create_default_cash" :disabled="form.id !== null">
-                                    Generar caja de apertura al vendedor
+                                <el-checkbox
+                                    v-model="form.create_default_cash"
+                                    :disabled="form.id !== null || form.default_cash_id !== null"
+                                >
+                                    <span :class="{ 'text-muted': form.id !== null || form.default_cash_id !== null }">
+                                        Generar caja de apertura al vendedor
+                                    </span>
                                 </el-checkbox>
                                 <br>
-                                <small class="form-text text-muted" v-if="form.create_default_cash">
-                                    El usuario se creará automáticamente con una caja propia abierta de S/ 0.00.
+                                <small class="form-text text-muted" v-if="form.id !== null && !form.default_cash_id">
+                                    Este usuario ya fue creado: la caja inicial solo se puede asignar al crear.
+                                </small>
+                                <small class="form-text text-muted" v-else-if="form.default_cash_id">
+                                    Desactivado: ya tiene caja proxy asignada. La caja propia se podrá crear después desde el POS.
+                                </small>
+                                <small class="form-text text-muted" v-else-if="form.create_default_cash">
+                                    El usuario nacerá con su propia caja abierta de S/ 0.00.
                                 </small>
                             </div>
                             <div class="col-md-12 form-group" :class="{'has-danger': errors.default_cash_id}">
                                 <label class="control-label">Caja por defecto (Opcional)</label>
                                 <el-select
                                     v-model="form.default_cash_id"
+                                    :disabled="form.create_default_cash"
                                     clearable
                                     filterable
                                     placeholder="Seleccione una CAJA ACTIVA"
@@ -689,7 +701,12 @@
                                     </el-option>
                                 </el-select>
                                 <small class="form-control-feedback" v-if="errors.default_cash_id" v-text="errors.default_cash_id[0]"></small>
-                                <small class="form-text text-muted pt-2">Si seleccionas una, el dinero irá a esta caja. Si lo dejas vacío, el usuario usará su propia caja.</small>
+                                <small class="form-text text-muted pt-2" v-if="form.create_default_cash">
+                                    Desactivado: ya se eligió crear caja propia.
+                                </small>
+                                <small class="form-text text-muted pt-2" v-else>
+                                    Si seleccionas una, el dinero irá a esta caja. Si lo dejas vacío, el usuario usará su propia caja.
+                                </small>
                             </div>
                         </div>
                     </el-tab-pane>

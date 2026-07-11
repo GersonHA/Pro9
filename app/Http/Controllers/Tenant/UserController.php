@@ -94,10 +94,12 @@ class UserController extends Controller
             ->where('state', true)
             ->get()
             ->transform(function($row) {
-                $cajero = $row->user ? $row->user->name : 'Desconocido';
+                // Mostrar siempre "Caja #ID - cajero" para que el select nunca
+                // quede en blanco si el user no carga o su nombre es null.
+                $cajero = $row->user && $row->user->name ? $row->user->name : 'Sin asignar';
                 return [
                     'id' => $row->id,
-                    'description' => "{$cajero}"
+                    'description' => "Caja #{$row->id} - {$cajero}"
                 ];
             });
 
@@ -191,12 +193,18 @@ class UserController extends Controller
 
             // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
             $user->start_route = $request->input('start_route');
-            $user->default_cash_id = $request->input('default_cash_id');
+            // Guarda: si se eligió "crear caja propia", no se puede nacer con proxy.
+            // El frontend lo bloquea; aquí defendemos por si llegan datos sucios.
+            if ($request->boolean('create_default_cash')) {
+                $user->default_cash_id = null;
+            } else {
+                $user->default_cash_id = $request->input('default_cash_id');
+            }
 
             $user->save();
 
             // Auto-crear Caja Inicial si el admin marca el checkbox en el tab "Caja"
-            if ($request->create_default_cash) {
+            if ($request->boolean('create_default_cash')) {
                 $existing_cash = Cash::where('user_id', $user->id)->where('state', true)->first();
                 if (!$existing_cash) {
                     Cash::create([

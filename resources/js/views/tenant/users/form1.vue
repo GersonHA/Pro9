@@ -1265,7 +1265,10 @@ export default {
                 this.filtered_submodules = selected.childrens.map((child, index) => {
                     return {
                         id: `${val}-${index}`,
-                        path: this.getRoutePath(child.value),
+                        // Priorizar route_path que viene del backend (migración
+                        // 2026_07_13_120000_populate_route_path_for_module_levels).
+                        // Fallback al helper para módulos antiguos sin route_path.
+                        path: child.route_path || this.getRoutePath(child.value),
                         label: child.description
                     };
                 });
@@ -1285,7 +1288,9 @@ export default {
             for (let m of this.modules) {
                 if (m.childrens) {
                     for (let child of m.childrens) {
-                        if (this.getRoutePath(child.value) === savedRoute) {
+                        // Mismo cambio: priorizar child.route_path sobre el helper.
+                        const childPath = child.route_path || this.getRoutePath(child.value);
+                        if (childPath === savedRoute) {
                             parentValue = m.value;
                             break;
                         }
@@ -1301,7 +1306,7 @@ export default {
                     this.filtered_submodules = selected.childrens.map((child, index) => {
                         return {
                             id: `${parentValue}-${index}`,
-                            path: this.getRoutePath(child.value),
+                            path: child.route_path || this.getRoutePath(child.value),
                             label: child.description
                         };
                     });

@@ -44,6 +44,9 @@ class UserController extends Controller
             array_push($levels, [
                 'id' => "{$module->id}-{$level->id}",
                 'description' => $level->description,
+                'value' => $level->value,
+                'route_name' => $level->route_name,
+                'route_path' => $level->route_path,
                 'module_id' => $level->module_id,
                 'is_parent' => false,
             ]);

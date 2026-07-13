@@ -38,10 +38,17 @@
             /** @var User $user */
             $user = $request->user();
 
-            // start_route (ruta post-login per-usuario): gana sobre toda la lógica de
-            // nivel-acceso. Port pro8 ad091bb6 (Caja Compartida / La Puerta Proxy).
-            if (!empty($user->start_route) && trim((string) $user->start_route, '/') !== 'dashboard') {
-                return redirect($user->start_route);
+            // start_route se respeta SOLO en login (`/`) o cuando el usuario NO tiene
+            // permiso del nivel destino (lógica idéntica a pro8 ad091bb6 — Caja
+            // Compartida / La Puerta Proxy). NO redirigir en cada navegación libre,
+            // porque eso atrapa al usuario en su start_route para CUALQUIER ruta con
+            // redirect.level (71 rutas en Pro9), incluyendo "/advanced" o "/users".
+            if ($request->path() === '/') {
+                if (!empty($user->start_route)) {
+                    return redirect($user->start_route);
+                }
+                $level = $user->getLevel();
+                return $user->type === 'admin' ? redirect('dashboard') : $this->redirectRoute($level);
             }
 
             $level = $user->getLevel();
@@ -66,6 +73,11 @@
                     if ($group) {
                         if ($this->getLevelByGroup($levels, $group) === 0) {
                             $this->fixPermissions($level, $path);
+                            // Si NO tiene permiso del nivel destino y tiene start_route,
+                            // rebotar ahí (no a redirectRoute genérico).
+                            if (!empty($user->start_route)) {
+                                return redirect($user->start_route);
+                            }
                             return $this->redirectRoute($level);
                         }
 

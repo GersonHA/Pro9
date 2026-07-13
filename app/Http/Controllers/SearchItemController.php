@@ -233,12 +233,10 @@
         public static function SetWarehouseToUser(&$item)
         {
             /** @var Item $item */
-            // En este caso, se desestima esta configuracion ya que debe filtrase por el almacen del usuario
-            // dejando sin efecto por el issue #1046
-         //   $configuration =  Configuration::first()-> isShowItemsOnlyUserStablishment();
-         //   if($configuration == true) {
+            // Reconectando el filtro al interruptor general de la configuración
+            if (Configuration::getRecordIndividualColumn('list_items_by_warehouse')) {
                 $item->whereWarehouse();
-         //   }
+            }
 
         }
 

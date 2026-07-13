@@ -84,7 +84,9 @@ class PosController extends Controller
                     'warehouses.warehouse',
                     'item_unit_types',
                 ])
-                ->whereWarehouse();
+                ->when(Configuration::getRecordIndividualColumn('list_items_by_warehouse'), function ($q) {
+                    return $q->whereWarehouse();
+                });
         } else {
             $items_query = Item::where('description', 'like', "%{$request->input_item}%")
                 // ->orWhere('internal_id','like', "%{$request->input_item}%")
@@ -113,7 +115,9 @@ class PosController extends Controller
             ->orWhereHas('brand', function ($query) use ($request) {
                 $query->where('name', 'like', '%' . $request->input_item . '%');
             })
-            ->whereWarehouse();
+            ->when(Configuration::getRecordIndividualColumn('list_items_by_warehouse'), function ($q) {
+                return $q->whereWarehouse();
+            });
         }
 
         if ($configuration->isShowServiceOnPos() !== true) {
@@ -270,7 +274,9 @@ class PosController extends Controller
 
         if ($table === 'items') {
 
-            $items = Item::whereWarehouse()
+            $items = Item::when(Configuration::getRecordIndividualColumn('list_items_by_warehouse'), function ($q) {
+                    return $q->whereWarehouse();
+                })
                 ->whereIsActive();
             $configuration = Configuration::first();
 
@@ -452,7 +458,9 @@ class PosController extends Controller
      */
     public function item(Request $request)
     {
-        $items = Item::whereWarehouse()
+        $items = Item::when(Configuration::getRecordIndividualColumn('list_items_by_warehouse'), function ($q) {
+                return $q->whereWarehouse();
+            })
             ->whereIsActive()
             //->where('series_enabled', 0)
             ->with(['warehouses.warehouse', 'warehousePrices', 'brand', 'category', 'currency_type', 'item_unit_types', 'warehouses'])
@@ -524,7 +532,9 @@ class PosController extends Controller
      */
     public function search_items_cat(Request $request)
     {
-        $item = Item::whereWarehouse()
+        $item = Item::when(Configuration::getRecordIndividualColumn('list_items_by_warehouse'), function ($q) {
+                return $q->whereWarehouse();
+            })
             ->with(['warehouses.warehouse', 'warehousePrices', 'brand', 'category', 'currency_type', 'item_unit_types', 'warehouses']);
             // ->whereIsActive()
             //->where('series_enabled', 0);

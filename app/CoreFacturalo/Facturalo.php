@@ -1236,6 +1236,27 @@ class Facturalo
         }
     }
 
+
+    public function changeWasDeductedPrepayment()
+    {
+        if (in_array($this->document->document_type_id, ['07', '08'])) {
+            if ($this->document->note) {
+                $document = $this->document->note->affected_document;
+                $prepayment = $document->prepayments ? (array) $document->prepayments : [];
+                $exist_prepayment = count($prepayment) > 0;
+                if ($exist_prepayment) {
+                    $prepayment = $prepayment[0];
+                    [$series, $number] = explode("-" , $prepayment->number);
+                    $document = Document::where('series', $series)->where('number', $number)->first();
+                    $document->was_deducted_prepayment = false;
+                    $document->save();
+
+                }
+            }
+        }
+    }
+
+
     public function validationCodeResponse($code, $message)
     {
         //Errors

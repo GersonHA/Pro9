@@ -920,7 +920,6 @@ class DocumentController extends Controller
                 $facturalo->updateHash($service_pse_xml['hash']);
                 $facturalo->updateQr();
                 $facturalo->createPdf();
-                $facturalo->changeWasDeductedPrepayment();
                 return $facturalo;
             });
 

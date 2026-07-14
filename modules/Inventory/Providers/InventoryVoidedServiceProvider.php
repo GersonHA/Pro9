@@ -153,7 +153,7 @@ class InventoryVoidedServiceProvider extends ServiceProvider
         Note::created(function ($note) {
 
             //si es nc y tiene tipo de nc igual a "Anulación de la operación"
-            if($note->document->document_type_id === '07' && $note->note_credit_type_id === '01')
+            if($note->document->document_type_id === '07' && ($note->note_credit_type_id === '01' || $note->note_credit_type_id === '06' ))
             {
                 $affected_document = $note->affected_document;
 

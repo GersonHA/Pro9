@@ -334,6 +334,7 @@
         <sale-note-payments
             :showDialog.sync="showDialogPayments"
             :documentId="recordId"
+            :configuration="config"
         ></sale-note-payments>
 
         <sale-notes-options

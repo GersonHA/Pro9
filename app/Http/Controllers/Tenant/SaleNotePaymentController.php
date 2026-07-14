@@ -37,7 +37,10 @@ class SaleNotePaymentController extends Controller
     {
         return [
             'payment_method_types' => PaymentMethodType::all(),
-            'payment_destinations' => $this->getPaymentDestinations()
+            'payment_destinations' => $this->getPaymentDestinations(),
+            // Marzo #03: gate per-user de pagos NV (RECONCILE a create_payment/delete_payment,
+            // ya en uso por CPE/Document). Patrón idéntico a DocumentPaymentController:37.
+            'permissions' => auth()->user()->getPermissionsPayment()
         ];
     }
 

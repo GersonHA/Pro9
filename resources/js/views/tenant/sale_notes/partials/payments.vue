@@ -42,7 +42,8 @@
                                 </template>
 
                                     <td class="series-table-actions text-right">
-                                        <button type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)"><i class="fas fa-trash"></i></button>
+                                        <!-- Marzo #03: gate per-user (RECONCILE desde seller_can_manage_payments global) -->
+                                        <button v-if="permissions.delete_payment" type="button" class="btn waves-effect waves-light btn-xs btn-danger" @click.prevent="clickDelete(row.id)"><i class="fas fa-trash"></i></button>
                                         <!--<el-button type="danger" icon="el-icon-delete" plain @click.prevent="clickDelete(row.id)"></el-button>-->
                                     </td>
                                 </template>
@@ -136,7 +137,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="col-md-12 text-center pt-2" v-if="showAddButton && (document.total_difference > 0)">
+                <div class="col-md-12 text-center pt-2" v-if="showAddButton && (document.total_difference > 0) && permissions.create_payment">
                     <el-button :loading="loadingFetch" type="primary" icon="el-icon-plus" @click="clickAddRow">Nuevo</el-button>
                 </div>
             </div>
@@ -181,6 +182,7 @@
                 records: [],
                 payment_destinations: [],
                 payment_method_types: [],
+                permissions: {}, // Marzo #03: gate per-user (create_payment/delete_payment) para botones Nuevo/Eliminar
                 headers: headers_token,
                 index_file: null,
                 fileList: [],
@@ -198,6 +200,8 @@
                 .then(response => {
                     this.payment_destinations = response.data.payment_destinations
                     this.payment_method_types = response.data.payment_method_types;
+                    // Marzo #03: cargar permisos per-user (RECONCILE desde seller_can_manage_payments global).
+                    this.permissions = response.data.permissions || {};
                     //this.initDocumentTypes()
                 })
         },

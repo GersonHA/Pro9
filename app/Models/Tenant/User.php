@@ -218,6 +218,7 @@ class User extends Authenticatable
         'permission_edit_item_prices',
         'restaurant_pin',
         'from_guest_register',
+        'theme_color',
 
         // Caja Compartida ("La Puerta Proxy") + start_route — port pro8 ad091bb6
         'start_route',

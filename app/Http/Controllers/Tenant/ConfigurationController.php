@@ -401,9 +401,31 @@ class ConfigurationController extends Controller
 
         $data = $configuration->toArray();
         $data['is_restaurant_active'] = $is_restaurant_active;
+
+        $collectionData = $configuration->getCollectionData();
+
+        // Switch admin per-user / per-company (plan #02b). Default true = comportamiento per-user.
+        $theme_per_user = (bool) ($configuration->theme_per_user ?? true);
+        $user = auth()->user();
+        if ($theme_per_user && $user && $user->theme_color) {
+            $userTheme = json_decode($user->theme_color, true);
+            if (is_array($userTheme)) {
+                // Reemplazamos la configuración global con la personal del usuario
+                $collectionData['visual'] = (object) array_merge(
+                    (array) $collectionData['visual'], $userTheme
+                );
+                if (isset($userTheme['sidebar_mode'])) {
+                    $collectionData['sidebar_mode'] = $userTheme['sidebar_mode'];
+                }
+                if (isset($userTheme['skin_id'])) {
+                    $collectionData['skin_id'] = $userTheme['skin_id'];
+                }
+            }
+        }
+
         return [
             'data' => array_merge(
-                $configuration->getCollectionData(),
+                $collectionData,
                 [
                     'default_image' => $configuration->product_default_image,
                     'restaurant_tip_factor' => $configuration->restaurant_tip_factor,
@@ -681,6 +703,23 @@ class ConfigurationController extends Controller
         }
         $configuration->save();
 
+        // Blindaje per-user: pro8 también guarda el theme en $user->theme_color (json) para
+        // que record() / view composer puedan hacer override del visual global.
+        $user = auth()->user();
+        if ($user) {
+            $user->theme_color = json_encode([
+                'bg'                => $request->bg,
+                'header'            => $request->header,
+                'sidebars'          => $request->sidebars,
+                'navbar'            => $request->navbar,
+                'sidebar_theme'     => $request->sidebar_theme,
+                'black_theme'       => $request->black_theme,
+                'sidebar_mode'      => $request->sidebar_mode,
+                'skin_id'           => $request->skin_id,
+            ]);
+            $user->save();
+        }
+
         return [
             'success' => true,
             'message' => 'Configuración actualizada'
@@ -747,12 +786,37 @@ class ConfigurationController extends Controller
 
     public function changeMode()
     {
-        $configuration = Configuration::first();
-        $visual = $configuration->visual;
-        $visual->sidebar_theme = $visual->bg === 'dark' ? 'white' : 'dark';
-        $visual->bg = $visual->bg === 'dark' ? 'white' : 'dark';
-        $configuration->visual = $visual;
-        $configuration->save();
+        if (auth()->check()) {
+            $configuration = Configuration::first();
+            $theme_per_user = (bool) ($configuration->theme_per_user ?? true);
+
+            if ($theme_per_user) {
+                $user = auth()->user();
+                $theme = [];
+
+                // Leemos el tema actual del usuario
+                if (!empty($user->theme_color)) {
+                    $theme = json_decode($user->theme_color, true);
+                } else {
+                    $theme = (array) $configuration->visual;
+                }
+
+                // Invertimos los colores (Dark <-> White/Light)
+                $theme['bg'] = (isset($theme['bg']) && $theme['bg'] === 'dark') ? 'white' : 'dark';
+                $theme['sidebar_theme'] = $theme['bg'] === 'dark' ? 'dark' : 'white';
+                $theme['sidebar_mode'] = $theme['bg'] === 'dark' ? 'dark' : 'light';
+
+                $user->theme_color = json_encode($theme);
+                $user->save();
+            } else {
+                // Switch admin en OFF: el toggle afecta al visual global (todos los usuarios).
+                $visual = $configuration->visual;
+                $visual->sidebar_theme = $visual->bg === 'dark' ? 'white' : 'dark';
+                $visual->bg = $visual->bg === 'dark' ? 'white' : 'dark';
+                $configuration->visual = $visual;
+                $configuration->save();
+            }
+        }
 
         return redirect()->back();
     }

@@ -39,7 +39,7 @@
                                         <div class="col-12">
                                             <label class="control-label">
                                                 Editar precio para todos los vendedores
-                                            
+
                                                 <el-tooltip class="item"
                                                     content="Para habilitarlo solo a algunos usuarios, desactiva esta opción y configúralo en Usuarios."
                                                     effect="dark" placement="top-start">
@@ -51,6 +51,23 @@
                                                             @change="submit"></el-switch>
                                                 <small v-if="errors.allow_edit_unit_price_to_seller" class="form-control-feedback"
                                                     v-text="errors.allow_edit_unit_price_to_seller[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="control-label">
+                                                Cada vendedor puede elegir su tema visual
+                                                <el-tooltip class="item"
+                                                    content="Si está activo, cada vendedor puede personalizar su tema (claro/oscuro/colores) sin afectar a los demás. Si está apagado, todos usan el mismo tema definido en Configuración → Visual."
+                                                    effect="dark" placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div :class="{ 'has-danger': errors.theme_per_user }" class="form-group">
+                                                <el-switch v-model="form.theme_per_user"
+                                                            @change="submit"></el-switch>
+                                                <small v-if="errors.theme_per_user" class="form-control-feedback"
+                                                    v-text="errors.theme_per_user[0]"></small>
                                             </div>
                                         </div>
 
@@ -3567,6 +3584,7 @@ export default {
                 seller_can_create_product: false,
                 seller_can_generate_sale_opportunities: false,
                 seller_can_view_balance: true,
+                theme_per_user: true,
                 finances: {},
                 visual: {},
                 show_ticket_80: true,

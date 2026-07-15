@@ -728,7 +728,17 @@ use Modules\Sale\Models\Agent;
             else {
                 $user = auth()->user();
             }
-            return ($user->type == 'seller') ? $query->where('user_id', $user->id) : null;
+            if ($user->type == 'seller') {
+                $configuration = Configuration::first();
+                if ($configuration && $configuration->seller_can_view_sale_notes_by_establishment) {
+                    return $query->where('establishment_id', $user->establishment_id)
+                                 ->whereHas('user', function ($q) {
+                                     $q->where('type', '!=', 'admin');
+                                 });
+                }
+                return $query->where('user_id', $user->id);
+            }
+            return null;
         }
 
 

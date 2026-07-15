@@ -72,6 +72,22 @@
                                         </div>
 
                                         <div class="col-12">
+                                            <label class="control-label">
+                                                Vendedor puede ver NV de su sucursal
+                                                <el-tooltip class="item"
+                                                    content="Si está activo, cada vendedor ve las Notas de Venta de su establecimiento, excepto las creadas por el administrador. Si está apagado, solo ve las suyas."
+                                                    effect="dark" placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div :class="{ 'has-danger': errors.seller_can_view_sale_notes_by_establishment }" class="form-group">
+                                                <el-switch v-model="form.seller_can_view_sale_notes_by_establishment" @change="submit"></el-switch>
+                                                <small v-if="errors.seller_can_view_sale_notes_by_establishment" class="form-control-feedback"
+                                                    v-text="errors.seller_can_view_sale_notes_by_establishment[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
                                             <label class="control-label">Permitir Ver el saldo en balance de finanzas a
                                                 vendedores</label>
                                             <div :class="{ 'has-danger': errors.seller_can_view_balance }" class="form-group">
@@ -3585,6 +3601,7 @@ export default {
                 seller_can_generate_sale_opportunities: false,
                 seller_can_view_balance: true,
                 theme_per_user: true,
+                seller_can_view_sale_notes_by_establishment: false,
                 finances: {},
                 visual: {},
                 show_ticket_80: true,

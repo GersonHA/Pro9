@@ -514,6 +514,26 @@ class ItemController extends Controller
         $item = Item::firstOrNew(['id' => $id]);
         $item->item_type_id = '01';
         $item->amount_plastic_bag_taxes = Configuration::firstOrFail()->amount_plastic_bag_taxes;
+
+        // Blindaje de precios: un vendedor sin permiso per-usuario no puede alterar precios al editar.
+        // Se revierten los valores a los originales antes del fill (RECONCILE de seller_can_edit_product a
+        // users.permission_edit_item_prices — ver Planes/hechos/2026-07-14-marzo-01-blindaje-precios).
+        $auth_user = auth()->user();
+        $block_prices = ($id && $auth_user && $auth_user->type === 'seller' && !$auth_user->permission_edit_item_prices);
+
+        if ($block_prices) {
+            $original_item = Item::find($id);
+            if ($original_item) {
+                $request->merge([
+                    'sale_unit_price'                  => $original_item->sale_unit_price,
+                    'purchase_unit_price'              => $original_item->purchase_unit_price,
+                    'percentage_of_profit'             => $original_item->percentage_of_profit,
+                    'sale_affectation_igv_type_id'     => $original_item->sale_affectation_igv_type_id,
+                    'purchase_affectation_igv_type_id' => $original_item->purchase_affectation_igv_type_id,
+                ]);
+            }
+        }
+
         if ($request->has('date_of_due')) {
             $time = $request->date_of_due;
             $date = null;
@@ -594,19 +614,23 @@ class ItemController extends Controller
             $item_unit_type->description = $value['description'];
             $item_unit_type->unit_type_id = $value['unit_type_id'];
             $item_unit_type->quantity_unit = $value['quantity_unit'];
-            $item_unit_type->price_default = $value['price_default'];
 
-            // Mantener compatibilidad con campos legacy (deprecados)
-            if (isset($value['price1'])) {
-                $item_unit_type->price1 = $value['price1'];
-                $item_unit_type->price2 = $value['price2'];
-                $item_unit_type->price3 = $value['price3'];
+            // Si el vendedor está bloqueado, solo puede fijar precio en presentaciones NUEVAS, no editar existentes.
+            if (!$block_prices || !$item_unit_type->exists) {
+                $item_unit_type->price_default = $value['price_default'];
+
+                // Mantener compatibilidad con campos legacy (deprecados)
+                if (isset($value['price1'])) {
+                    $item_unit_type->price1 = $value['price1'];
+                    $item_unit_type->price2 = $value['price2'];
+                    $item_unit_type->price3 = $value['price3'];
+                }
             }
 
             $item_unit_type->save();
 
-            // Sincronizar precios dinámicos
-            if (isset($value['prices']) && is_array($value['prices'])) {
+            // Sincronizar precios dinámicos (bloqueado para vendedor sin permiso)
+            if (!$block_prices && isset($value['prices']) && is_array($value['prices'])) {
                 $this->syncItemUnitTypePrices($item_unit_type->id, $value['prices']);
             }
 
@@ -855,7 +879,9 @@ class ItemController extends Controller
         // Precios por almacenes
         // $warehouses = $request->warehouses;
 
-        $this->createItemWarehousePrices($request, $item);
+        if (!$block_prices) {
+            $this->createItemWarehousePrices($request, $item);
+        }
 
         // if ($warehouses) {
             // /** @var ItemWarehousePrice $price */

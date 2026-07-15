@@ -158,7 +158,7 @@
                                     </div>
                                     <span class="badge text-white bg-warning">Sí</span>
                                 </el-tooltip>
-                                <span v-else class="text-muted">—</span>
+                                <span v-else class="badge text-white bg-secondary">No</span>
                             </td>
                             <td v-if="col.visible && col.key === 'total_paid'" :key="col.key" class="text-center text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_paid) }}</td>
                             <td v-if="col.visible && col.key === 'total_pending_paid'" :key="col.key" class="text-center text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_pending_paid) }}</td>

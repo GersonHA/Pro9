@@ -71,8 +71,18 @@ class PosCollection extends ResourceCollection
                 'aux_quantity' => 1,
                 'edit_sale_unit_price' => $sale_unit_price,
                 'aux_sale_unit_price' => $sale_unit_price,
-                'image_url' => $row->getImageUrl(),
-                'image_url_small' => $row->getImageUrlSmall(),
+                // Fallback a la imagen por defecto configurable del tenant ($defaultImagePath),
+                // no al placeholder hardcodeado. `image_url_small` sirve la variante WebP del POS
+                // (A2) cuando existe, y cae a la original si el item aún no tiene _small.
+                'image_url' => ($row->image && $row->image !== 'imagen-no-disponible.jpg' && $row->image !== 'imagen-no-disponible.webp')
+                    ? asset('storage/uploads/items/' . $row->image)
+                    : $defaultImagePath,
+                'image_url_small' => (function () use ($row, $defaultImagePath) {
+                    $img = $row->image_small ?: $row->image;
+                    return ($img && $img !== 'imagen-no-disponible.jpg' && $img !== 'imagen-no-disponible.webp')
+                        ? asset('storage/uploads/items/' . $img)
+                        : $defaultImagePath;
+                })(),
                 'warehouses' => collect($row->warehouses)->transform(function ($row) {
                     return [
                         'warehouse_description' => $row->warehouse->description,

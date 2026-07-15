@@ -1505,6 +1505,9 @@ export default {
                 index
             ].edit_sale_unit_price;
             this.items[index].edit_unit_price = false;
+            // Marca el ítem como precio alterado para que la columna "Precio Alterado"
+            // se muestre en la NV cuando se cree.
+            this.$set(this.items[index], 'is_price_modified', true);
 
             // console.log(item_search)
         },
@@ -1533,6 +1536,10 @@ export default {
             this.items[index].sale_unit_price = price.price;
             this.items[index].unit_type_id = price.unit_type_id;
             this.items[index].presentation = price
+
+            // Al elegir un precio del catálogo (no alterado manualmente) limpiamos el flag
+            // para que la columna "Precio Alterado" no se muestre en la NV resultante.
+            this.$set(this.items[index], 'is_price_modified', false);
 
             this.$message.success("Precio seleccionado");
         },
@@ -2014,6 +2021,10 @@ export default {
 
                 this.row["unit_type_id"] = item.unit_type_id;
 
+                // Preservar flag is_price_modified del ítem existente en el carrito.
+                // calculateRowItem() no lo copia, así que lo reasignamos explícitamente.
+                this.row.is_price_modified = !!(exist_item.is_price_modified || item.is_price_modified);
+
                 this.form.items[pos] = this.row;
             } else {
                 response = await this.getStatusStock(
@@ -2071,6 +2082,11 @@ export default {
                 this.row["unit_type_id"] = item.presentation
                     ? item.presentation.unit_type_id
                     : this.form_item.item.unit_type_id;
+
+                // Nuevo ítem recién agregado al carrito: por defecto su precio es el
+                // sugerido del catálogo (no alterado). Si el usuario lo edita luego con
+                // clickEditUnitPriceItem el flag cambiará a true.
+                this.row.is_price_modified = !!item.is_price_modified;
 
                 this.form.items.unshift(this.row);
                 item.aux_quantity = 1;

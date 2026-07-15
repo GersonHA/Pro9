@@ -41,6 +41,7 @@ class SaleNoteItem extends ModelTenant
 
         'price_type_id',
         'unit_price',
+        'is_price_modified',
 
         'total_value',
         'total_charge',

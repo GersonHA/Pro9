@@ -590,6 +590,49 @@ use Modules\Sale\Models\Agent;
         }
 
         /**
+         * Indica si algún ítem de la NV fue agregado con precio alterado (precio custom
+         * distinto del sugerido en el catálogo). Se usa en sale_notes/index.vue para
+         * mostrar la columna "Precio Alterado" con badge.
+         *
+         * @return bool
+         */
+        public function getHasPriceModified()
+        {
+            $items = $this->items ?? collect();
+            return $items->contains(function ($item) {
+                return (bool) ($item->is_price_modified ?? false);
+            });
+        }
+
+        /**
+         * Devuelve un resumen legible de los ítems con precio alterado para el tooltip
+         * del badge en sale_notes/index.vue. Cada entrada incluye item description y
+         * unit_price formateado.
+         *
+         * @return array
+         */
+        public function getModificationsSummary()
+        {
+            $items = $this->items ?? collect();
+            $modified = $items->filter(function ($item) {
+                return (bool) ($item->is_price_modified ?? false);
+            });
+
+            return $modified->map(function ($item) {
+                $description = '';
+                if (isset($item->item) && is_object($item->item) && isset($item->item->description)) {
+                    $description = $item->item->description;
+                } elseif (isset($item->item) && is_array($item->item) && isset($item->item['description'])) {
+                    $description = $item->item['description'];
+                }
+                return [
+                    'description' => $description,
+                    'unit_price' => $item->unit_price,
+                ];
+            })->values()->toArray();
+        }
+
+        /**
          * @return HasMany
          */
         public function kardex()
@@ -936,6 +979,9 @@ use Modules\Sale\Models\Agent;
                 'custom_fields_data' => $this->custom_fields_data,
                 'total_discount' => $this->generalApplyNumberFormat($this->total_discount),
                 'items_for_report' => $this->getItemsforReport(),
+
+                'has_price_modified' => $this->getHasPriceModified(),
+                'modifications_summary' => $this->getModificationsSummary(),
 
             ];
         }

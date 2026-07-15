@@ -106,6 +106,7 @@
                             <th v-if="col.visible && col.key === 'total_taxed'" :key="col.key" class="text-end">T.Gravado</th>
                             <th v-if="col.visible && col.key === 'total_igv'" :key="col.key" class="text-end">T.Igv</th>
                             <th v-if="col.visible && col.key === 'total'" :key="col.key" class="text-end">Total</th>
+                            <th v-if="col.visible && col.key === 'price_altered'" :key="col.key" class="text-center">Precio Alterado</th>
                             <th v-if="col.visible && col.key === 'total_paid'" :key="col.key" class="text-center">Pagado</th>
                             <th v-if="col.visible && col.key === 'total_pending_paid'" :key="col.key" class="text-center">Por pagar</th>
                             <th v-if="col.visible && col.key === 'documents'" :key="col.key" class="text-center">Comprobantes</th>
@@ -147,6 +148,18 @@
                             <td v-if="col.visible && col.key === 'total_taxed'" :key="col.key" class="text-end text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_taxed) }}</td>
                             <td v-if="col.visible && col.key === 'total_igv'" :key="col.key" class="text-end text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_igv) }}</td>
                             <td v-if="col.visible && col.key === 'total'" :key="col.key" class="text-end text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total) }}</td>
+                            <td v-if="col.visible && col.key === 'price_altered'" :key="col.key" class="text-center">
+                                <el-tooltip v-if="row.has_price_modified" placement="top" effect="light">
+                                    <div slot="content" class="text-start">
+                                        <div class="font-weight-bold mb-1">Ítems con precio alterado:</div>
+                                        <div v-for="(m, i) in row.modifications_summary" :key="i">
+                                            {{ m.description }} — {{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(m.unit_price) }}
+                                        </div>
+                                    </div>
+                                    <span class="badge text-white bg-warning">Sí</span>
+                                </el-tooltip>
+                                <span v-else class="text-muted">—</span>
+                            </td>
                             <td v-if="col.visible && col.key === 'total_paid'" :key="col.key" class="text-center text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_paid) }}</td>
                             <td v-if="col.visible && col.key === 'total_pending_paid'" :key="col.key" class="text-center text-nowrap">{{ row.currency_type_id === 'PEN' ? 'S/' : '$' }} {{ formatDecimal(row.total_pending_paid) }}</td>
                             <td v-if="col.visible && col.key === 'documents'" :key="col.key">
@@ -428,6 +441,7 @@ export default {
                 total_taxed:        { title: "T.Gravado",            visible: false, order: 13 },
                 total_igv:          { title: "T.IGV",                visible: false, order: 14 },
                 total:              { title: "Total",                visible: true,  order: 15 },
+                price_altered:      { title: "Precio Alterado",      visible: true,  order: 15.5 },
                 total_paid:         { title: "Pagado",               visible: false, order: 16 },
                 total_pending_paid: { title: "Por pagar",            visible: false, order: 17 },
                 documents:          { title: "Comprobantes",         visible: true,  order: 18 },

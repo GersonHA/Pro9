@@ -145,7 +145,7 @@
                 'category_id' => $this->category_id,
                 'brand_id' => $this->brand_id,
                 'date_of_due' => !empty($this->date_of_due) ? $this->date_of_due->format('Y-m-d H:i:s') : null,
-                'image_url' => ($this->image !== 'imagen-no-disponible.jpg') ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image) : asset("/logo/{$this->image}"),
+                'image_url' => ($this->image !== 'imagen-no-disponible.jpg' && $this->image !== 'imagen-no-disponible.webp') ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image) : asset("/logo/{$this->image}"),
                 'apply_store' => (bool)$this->apply_store,
                 'has_plastic_bag_taxes' => (bool)$this->has_plastic_bag_taxes,
                 'tags' => $this->tags,

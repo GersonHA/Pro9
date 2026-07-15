@@ -1585,15 +1585,15 @@ class Item extends ModelTenant
             'has_supplies' => $isRestaurant ? $has_supplies : null,
             'is_dish' => $isRestaurant ? $this->is_dish : null,
             'has_sets' => $isRestaurant ? $has_sets : null,
-            'image_url' => ($this->image !== 'imagen-no-disponible.jpg')
+            'image_url' => ($this->image !== 'imagen-no-disponible.jpg' && $this->image !== 'imagen-no-disponible.webp')
                 ? asset('storage/uploads/items/' . $this->image)
                 : $defaultImagePath,
 
-            'image_url_medium' => ($this->image_medium !== 'imagen-no-disponible.jpg')
+            'image_url_medium' => ($this->image_medium !== 'imagen-no-disponible.jpg' && $this->image_medium !== 'imagen-no-disponible.webp')
                 ? asset('storage/uploads/items/' . $this->image_medium)
                 : $defaultImagePath,
 
-            'image_url_small' => ($this->image_small !== 'imagen-no-disponible.jpg')
+            'image_url_small' => ($this->image_small !== 'imagen-no-disponible.jpg' && $this->image_small !== 'imagen-no-disponible.webp')
                 ? asset('storage/uploads/items/' . $this->image_small)
                 : $defaultImagePath,
             'tags' => $this->tags,
@@ -2085,13 +2085,13 @@ class Item extends ModelTenant
      */
     public function getExtraDataToPrint(&$array){
 
-        $array['image_url'] = ($this->image !== 'imagen-no-disponible.jpg')
+        $array['image_url'] = ($this->image !== 'imagen-no-disponible.jpg' && $this->image !== 'imagen-no-disponible.webp')
             ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image)
             : asset("/logo/{$this->image}");
-        $array['image_url_medium']=($this->image_medium !== 'imagen-no-disponible.jpg')
+        $array['image_url_medium']=($this->image_medium !== 'imagen-no-disponible.jpg' && $this->image_medium !== 'imagen-no-disponible.webp')
             ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image_medium)
             : asset("/logo/{$this->image_medium}");
-        $array['image_url_small'] =($this->image_small !== 'imagen-no-disponible.jpg')
+        $array['image_url_small'] =($this->image_small !== 'imagen-no-disponible.jpg' && $this->image_small !== 'imagen-no-disponible.webp')
             ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $this->image_small)
             : asset("/logo/{$this->image_small}");
 

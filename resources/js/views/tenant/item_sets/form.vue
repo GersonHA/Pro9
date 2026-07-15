@@ -4,6 +4,10 @@
             <div class="form-body">
                 <div class="row">
 
+                    <div class="col-md-12 mb-2">
+                        <el-checkbox v-model="form.print_items_pdf">Incluir items en el PDF</el-checkbox>
+                    </div>
+
                     <!-- <div class="col-md-6">
                         <div class="form-group" :class="{'has-danger': errors.description}">
                             <label class="control-label">Descripción <span class="text-danger">*</span></label>
@@ -554,7 +558,8 @@ import ItemSetFormItem from './partials/item.vue'
                     sale_unit_price_set: 0,
                     date_of_due:null,
                     web_platform_id:null,
-                    individual_items:[]
+                    individual_items:[],
+                    print_items_pdf: false,
                 }
                 this.show_has_igv = true
                 this.enabled_percentage_of_profit = false

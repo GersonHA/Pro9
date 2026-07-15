@@ -599,7 +599,7 @@ $showDateDue  = $showDateDue  && ($showColumns['fecha_vencimiento'] ?? false);
                         <br/><span style="font-size: 9px">{{ $dtos->factor * 100 }}% {{$dtos->description }}</span>
                     @endforeach
                 @endif
-                @if($row->relation_item->is_set == 1)
+                @if($row->relation_item->is_set == 1 && isset($row->relation_item->print_items_pdf) && $row->relation_item->print_items_pdf == true)
                     <br>
                     @inject('itemSet', 'App\Services\ItemSetService')
                     @foreach ($itemSet->getItemsSet($row->item_id) as $item)
@@ -703,7 +703,7 @@ $showDateDue  = $showDateDue  && ($showColumns['fecha_vencimiento'] ?? false);
                         <br/><span style="font-size: 9px">{{ $dtos->factor * 100 }}% {{$dtos->description }}</span>
                     @endforeach
                 @endif
-                @if($row->relation_item->is_set == 1)
+                @if($row->relation_item->is_set == 1 && isset($row->relation_item->print_items_pdf) && $row->relation_item->print_items_pdf == true)
                     <br>
                     @inject('itemSet', 'App\Services\ItemSetService')
                     @foreach ($itemSet->getItemsSet($row->item_id) as $item)

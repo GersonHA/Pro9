@@ -446,7 +446,7 @@ foreach ($document->items as $row) {
                     @endforeach
                 @endif
 
-                @if($row->item->is_set == 1)
+                @if($row->item->is_set == 1 && isset($row->item->print_items_pdf) && $row->item->print_items_pdf == true)
                     <br>
                     @inject('itemSet', 'App\Services\ItemSetService')
                     @foreach ($itemSet->getItemsSet($row->item_id) as $item)

@@ -66,6 +66,7 @@ class PosCollection extends ResourceCollection
                 'calculate_quantity' => (bool) $row->calculate_quantity,
                 'has_igv' => (bool) $row->has_igv,
                 'is_set' => (bool) $row->is_set,
+                'print_items_pdf' => (bool) $row->print_items_pdf,
                 'active' => $row->active,
                 'edit_unit_price' => false,
                 'aux_quantity' => 1,

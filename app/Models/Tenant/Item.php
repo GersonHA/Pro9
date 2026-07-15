@@ -160,6 +160,7 @@ class Item extends ModelTenant
         'amount_plastic_bag_taxes',
         'date_of_due',
         'is_set',
+        'print_items_pdf',
         'sale_unit_price_set',
         'is_dish',
         'apply_store',

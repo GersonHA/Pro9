@@ -1716,10 +1716,25 @@ export default {
         clickEditUnitPriceItem(index) {
             // console.log(index)
             let item_search = this.items[index];
-            this.items[index].sale_unit_price = this.items[
+            let edit_sale_unit_price = this.items[
                 index
             ].edit_sale_unit_price;
-            this.items[index].edit_unit_price = false;
+            let product = this.items[index];
+            
+            if (this.config.condition_sale_purchase_price_to_item) {
+
+                if (edit_sale_unit_price < product.purchase_unit_price) {
+                    return this.$message.error(
+                        "El Precio Unitario debe ser mayor o igual al costo de compra"
+                    );
+                }
+
+                this.items[index].sale_unit_price = this.items[
+                    index
+                ].edit_sale_unit_price;
+                this.items[index].edit_unit_price = false;
+
+            }
 
             // console.log(item_search)
         },

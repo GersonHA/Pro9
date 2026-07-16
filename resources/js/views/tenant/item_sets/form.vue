@@ -457,6 +457,40 @@ import ItemSetFormItem from './partials/item.vue'
 
         },
         methods: {
+            async generateInternalId() {
+                try {
+                    // Llamamos a la lista general de productos.
+                    // Al estar ordenados por los más recientes, el primero tendrá el último código.
+                    const response = await this.$http.get(`/items/records`);
+                    let items = response.data.data;
+
+                    if (items && items.length > 0) {
+                        // Buscamos el primer item que tenga un internal_id con algún número
+                        let lastItem = items.find(item => item.internal_id && String(item.internal_id).match(/\d+/));
+
+                        if (lastItem) {
+                            let currentCode = String(lastItem.internal_id);
+
+                            // Algoritmo de grado militar: Aísla los números de las letras
+                            let numericPart = currentCode.match(/\d+/)[0]; // Ej: extrae "0045" de "PROD-0045"
+                            let nextNum = parseInt(numericPart) + 1; // Suma 1 -> 46
+                            let newNumericPart = String(nextNum).padStart(numericPart.length, '0'); // Rellena -> "0046"
+
+                            // Reemplazamos SOLO la parte numérica original por la nueva
+                            this.form.internal_id = currentCode.replace(numericPart, newNumericPart);
+                        } else {
+                            this.form.internal_id = '0001'; // Si no hay números en la BD
+                        }
+                    } else {
+                        this.form.internal_id = '0001'; // Si la BD está vacía
+                    }
+                } catch (error) {
+                    console.error("Radar falló al buscar el último código interno:", error);
+                    // Si algo falla con la red, ponemos uno seguro para no frenar la creación
+                    this.form.internal_id = '0001';
+                }
+            },
+
             changeQuantity(){
                 
                 this.calculateTotal()
@@ -690,13 +724,19 @@ import ItemSetFormItem from './partials/item.vue'
 
                 if(this.enabled_percentage_of_profit) this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
             },
-            submit() {
+            async submit() {
 
                 if(this.form.individual_items.length < 2)
                     return this.$message.error('Al menos debe elegir 2 productos')
 
-                this.form.sale_unit_price_set = this.form.sale_unit_price
                 this.loading_submit = true
+
+                if (!this.form.internal_id || String(this.form.internal_id).trim() === '') {
+                    await this.generateInternalId();
+                }
+
+                this.form.sale_unit_price_set = this.form.sale_unit_price
+
                 this.$http.post(`/${this.resource}`, this.form)
                     .then(response => {
                         if (response.data.success) {
@@ -712,10 +752,10 @@ import ItemSetFormItem from './partials/item.vue'
                         }
                     })
                     .catch(error => {
-                        if (error.response.status === 422) {
+                        if (error.response && error.response.status === 422) {
                             this.errors = error.response.data
                         } else {
-                            this.$message.error(error.response.data.message)
+                            this.$message.error(error.response ? error.response.data.message : 'Error de servidor')
                             console.log(error)
                         }
                     })

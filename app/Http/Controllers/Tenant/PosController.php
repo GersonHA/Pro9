@@ -164,7 +164,8 @@ class PosController extends Controller
                 'image_url' => ($row->image !== 'imagen-no-disponible.jpg') ? asset('storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'items' . DIRECTORY_SEPARATOR . $row->image) : asset("/logo/{$row->image}"),
                 'sets' => collect($row->sets)->transform(function ($r) {
                     return [
-                        $r->individual_item->description
+                        'description' => $r->individual_item->description,
+                        'quantity' => (int) $r->quantity,
                     ];
                 }),
                 'warehouses' => collect($row->warehouses)->transform(function ($row) {
@@ -326,7 +327,8 @@ class PosController extends Controller
                         'category_id' => ($row->category) ? $row->category->id : null,
                         'sets' => collect($row->sets)->transform(function ($r) {
                             return [
-                                $r->individual_item->description
+                                'description' => $r->individual_item->description,
+                                'quantity' => (int) $r->quantity,
                             ];
                         }),
                         'unit_type' => $row->item_unit_types,

@@ -93,7 +93,8 @@ class PosCollection extends ResourceCollection
                 'category_id' => ($row->category) ? $row->category->id : null,
                 'sets' => collect($row->sets)->transform(function ($r) {
                     return [
-                        $r->individual_item->description,
+                        'description' => $r->individual_item->description,
+                        'quantity' => (int) $r->quantity,
                     ];
                 }),
                 'item_unit_types' => collect($row->item_unit_types)->transform(function($row) use($configuration, $allPricesLabel){

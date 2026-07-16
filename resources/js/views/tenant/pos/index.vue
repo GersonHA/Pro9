@@ -329,8 +329,11 @@
                                             width="240"
                                             trigger="click"
                                         >
-                                            <div style="font-size: 13px; white-space: pre-line; line-height: 1.5; font-weight: 500; color: #303133;">
-                                                {{ item.sets && item.sets.length > 0 ? item.sets.join('\n') : 'Cargando...' }}
+                                            <div style="font-size: 13px; line-height: 1.5; font-weight: 500; color: #303133;">
+                                                <div v-if="item.sets && item.sets.length > 0">
+                                                    <div v-for="(set, idx) in item.sets" :key="idx">{{ set.quantity }}x {{ set.description }}</div>
+                                                </div>
+                                                <div v-else>Cargando...</div>
                                             </div>
                                             <button
                                                 slot="reference"
@@ -3090,7 +3093,7 @@ export default {
             let row = this.items.find(x => x.item_id == id);
             if (row) {
                 if (row.sets.length > 0) {
-                    return row.sets.join(",<br>");
+                    return row.sets.map(r => `${r.quantity}x ${r.description}`).join(",<br>");
                 } else {
                     return "";
                 }

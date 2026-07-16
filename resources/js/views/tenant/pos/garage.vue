@@ -248,8 +248,11 @@
                                             width="240"
                                             trigger="click"
                                         >
-                                            <div style="font-size: 13px; white-space: pre-line; line-height: 1.5; font-weight: 500; color: #303133;">
-                                                {{ item.sets && item.sets.length > 0 ? item.sets.join('\n') : 'Cargando...' }}
+                                            <div style="font-size: 13px; line-height: 1.5; font-weight: 500; color: #303133;">
+                                                <div v-if="item.sets && item.sets.length > 0">
+                                                    <div v-for="(set, idx) in item.sets" :key="idx">{{ set.quantity }}x {{ set.description }}</div>
+                                                </div>
+                                                <div v-else>Cargando...</div>
                                             </div>
                                             <button
                                                 slot="reference"

@@ -241,23 +241,26 @@
                                         style="display: flex; justify-content: space-between; align-items: center;"
                                     >
                                         <small class="text-primary internal-code-small" :title="item.internal_id">{{ item.internal_id }}</small>
-                                        <el-tooltip
-                                            class="item text-center"
-                                            effect="dark"
-                                            :content="
-                                                item.sets.flat().join(',\n')
-                                            "
-                                            placement="bottom"
+                                        <el-popover
+                                            v-if="item.is_set"
                                             :disabled="performance_mode"
-                                            style="width: 10%;"
+                                            placement="bottom"
+                                            width="240"
+                                            trigger="click"
                                         >
-                                            <i
-                                                v-if="item.sets.length > 0"
-                                                class="fas fa-box-open ms-2"
-                                                style="cursor: pointer;"
+                                            <div style="font-size: 13px; white-space: pre-line; line-height: 1.5; font-weight: 500; color: #303133;">
+                                                {{ item.sets && item.sets.length > 0 ? item.sets.join('\n') : 'Cargando...' }}
+                                            </div>
+                                            <button
+                                                slot="reference"
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                style="padding: 2px 8px; margin-left: 5px;"
+                                                @click.stop
                                             >
-                                            </i>
-                                        </el-tooltip>
+                                                <i class="fas fa-box-open" style="font-size: 1.1rem;"></i>
+                                            </button>
+                                        </el-popover>
 
                                         <small class="measuring-unit text-end" style="width: 45%;">
                                             <el-tag

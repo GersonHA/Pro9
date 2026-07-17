@@ -1507,6 +1507,21 @@ export default {
         clickEditUnitPriceItem(index) {
             // console.log(index)
             let item_search = this.items[index];
+            let edit_sale_unit_price = this.items[
+                index
+            ].edit_sale_unit_price;
+            let product = this.items[index];
+
+            // Solo valida si el tenant lo exige; el flag viene apagado por defecto,
+            // así que la edición debe aplicarse igual cuando está desactivado.
+            if (this.config.condition_sale_purchase_price_to_item) {
+                if (edit_sale_unit_price < product.purchase_unit_price) {
+                    return this.$message.error(
+                        "El Precio Unitario debe ser mayor o igual al costo de compra"
+                    );
+                }
+            }
+
             this.items[index].sale_unit_price = this.items[
                 index
             ].edit_sale_unit_price;
@@ -1663,15 +1678,31 @@ export default {
         },
         blurCalculateQuantity(index) {
             const current = this.form.items[index];
+            const quantity = parseFloat(current.quantity);
+            let newTotal = parseFloat(current.total);
+            let validated = false
+
+
+            if (this.config.condition_sale_purchase_price_to_item) {
+                
+                if (newTotal < current.item.purchase_unit_price) {
+                   validated = true 
+                   newTotal = current.item.sale_unit_price_original
+                    
+                } 
+
+            }
+            
+
             if (!current.item.calculate_quantity) {
-                const quantity = parseFloat(current.quantity);
-                const newTotal = parseFloat(current.total);
                 if (quantity > 0 && !isNaN(newTotal) && newTotal >= 0) {
                     const newUnitPrice = _.round(newTotal / quantity, 6);
                     current.item.unit_price = newUnitPrice;
                     current.unit_price = newUnitPrice;
                 }
             }
+
+            this.form.items[index].total = newTotal
 
             this.row = calculateRowItem(
                 this.form.items[index],
@@ -1687,6 +1718,13 @@ export default {
             this.form.items[index] = this.row;
             this.calculateTotal();
             this.setFormPosLocalStorage();
+
+
+            if (validated) {
+                return this.$message.error(
+                    "El Precio Unitario debe ser mayor o igual al costo de compra"
+                );
+            }
         },
         blurCalculateQuantity2(index) {
             this.row = calculateRowItem(
@@ -2022,8 +2060,7 @@ export default {
                     this.percentage_igv
                 );
 
-                console.log(this.row);
-
+                this.row.item.sale_unit_price_original = this.row.item.sale_unit_price
 
                 this.row["unit_type_id"] = item.unit_type_id;
 
@@ -2093,6 +2130,7 @@ export default {
                 // sugerido del catálogo (no alterado). Si el usuario lo edita luego con
                 // clickEditUnitPriceItem el flag cambiará a true.
                 this.row.is_price_modified = !!item.is_price_modified;
+                this.row.item.sale_unit_price_original = this.row.item.sale_unit_price
 
                 this.form.items.unshift(this.row);
                 item.aux_quantity = 1;

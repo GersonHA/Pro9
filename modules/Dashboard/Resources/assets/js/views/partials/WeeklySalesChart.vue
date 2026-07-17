@@ -3,11 +3,11 @@
     <div class="card-body">
       <div class="ws-head">
         <div>
-          <h5 class="ws-title m-0">Ventas · semana</h5>
-          <small class="text-muted">Barras sólidas = esta semana · gris = semana anterior</small>
+          <h5 class="ws-title m-0">{{ chartTitle }}</h5>
+          <small class="text-muted">{{ subtitle }}</small>
         </div>
         <span v-if="variation !== null" class="ws-badge" :class="variation >= 0 ? 'is-up' : 'is-down'">
-          {{ variation >= 0 ? "+" : "" }}{{ variation.toFixed(0) }}% vs sem. ant.
+          {{ variation >= 0 ? "+" : "" }}{{ variation.toFixed(0) }}% vs periodo ant.
         </span>
       </div>
       <apexchart type="bar" height="300" :options="chartOptions" :series="series"></apexchart>
@@ -18,11 +18,16 @@
 <script>
 export default {
   name: "WeeklySalesChart",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       labels: [],
+      previousLabels: [],
       current: [],
       previous: [],
+      subtitle: "Barras solidas = esta semana - gris = semana anterior",
       barColor: "#0f766e",
     };
   },
@@ -30,11 +35,32 @@ export default {
     this.resolveColor();
     this.fetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
+  },
   computed: {
+    chartTitle() {
+      const period = this.filters && this.filters.period ? this.filters.period : "last_week";
+      const titles = {
+        all: "Ventas totales",
+        last_week: "Ventas de la semana",
+        month: "Ventas del mes",
+        between_months: "Ventas entre meses",
+        date: "Venta del dia",
+        between_dates: "Ventas entre fechas",
+      };
+
+      return titles[period] || "Ventas";
+    },
     series() {
       return [
-        { name: "Esta semana", data: this.current },
-        { name: "Semana anterior", data: this.previous },
+        { name: "Actual", data: this.current },
+        { name: "Periodo anterior", data: this.previous },
       ];
     },
     variation() {
@@ -64,6 +90,18 @@ export default {
           },
         },
         tooltip: {
+          shared: false,
+          intersect: true,
+          x: {
+            formatter: (val, opts) => {
+              const idx = opts && opts.dataPointIndex != null ? opts.dataPointIndex : 0;
+              const seriesIndex = opts ? opts.seriesIndex : 0;
+              if (seriesIndex === 1) {
+                return this.previousLabels[idx] || val;
+              }
+              return this.labels[idx] || val;
+            },
+          },
           y: {
             formatter: (val) =>
               "S/ " +
@@ -82,11 +120,13 @@ export default {
       if (success) this.barColor = success;
     },
     fetchData() {
-      this.$http.get("/dashboard/sales-week").then((response) => {
+      this.$http.get("/dashboard/sales-week", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.labels = data.labels || [];
+        this.previousLabels = data.previous_labels || [];
         this.current = data.current || [];
         this.previous = data.previous || [];
+        this.subtitle = data.subtitle || this.subtitle;
       });
     },
     formatK(val) {

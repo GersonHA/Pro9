@@ -844,7 +844,10 @@ class Document extends ModelTenant
      */
     public function scopeWhereHasPrepayment($query)
     {
-        return $query->where([['has_prepayment', true], ['was_deducted_prepayment', false], ['state_type_id', '05']]);
+        return $query->where([['has_prepayment', true], ['was_deducted_prepayment', false], ['state_type_id', '05']])
+            ->whereDoesntHave('affected_documents', function ($q) {
+                $q->where('note_type', 'credit');
+            });
     }
 
     /**
@@ -1512,7 +1515,34 @@ class Document extends ModelTenant
      */
     public function scopeFilterDocumentsForSummary($query, $date_of_reference, $soap_type_id)
     {
-        return $query->where('date_of_issue', $date_of_reference)
+        return $query->whereFilterWithOutRelations()
+            ->with([
+                'document_type' => function ($q) {
+                    $q->select('id', 'description');
+                },
+            ])
+            ->select([
+                'id',
+                'series',
+                'number',
+                'document_type_id',
+                'currency_type_id',
+                'total_exportation',
+                'total_free',
+                'total_unaffected',
+                'total_exonerated',
+                'total_charge',
+                'total_taxed',
+                'total_igv',
+                'total',
+                // columnas usadas solo por los filtros del where
+                'date_of_issue',
+                'soap_type_id',
+                'group_id',
+                'state_type_id',
+                'ticket_single_shipment',
+            ])
+            ->where('date_of_issue', $date_of_reference)
             ->where('soap_type_id', $soap_type_id)
             ->where('group_id', '02')
             ->where('state_type_id', '01')

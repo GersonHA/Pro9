@@ -618,6 +618,12 @@ ul.nav.list-config li:hover {
 .card{
     margin-bottom: 30px !important;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 .row-new{
     margin-top: -20px;
     margin-right: -25px;
@@ -2912,6 +2918,21 @@ html.dark .minitour-tooltip p {
 html.dark .minitour-tooltip p b {
     color: var(--dark-color) !important;
 }
+
+.el-tooltip__popper.is-dark{
+  background: color-mix(in srgb, var(--primary-color) 30%, #000) !important;
+  color: var(--light-color) !important;
+}
+.el-tooltip__popper.is-light{
+  background:var(--light-color) !important;
+  color:var(--dark-color) !important;
+  border:1px solid var(--accent-color) !important;
+}
+html.dark .el-tooltip__popper.is-dark{
+  background: var(--light-color) !important;
+  color: var(--dark-color) !important;
+  border: 1px solid var(--accent-color);
+}
 /* --------------------------- tema Oscuro --------------------------- */
 /* html.dark .header .logo-container .topbar-links:hover {
     background: #161d31d1;
@@ -3040,7 +3061,7 @@ html.dark .card {
 html.dark .table > thead > tr > th, html.dark .table > tbody > tr > th, html.dark .table > tfoot > tr > th, html.dark .table > thead > tr > td, html.dark .table > tbody > tr > td, html.dark .table > tfoot > tr > td, html.dark .table-bordered {
     background-color: transparent;
 }
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted {
+html.dark .card.card-dashboard .card-title {
     background: var(--contents-dark);
 }
 html.dark ul.nav-main li.nav-expanded > a,
@@ -3543,8 +3564,9 @@ html.dark .el-tabs--border-card > .el-tabs__header {
     background-color: var(--background-dark);
     border-bottom: 1px solid var(--contents-dark);
 }
-html.dark .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active {
-    color: var(--light-color);
+html.dark .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active,
+html.dark .advanced-settings.el-tabs--border-card>.el-tabs__header .el-tabs__item.is-active {
+    color: var(--light-color) !important;
     background-color: var(--contents-dark);
     border-right-color: var(--background-dark);
     border-left-color: var(--contents-dark);
@@ -4162,5 +4184,21 @@ html.dark .fp-pay-btn, .fp-pay-btn.el-button, .fp-pay-btn.el-button--default {
     background-color: var(--primary-color) !important;
     border-color: var(--primary-color) !important;
     color: #fff !important;
+}
+html.dark .advanced-settings .el-tabs__nav,
+html.dark .db-seg,
+html.dark .db-count {
+    background-color: var(--inputs-dark);
+}
+html.dark .db-thumb {
+    background-color: var(--contents-dark);
+}
+html.dark .db-seg button.active {
+    color: var(--light-color);
+}
+html.dark .db-client,
+html.dark .tp-item,
+html.dark .ls-item {
+    border-color: var(--borders-dark);
 }
 /* end */

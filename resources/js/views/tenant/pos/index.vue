@@ -78,7 +78,7 @@
                     <div v-if="!configuration.enable_list_product" class="col-6" style="padding-top: 2.5px;">
                         <el-select
                             v-model="selected_option_price"
-                            @change="ChangeSelectedPrice"
+                            @change="onPriceOptionChange"
                             filterable
                         >
                             <el-option
@@ -1519,18 +1519,28 @@ export default {
         enabledSearchItemByBarcode() {
             if (this.configuration.search_item_by_barcode) {
                 this.search_item_by_barcode = true;
-            }
-        },
+            } },
         changeRowTotal(index) {
             const item = this.form.items[index];
+            let newTotal = parseFloat(item.total);
+            let validated = false
 
+            if (this.config.condition_sale_purchase_price_to_item) {
+
+                if (newTotal < item.purchase_unit_price) {
+                    validated = true
+                    newTotal = item.item.sale_unit_price_original
+                }
+                    
+            }
+            
             if (item.item.calculate_quantity) {
                 this.blurCalculateQuantity(index);
                 return;
             }
 
+            this.form.items[index].total = newTotal
             const quantity = parseFloat(item.quantity);
-            const newTotal = parseFloat(item.total);
 
             if (isNaN(newTotal) || isNaN(quantity) || quantity <= 0) {
                 this.blurCalculateQuantity(index);
@@ -1549,6 +1559,16 @@ export default {
 
             this.calculateTotal();
             this.setFormPosLocalStorage();
+
+
+            if (validated) {
+                return this.$message.error(
+                    "El Precio Unitario debe ser mayor o igual al costo de compra"
+                );
+                
+            }
+            
+
         },
         ...mapActions(["loadConfiguration"]),
         /**
@@ -1772,6 +1792,21 @@ export default {
         clickEditUnitPriceItem(index) {
             // console.log(index)
             let item_search = this.items[index];
+            let edit_sale_unit_price = this.items[
+                index
+            ].edit_sale_unit_price;
+            let product = this.items[index];
+
+            // Solo valida si el tenant lo exige; el flag viene apagado por defecto,
+            // así que la edición debe aplicarse igual cuando está desactivado.
+            if (this.config.condition_sale_purchase_price_to_item) {
+                if (edit_sale_unit_price < product.purchase_unit_price) {
+                    return this.$message.error(
+                        "El Precio Unitario debe ser mayor o igual al costo de compra"
+                    );
+                }
+            }
+
             this.items[index].sale_unit_price = this.items[
                 index
             ].edit_sale_unit_price;
@@ -2428,6 +2463,8 @@ export default {
 
                 this.row["unit_type_id"] = item.unit_type_id;
 
+                this.row.item.sale_unit_price_original = this.row.item.sale_unit_price
+                
                 // Preservar la presentation (calculateRowItem no la copia)
                 this.row.presentation = exist_item.presentation;
 
@@ -2496,6 +2533,8 @@ export default {
                     exchangeRateSale,
                     this.percentage_igv
                 );
+
+                this.row.item.sale_unit_price_original = this.row.item.sale_unit_price
 
                 // this.row['unit_type_id'] = item.presentation ? item.presentation.unit_type_id : 'NIU';
 
@@ -3108,6 +3147,17 @@ export default {
             if (item.description === undefined) return 0;
             if (item.description == null) return 0;
             return item.description.length;
+        },
+        onPriceOptionChange() {
+            this.ChangeSelectedPrice();
+            const option = _.find(this.price_options, { id: this.selected_option_price });
+            if (option) {
+                this.$message({
+                    message: `Precio de búsqueda: ${option.description}`,
+                    type: "info",
+                    duration: 3000
+                });
+            }
         },
         async ChangeSelectedPrice() {
             // recorrer items

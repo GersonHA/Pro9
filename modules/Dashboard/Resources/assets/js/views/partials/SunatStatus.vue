@@ -24,6 +24,9 @@
 <script>
 export default {
   name: "SunatStatus",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       accepted: 0,
@@ -34,9 +37,17 @@ export default {
   mounted() {
     this.fetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
+  },
   methods: {
     fetchData() {
-      this.$http.get("/dashboard/sunat-status").then((response) => {
+      this.$http.get("/dashboard/sunat-status", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.accepted = data.accepted || 0;
         this.pending = data.pending || 0;

@@ -52,39 +52,39 @@ class DashboardController extends Controller
         ];
     }
 
-    public function globalData()
+    public function globalData(Request $request)
     {
-        return response()->json((new DashboardData())->globalData(), 200);
+        return response()->json((new DashboardData())->globalData($request->all()), 200);
     }
 
-    public function cashFlow()
+    public function cashFlow(Request $request)
     {
-        return response()->json((new DashboardData())->cashFlow(), 200);
+        return response()->json((new DashboardData())->cashFlow($request->all()), 200);
     }
 
-    public function lowStock()
+    public function lowStock(Request $request)
     {
-        return response()->json((new DashboardData())->lowStock(), 200);
+        return response()->json((new DashboardData())->lowStock($request->all()), 200);
     }
 
-    public function salesWeek()
+    public function salesWeek(Request $request)
     {
-        return response()->json((new DashboardData())->salesWeek(), 200);
+        return response()->json((new DashboardData())->salesWeek($request->all()), 200);
     }
 
-    public function paymentMethods()
+    public function paymentMethods(Request $request)
     {
-        return response()->json((new DashboardData())->paymentMethods(), 200);
+        return response()->json((new DashboardData())->paymentMethods($request->all()), 200);
     }
 
-    public function sunatStatus()
+    public function sunatStatus(Request $request)
     {
-        return response()->json((new DashboardData())->sunatStatus(), 200);
+        return response()->json((new DashboardData())->sunatStatus($request->all()), 200);
     }
 
-    public function debtors()
+    public function debtors(Request $request)
     {
-        return response()->json((new DashboardData())->debtors(), 200);
+        return response()->json((new DashboardData())->debtors($request->all()), 200);
     }
 
     public function monthGoal()

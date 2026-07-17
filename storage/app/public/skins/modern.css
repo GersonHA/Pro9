@@ -724,11 +724,18 @@ html.sidebar-light:not(.dark) .style-switcher h5.title-visual{
 div.el-tab-pane {
     padding: 4px;
 }
-.el-tooltip__popper.is-dark {
-    background: var(--primary-color);
-    color: #fff;
-    max-width: 250px;
-    transition-duration: 0s;
+.el-tooltip__popper.is-dark{
+  background: color-mix(in srgb, #3d6bf5 30%, #000) !important;
+  color: #fff !important;
+}
+.el-tooltip__popper.is-light,
+html.dark .el-tooltip__popper.is-dark{
+  background:#fff !important;
+  color:#0e3069 !important;
+  border:1px solid #808a9c  !important;
+}
+.el-tooltip__popper{
+  border-radius:6px !important;
 }
 .popper__arrow{
     display: none !important;
@@ -1607,6 +1614,12 @@ html.dark .minitour-tooltip p {
 html.dark .minitour-tooltip p b {
     color: #333 !important;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 /* theme dark */
 html.dark,html.dark body{
     background-color: var(--md-bg-dark);
@@ -1654,8 +1667,7 @@ html.dark .el-input-group__prepend div.el-select .el-input__inner:hover{
 html.dark .el-select .el-input.is-disabled .el-input__inner:hover{
     border-color: var(--md-input-dark);
 }
-html.dark .card.card-dashboard .card-title, 
-html.dark .card.card-dashboard small.text-muted, html.dark .el-dialog__title,
+html.dark .card.card-dashboard .card-title, html.dark .el-dialog__title,
 html.dark label.control-label, html.dark .userbox .name, html.dark .el-select-dropdown__item.selected {
     color: #fff !important;
 }
@@ -1717,7 +1729,7 @@ html.dark .el-month-table td.current:not(.disabled) .cell {
 html.dark .card.card-reports .card-title {
     background: #111D58;
 }
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted {
+html.dark .card.card-dashboard .card-title {
     background: var(--md-input-dark);
 }
 html.dark .card-body, html.dark .card-footer{
@@ -1910,7 +1922,8 @@ html.dark .table-responsive.payment .el-input__inner {
 html.dark .table-responsive.payment .el-input__inner:focus{
     background-color: var(--md-content-dark);
 }
-ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link {
+ul.nav-main li.nav-active:not(.nav-parent) > a.dashboard-link,
+html.dark .advanced-settings.el-tabs--border-card>.el-tabs__header .el-tabs__item.is-active {
     color: #fff !important;
 }
 html.dark .actions-card .card-header{
@@ -2030,6 +2043,25 @@ html.dark .el-table--border:after, html.dark .el-table--group:after, html.dark .
 html.dark .el-alert--info.is-light{
     background-color: var(--md-input-dark);
     color: #bfcbe3;
+}
+html.dark .advanced-settings .el-tabs__nav,
+html.dark .db-seg,
+html.dark .db-count {
+    background-color: var(--md-input-dark);
+}
+html.dark .db-thumb {
+    background-color: var(--md-content-dark);
+}
+html.dark .db-seg button.active {
+    color: #fff;
+}
+html.dark .db-client,
+html.dark .tp-item,
+html.dark .ls-item {
+    border-color: var(--md-border-dark);
+}
+html.dark .advanced-settings .el-tabs__content {
+    background-color: transparent !important;
 }
 @media only screen and (max-width: 991px){
     .d-lg-block{

@@ -216,6 +216,12 @@ ul.nav-main li.nav-description {
 .card{
     margin-bottom: 15px;
 }
+.kpi-col .card.card-dashboard {
+    margin-bottom: 0 !important;
+}
+.row.top.kpi-row {
+    margin-bottom: 8px !important;
+}
 .card.card-dashboard {
     -webkit-box-shadow: none;
     box-shadow: none;
@@ -1201,9 +1207,6 @@ html.dark ul.nav-main li .nav-children li a:after {
 }
 
 /* -------- config -------- */
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted {
-    background: var(--button-second);
-}
 /* menu top */
 .fix-m {
     margin-bottom: -4px;
@@ -1929,6 +1932,23 @@ html.dark .minitour-tooltip p {
 html.dark .minitour-tooltip p b {
     color: var(--dark-color) !important;
 }
+.el-tooltip__popper.is-dark{
+  background: color-mix(in srgb, var(--primary-color) 30%, #000) !important;
+  color: var(--light-color) !important;
+}
+.el-tooltip__popper.is-light{
+  background:var(--light-color) !important;
+  color:var(--dark-color) !important;
+  border:1px solid var(--accent-color) !important;
+}
+.el-tooltip__popper{
+  border-radius:4px !important;
+}
+html.dark .el-tooltip__popper.is-dark{
+  background: var(--light-color) !important;
+  color: var(--dark-color) !important;
+  border: 1px solid var(--accent-color);
+}
 /* modo oscuro */
 html.dark .table-responsive.payment {
     border: 1px solid var(--inputs-dark);
@@ -1939,8 +1959,9 @@ html.dark .el-tabs--border-card > .el-tabs__header {
     background-color: var(--contents-dark);
     border-bottom: 1px solid var(--borders-dark);
 }
-html.dark .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active {
-    color: var(--primary-color);
+html.dark .el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active,
+html.dark .advanced-settings.el-tabs--border-card>.el-tabs__header .el-tabs__item.is-active {
+    color: var(--light-color) !important;
     background-color: var(--button-second);
     border-right-color: var(--borders-dark);
     border-left-color: var(--borders-dark);
@@ -2061,7 +2082,7 @@ html.dark .form-control:focus, html.dark .el-input__inner:focus, html.dark .el-t
 html.dark .el-dialog {
     background: var(--contents-dark);
 }
-html.dark .card.card-dashboard .card-title, html.dark .card.card-dashboard small.text-muted, html.dark .el-dialog__title {
+html.dark .card.card-dashboard .card-title, html.dark .el-dialog__title {
     color: var(--light-color) !important;
 }
 html.dark label.control-label, html.dark .userbox .name, html.dark .el-select-dropdown__item.selected,
@@ -2418,6 +2439,22 @@ html.dark .cd-text-block {
 html.dark .pos-qty-field .el-input__inner{
     border-color: transparent !important;
     background-color: transparent !important;
+}
+html.dark .advanced-settings .el-tabs__nav,
+html.dark .db-seg,
+html.dark .db-count {
+    background-color: var(--inputs-dark);
+}
+html.dark .db-thumb {
+    background-color: var(--contents-dark);
+}
+html.dark .db-seg button.active {
+    color: var(--light-color);
+}
+html.dark .db-client,
+html.dark .tp-item,
+html.dark .ls-item {
+    border-color: var(--borders-dark);
 }
 @media only screen and (min-width: 391px){
     .card-body-invoice div .row .filter-invoice{

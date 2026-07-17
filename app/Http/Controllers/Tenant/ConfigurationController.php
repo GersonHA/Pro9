@@ -305,10 +305,13 @@ class ConfigurationController extends Controller
             ], 404);
         }
 
+        $formatType = $request->get('format_type', 'pdf');
+        $templateName = $formatType === 'ticket' ? 'Plantilla_personalizable_ticket' : 'Plantilla_personalizable';
+
         $config = TemplateColumnsConfig::updateOrCreate(
             [
                 'establishment_id' => $request->establishment,
-                'template_name' => 'Plantilla_personalizable',
+                'template_name' => $templateName,
             ],
             [
                 'columns_config' => $request->columns,
@@ -336,7 +339,10 @@ class ConfigurationController extends Controller
             ];
         }
 
-        $config = TemplateColumnsConfig::getOrCreateConfig($establishmentId);
+        $formatType = $request->get('format_type', 'pdf');
+        $templateName = $formatType === 'ticket' ? 'Plantilla_personalizable_ticket' : 'Plantilla_personalizable';
+
+        $config = TemplateColumnsConfig::getOrCreateConfig($establishmentId, $templateName);
 
         return [
             'success' => true,
@@ -641,7 +647,7 @@ class ConfigurationController extends Controller
             'header'   => 'light',
             'sidebars' => 'light',
             'sidebar_margin' => true,
-            'show_welcome_panel' => true,
+            'show_welcome_panel' => false,
         ];
         $configuration = Configuration::first();
         $configuration->visual = $defaults;
@@ -662,7 +668,7 @@ class ConfigurationController extends Controller
             ? (bool)$currentVisual->sidebar_margin
             : true;
 
-        $currentShowWelcome = true;
+        $currentShowWelcome = false;
         if (is_object($currentVisual) && property_exists($currentVisual, 'show_welcome_panel')) {
             $currentShowWelcome = (bool)$currentVisual->show_welcome_panel;
         } elseif (is_array($currentVisual) && array_key_exists('show_welcome_panel', $currentVisual)) {

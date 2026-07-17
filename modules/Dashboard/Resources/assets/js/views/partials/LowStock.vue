@@ -21,6 +21,9 @@
 <script>
 export default {
   name: "LowStock",
+  props: {
+    filters: { type: Object, default: () => ({}) },
+  },
   data() {
     return {
       items: [],
@@ -30,9 +33,17 @@ export default {
   mounted() {
     this.fetchData();
   },
+  watch: {
+    filters: {
+      deep: true,
+      handler() {
+        this.fetchData();
+      },
+    },
+  },
   methods: {
     fetchData() {
-      this.$http.get("/dashboard/low-stock").then((response) => {
+      this.$http.get("/dashboard/low-stock", { params: this.filters || {} }).then((response) => {
         const data = response.data;
         this.items = data.items || [];
         this.total = data.total || 0;

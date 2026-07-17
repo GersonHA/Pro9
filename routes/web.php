@@ -288,6 +288,10 @@ if ($hostname) {
             Route::post('items/disableMassive', 'Tenant\ItemController@disableMassive');
             Route::get('items/enable/{item}', 'Tenant\ItemController@enable');
             Route::post('items/enableMassive', 'Tenant\ItemController@enableMassive');
+            Route::get('items/hidden_search/{item}', 'Tenant\ItemController@hiddenSearch');
+            Route::get('items/show_search/{item}', 'Tenant\ItemController@showSearch');
+            Route::post('items/hiddenSearchMassive', 'Tenant\ItemController@hiddenSearchMassive');
+            Route::post('items/showSearchMassive', 'Tenant\ItemController@showSearchMassive');
             Route::get('items/images/{item}', 'Tenant\ItemController@images');
             Route::get('items/images/delete/{id}', 'Tenant\ItemController@delete_images');
             Route::get('items/export', 'Tenant\ItemController@export')->name('tenant.items.export');
@@ -1045,6 +1049,7 @@ if ($hostname) {
             Route::get('plans/records', 'System\PlanController@records');
             Route::get('plans/tables', 'System\PlanController@tables');
             Route::get('plans/popular', 'System\PlanController@popular');
+            Route::post('plans/popular/{plan}', 'System\PlanController@setPopular');
             Route::get('plans/record/{plan}', 'System\PlanController@record');
             Route::post('plans', 'System\PlanController@store');
             Route::delete('plans/{plan}', 'System\PlanController@destroy');
@@ -1083,6 +1088,11 @@ if ($hostname) {
             Route::post('certificates/saveSoapUser', 'System\CertificateController@saveSoapUser');
             Route::delete('certificates', 'System\CertificateController@destroy');
             Route::get('configurations', 'System\ConfigurationController@index')->name('system.configuration.index');
+            Route::get('configurations/mozo', 'System\MozoController@index')->name('system.mozo.index');
+            Route::get('configurations/mozo/record', 'System\MozoController@record')->name('system.mozo.record');
+            Route::put('configurations/mozo', 'System\MozoController@update')->name('system.mozo.update');
+            Route::put('configurations/mozo/brand-name', 'System\MozoController@updateBrandName')->name('system.mozo.brand_name.update');
+            Route::put('configurations/mozo/colors', 'System\MozoController@updateColors')->name('system.mozo.colors.update');
             Route::post('configurations/login', 'System\ConfigurationController@storeLoginSettings');
             Route::post('configurations/bg', 'System\ConfigurationController@storeBgLogin');
             Route::post('configurations/other-configuration', 'System\ConfigurationController@storeOtherConfiguration');

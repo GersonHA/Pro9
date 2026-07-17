@@ -1690,6 +1690,7 @@ export default {
         {
             const price = parseFloat(this.form.sale_unit_price)
             if (!price || price <= 0) return null
+            const symbol = this.getCurrencySymbol()
             const IGV_RATE = 0.18
             let base, igv, total
             if (this.form.has_igv) {
@@ -1701,12 +1702,13 @@ export default {
                 igv = price * IGV_RATE
                 total = price + igv
             }
-            return `${base.toFixed(2)} + ${igv.toFixed(2)} IGV = S/ ${total.toFixed(2)}`
+            return `${base.toFixed(2)} + ${igv.toFixed(2)} IGV = ${symbol} ${total.toFixed(2)}`
         },
         purchaseUnitPriceBreakdown()
         {
             const price = parseFloat(this.form.purchase_unit_price)
             if (!price || price <= 0) return null
+            const symbol = this.getCurrencySymbol()
             const IGV_RATE = 0.18
             let base, igv, total
             if (this.form.purchase_has_igv) {
@@ -1718,7 +1720,7 @@ export default {
                 igv = price * IGV_RATE
                 total = price + igv
             }
-            return `${base.toFixed(2)} + ${igv.toFixed(2)} IGV = S/ ${total.toFixed(2)}`
+            return `${base.toFixed(2)} + ${igv.toFixed(2)} IGV = ${symbol} ${total.toFixed(2)}`
         }
 
     },
@@ -1876,7 +1878,9 @@ export default {
     },
 
     methods: {
-
+        getCurrencySymbol() {
+            return this.form.currency_type_id === 'USD' ? '$' : 'S/'
+        },
         ...mapActions([
             'loadConfiguration',
         ]),
@@ -2292,9 +2296,8 @@ this.activeName = null
             if (this.enabled_percentage_of_profit) this.form.sale_unit_price = (this.form.purchase_unit_price * (100 + parseFloat(this.form.percentage_of_profit))) / 100
         },
         isDecimalUnit(unitTypeId) {
-            // Unidades de peso, volumen, longitud, área, tiempo: admiten decimales
-            const decimals = ['KGM','GRM','MGM','TNE','LBR','LTR','MLT','GLL','MTR','CMT','KMT','MTK','MTQ','HUR','DAY','MIN'];
-            return decimals.includes(unitTypeId);
+            // Solo la unidad NIU (Unidad SUNAT) exige cantidades enteras; el resto (incluidas las unidades creadas manualmente) admite decimales
+            return unitTypeId !== 'NIU';
         },
         validateItemUnitTypes() {
 
@@ -2337,7 +2340,7 @@ this.activeName = null
             }
 
             if (this.validateItemUnitTypes() > 0)
-                return this.$message.error('Factor inválido: mínimo 0.0001 y solo se permiten decimales en unidades de medida (kg, L, m, etc.).');
+                return this.$message.error('Factor inválido: mínimo 0.0001 y solo se permiten decimales en unidades distintas a NIU (Unidad).');
 
             if (this.fromPharmacy === true) {
                 if (!payload.cod_digemid)

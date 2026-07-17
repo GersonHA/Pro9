@@ -4,6 +4,9 @@
 2026-07-17 : docs | #housekeeping | .gitignore raíz: reglas para modules/Dashboard/Helpers/*.bak.* (backups de refactor previos) y measure_*.php (scripts de medición one-off) — dejan de filtrarse al repo
 2022-09-01 : docs | chalgelog update<br>
 
+### changed
+2026-07-17 : changed | #dashboard | NUEVA fila en dashboard: Top Clientes (mod) + Lotes por vencer (próximos 30d). Posición: entre ¿Quién me debe?/Productos/Pagos (fila 4) y Flujo de caja/SUNAT (fila 5). 2 widgets col-xl-6 (mitad del ancho como pidió el usuario). Top Clientes reutiliza backend `top_customers()` (ya optimizado en commit fb079a0b, take(10)) vestido con patrón moderno (badge "TOP 10" + scrollbar 425px + barras de progreso). Lotes por vencer widget NUEVO `partials/ExpiringLots.vue` con mini-datepickers inline (defaults próximos 30 días, no mes actual), semáforo rojo ≤7d / ámbar ≤30d / ok >30d, scrollbar 425px. Backend: `DashboardInventory::data()` acepta `?limit=N` (default = config para backward-compat con legacy `<inventory-data-table>`); smoke HENAVI: limit=20 → per_page=20 (era 5), sin limit → per_page=5 (legacy intacto). 3 archivos Vue (2 nuevos + 1 modificado) + 1 PHP modificado. CERO cambios a `top_customers()` ni al endpoint `data_aditional` (ya estaban listos).
+
 
 ### fixed
 2026-07-17 : fixed | #dashboard | debtors() "¿Quién me debe?": NV sin date_of_due ahora honesto (status='sin_vencimiento' + badge gris) en lugar de mentir con 'al_dia'; código muerto 899-924 sobre $c['due']=null eliminado; $limit default 4→15 (alineado con pro8); state_type_id '07' (Observado) excluido del filtro deuda activa (pro8 ya lo hacía; HENAVI: 0 docs/NV en '07', seguro)

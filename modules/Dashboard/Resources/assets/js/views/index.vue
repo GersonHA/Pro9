@@ -266,6 +266,13 @@
                     <div class="col-12 col-md-6 mb-2" :class="configuration.dashboard_products ? 'col-xl-4' : 'col-xl-6'">
                         <payment-methods :filters="form"></payment-methods>
                     </div>
+                    <!-- Nueva fila 2026-07-17: Top Clientes (mod) + Lotes por vencer (próximos 30d) -->
+                    <div class="col-12 col-md-6 mb-2 col-xl-6">
+                        <top-customers :items="top_customers"></top-customers>
+                    </div>
+                    <div class="col-12 col-md-6 mb-2 col-xl-6">
+                        <expiring-lots :establishment_id="form.establishment_id"></expiring-lots>
+                    </div>
                     <div class="col-12 col-xl-8 mb-2">
                         <cash-flow-chart :filters="form"></cash-flow-chart>
                     </div>
@@ -686,11 +693,13 @@ import PaymentMethods from "./partials/PaymentMethods.vue";
 import SunatStatus from "./partials/SunatStatus.vue";
 import Debtors from "./partials/Debtors.vue";
 import MonthGoal from "./partials/MonthGoal.vue";
+import TopCustomers from "./partials/TopCustomers.vue";
+import ExpiringLots from "./partials/ExpiringLots.vue";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 
 export default {
   props: ["typeUser", "soapCompany",'configuration'],
-  components: { DashboardStock, LoaderGraph, RowTop, DashboardInventory, NewDashboard, TopProducts, CashFlowChart, LowStock, WeeklySalesChart, PaymentMethods, SunatStatus, Debtors, MonthGoal },
+  components: { DashboardStock, LoaderGraph, RowTop, DashboardInventory, NewDashboard, TopProducts, CashFlowChart, LowStock, WeeklySalesChart, PaymentMethods, SunatStatus, Debtors, MonthGoal, TopCustomers, ExpiringLots },
   data() {
     return {
             showWelcomePanel: true,

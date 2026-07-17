@@ -5,6 +5,7 @@
 
 
 ### fixed
+2026-07-17 : perf  | #dashboard | items_by_sales(): triple N+1 reemplazado por 2 GROUP BY + 1 batch lookup; 4,383ms→124ms en data_aditional (HENAVI Mes 05/2026, ver modules/Dashboard/PERFORMANCE.md)<br>
 2026-07-17 : fixed | #dashboard | datepicker popup: form.month_*/form.date_* ahora son objetos Date (Element UI 2.13 falla parseando value-format yyyy-MM sin día)<br>
 2026-07-17 : fixed | #dashboard | chart del mes desaparecía: getDocumentsByDays/Months usaban Carbon->format() sobre stdClass de DB::table()->get() (commit 63ee5aab)<br>
 2026-07-17 : perf  | #dashboard | SQL aggregations reemplazan Eloquent->get()+collect()->sum() loops; ~7s → ~1.2s en HENAVI Mes 05/2026 (commit 7fdcd9b0, ver modules/Dashboard/PERFORMANCE.md)<br>

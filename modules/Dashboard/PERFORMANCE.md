@@ -283,4 +283,159 @@ Estos son pendientes identificados durante la optimización pero fuera del scope
   una sola query agregada.
 - Reemplazar el array de charts con `@vue/server-rendered` para primer paint
   más rápido.
-- Auditar `DashboardSalePurchase` (data_aditional) por el mismo patrón N+1.
+- ~~Auditar `DashboardSalePurchase` (data_aditional) por el mismo patrón N+1.~~
+  **Hecho 2026-07-17** — ver § siguiente.
+
+---
+
+## Fase 2: data_aditional (Productos más vendidos)
+
+**Fecha**: 2026-07-17
+**Síntoma reportado**: "En productos más vendidos siempre hay mucho retardo".
+
+### Medición inicial
+
+Tenant: **HENAVI**, Mes 05/2026 (2,727 NV + 30 documentos).
+Script: `measure_items_by_sales.php` (wrapper de `items_by_sales()` vía reflection).
+
+| | Antes | Después | Reducción |
+|---|---|---|---|
+| `items_by_sales(est, mes05)` | 4,271 ms | **5 ms** | **-99.9%** |
+| Queries disparadas | 6,464 | 3 | **-99.95%** |
+| `data_aditional` completo | 4,383 ms | 124 ms | -97% |
+
+### Causa raíz
+
+`DashboardSalePurchase::items_by_sales()` (113 líneas reescritas) tenía **3 niveles de N+1**:
+
+**N+1 #1 — Lazy load de `items` por cada documento/NV** (líneas 317-327 de la versión previa):
+```php
+foreach ($documents as $doc) {
+    foreach ($doc->items as $item) { $document_items->push($item); }  // 1 query/doc
+}
+foreach ($sale_notes as $s_notes) {
+    foreach ($s_notes->items as $item) { $sale_note_items->push($item); }  // 1 query/NV (¡2,727!)
+}
+```
+
+**N+1 #2 — `Item::find()` por cada item_id único** (línea 341):
+```php
+foreach ($group_items as $items) {
+    $item = Item::without([...])->where('status', true)->find($items[0]->item_id);  // 1 query/item
+```
+
+**N+1 #3 — Acceso a `$it->document` o `$it->sale_note` por cada item** (líneas 350 y 369):
+```php
+foreach ($items as $it) {
+    if ($it->document) {  // 1 query/item
+        $totals += $this->calculateTotalCurrency($it->document->currency_type_id, ...);
+    } else {
+        $totals += $this->calculateTotalCurrency($it->sale_note->currency_type_id, ...);  // 1 query/item
+    }
+}
+```
+
+Queries repetidas confirmadas en el query log:
+```
+x339  select * from cat_affectation_igv_types where id in (10)
+x339  select * from cat_system_isc_types where 0 = 1
+x23   select * from document_items where document_id = ?
+```
+
+### Fix aplicado
+
+Reemplazar el triple nested loop con **3 queries SQL agregadas**:
+
+1. **`document_items` agregado por `item_id`** con JOIN a `documents` para separar ventas normales de NC en el mismo `SELECT` usando `CASE WHEN`:
+   ```php
+   $doc_items = DB::connection('tenant')->table('document_items as di')
+       ->selectRaw("
+           di.item_id,
+           SUM(CASE WHEN d.document_type_id IN ('01','03','08') THEN
+               CASE WHEN d.currency_type_id = 'PEN' THEN di.total
+                    WHEN d.currency_type_id = 'USD' THEN di.total * d.exchange_rate_sale
+               END
+           ELSE 0 END) as total_sale,
+           SUM(CASE WHEN d.document_type_id NOT IN ('01','03','08') THEN
+               CASE WHEN d.currency_type_id = 'PEN' THEN di.total
+                    WHEN d.currency_type_id = 'USD' THEN di.total * d.exchange_rate_sale
+               END
+           ELSE 0 END) as total_credit,
+           SUM(CASE WHEN d.document_type_id IN ('01','03','08') THEN di.quantity
+                    ELSE -di.quantity END) as move_quantity
+       ")
+       ->join('documents as d', 'd.id', '=', 'di.document_id')
+       ->where('d.establishment_id', $establishment_id)
+       ->whereIn('d.state_type_id', ['01','03','05','07','13'])
+       ->when($d_start && $d_end, fn($q) => $q->whereBetween('d.date_of_issue', [$d_start, $d_end]))
+       ->groupBy('di.item_id')->get()->keyBy('item_id');
+   ```
+
+2. **`sale_note_items` agregado por `item_id`** (estructura idéntica pero sin NC):
+   ```php
+   $sn_items = DB::connection('tenant')->table('sale_note_items as sni')
+       ->selectRaw("
+           sni.item_id,
+           SUM(CASE WHEN sn.currency_type_id = 'PEN' THEN sni.total
+                    WHEN sn.currency_type_id = 'USD' THEN sni.total * sn.exchange_rate_sale
+               END) as total_sale,
+           0 as total_credit,
+           SUM(sni.quantity) as move_quantity
+       ")
+       ->join('sale_notes as sn', 'sn.id', '=', 'sni.sale_note_id')
+       ->where('sn.establishment_id', $establishment_id)
+       ->where('sn.changed', false)
+       ->whereIn('sn.state_type_id', ['01','03','05','07','13'])
+       ->when($d_start && $d_end, fn($q) => $q->whereBetween('sn.date_of_issue', [$d_start, $d_end]))
+       ->groupBy('sni.item_id')->get()->keyBy('item_id');
+   ```
+
+3. **Merge en PHP** (item_id como clave) + **batch lookup** de items activos para descripción:
+   ```php
+   foreach ($doc_items as $item_id => $row) {
+       $merged[(int) $item_id] = ['total_sale' => ..., 'total_credit' => ..., 'move_quantity' => ...];
+   }
+   foreach ($sn_items as $item_id => $row) {
+       // suma al existente o crea
+   }
+
+   $item_records = DB::connection('tenant')->table('items')
+       ->select('id', 'description', 'internal_id')
+       ->whereIn('id', $merged->keys())->where('status', true)
+       ->get()->keyBy('id');
+   ```
+
+### Verificación
+
+Comparación byte-por-byte del output antes/después (HENAVI Mayo 2026, top 10 productos por ingreso):
+
+```diff
+- {"ms": 5256, "queries": 6464}
++ {"ms": 5, "queries": 3}
+```
+
+El array `items_by_sales` es **idéntico** en ambos casos (mismos 10 productos, mismos totales,
+mismos `move_quantity`). No se cambió la forma del JSON, los endpoints, ni el frontend.
+
+### Lo que NO se modificó
+
+- `top_customers()` y `purchase_totals()` — están OK (119 ms / 1 ms).
+- Frontend (`TopProducts.vue`, `index.vue`).
+- Endpoints del `DashboardController`.
+- Modelos, migraciones.
+
+### Archivos modificados
+
+```
+modules/Dashboard/Helpers/DashboardSalePurchase.php  (113 líneas reescritas en items_by_sales)
+measure_items_by_sales.php                          (script de validación)
+PERFORMANCE.md                                      (esta sección)
+```
+
+### Lecciones aprendidas (Fase 2)
+
+1. **Las cargas perezosas son invisibles hasta que se explotan.** `Document::without(['items', ...])` PARECE desactivar la relación pero NO lo hace — `without()` solo previene eager loading, no previene lazy load. El único `without()` efectivo aquí habría sido eliminar la relación del modelo, pero eso rompe otras partes. La solución correcta es `JOIN ... GROUP BY` y nunca tocar `->items` en PHP.
+
+2. **`->find($id)` en un loop es siempre N+1.** Aunque `find()` toma una clave primaria (rápida), 339 lookups × ~3 ms = 1+ segundo solo en overhead de query parsing y conexión.
+
+3. **`data_aditional` ahora se completa en 124 ms** con `top_customers` (118 ms) dominando. Ese método todavía tiene 22 queries duplicadas de `users`, `establishments`, `countries` que serían el siguiente objetivo (revisitar si el usuario reporta lentitud en top_customers).

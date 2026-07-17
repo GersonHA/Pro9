@@ -12,6 +12,7 @@ use App\Models\Tenant\Item;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class DashboardSalePurchase
@@ -286,116 +287,124 @@ class DashboardSalePurchase
 
     private function items_by_sales($establishment_id, $d_start, $d_end, $enabled_move_item, $no_take = false, $page)
     {
+        // 1) document_items agregado por item_id
+        //    Separa ventas normales (document_type_id IN '01','03','08') de NC.
+        //    Conversión a PEN con exchange_rate_sale para USD.
+        $doc_items_query = DB::connection('tenant')->table('document_items as di')
+            ->selectRaw("
+                di.item_id,
+                SUM(CASE WHEN d.document_type_id IN ('01','03','08') THEN
+                    CASE WHEN d.currency_type_id = 'PEN' THEN di.total
+                         WHEN d.currency_type_id = 'USD' THEN di.total * d.exchange_rate_sale
+                    END
+                ELSE 0 END) as total_sale,
+                SUM(CASE WHEN d.document_type_id NOT IN ('01','03','08') THEN
+                    CASE WHEN d.currency_type_id = 'PEN' THEN di.total
+                         WHEN d.currency_type_id = 'USD' THEN di.total * d.exchange_rate_sale
+                    END
+                ELSE 0 END) as total_credit,
+                SUM(CASE WHEN d.document_type_id IN ('01','03','08') THEN di.quantity
+                         ELSE -di.quantity END) as move_quantity
+            ")
+            ->join('documents as d', 'd.id', '=', 'di.document_id')
+            ->where('d.establishment_id', $establishment_id)
+            ->whereIn('d.state_type_id', ['01','03','05','07','13']);
+
+        // 2) sale_note_items agregado por item_id (todo es venta)
+        $sn_items_query = DB::connection('tenant')->table('sale_note_items as sni')
+            ->selectRaw("
+                sni.item_id,
+                SUM(CASE WHEN sn.currency_type_id = 'PEN' THEN sni.total
+                         WHEN sn.currency_type_id = 'USD' THEN sni.total * sn.exchange_rate_sale
+                    END) as total_sale,
+                0 as total_credit,
+                SUM(sni.quantity) as move_quantity
+            ")
+            ->join('sale_notes as sn', 'sn.id', '=', 'sni.sale_note_id')
+            ->where('sn.establishment_id', $establishment_id)
+            ->where('sn.changed', false)
+            ->whereIn('sn.state_type_id', ['01','03','05','07','13']);
+
         if ($d_start && $d_end) {
-
-            $documents = Document::without(['user', 'soap_type', 'state_type', 'document_type', 'currency_type', 'group', 'items', 'invoice', 'note', 'payments'])
-                        ->where('establishment_id', $establishment_id)
-                        ->whereIn('state_type_id', ['01','03','05','07','13'])
-                        ->whereBetween('date_of_issue', [$d_start, $d_end])->get();
-
-
-            $sale_notes = SaleNote::without(['user', 'soap_type', 'state_type', 'currency_type', 'items', 'payments'])
-                        ->where([['establishment_id', $establishment_id],['changed',false]])
-                        ->whereIn('state_type_id', ['01','03','05','07','13'])
-                        ->whereBetween('date_of_issue', [$d_start, $d_end])->get();
-        } else {
-
-            $documents = Document::without(['user', 'soap_type', 'state_type', 'document_type', 'currency_type', 'group', 'items', 'invoice', 'note', 'payments'])
-                        ->where('establishment_id', $establishment_id)
-                        ->whereIn('state_type_id', ['01','03','05','07','13'])->get();
-
-
-            $sale_notes = SaleNote::without(['user', 'soap_type', 'state_type', 'currency_type', 'items', 'payments'])
-                        ->where([['establishment_id', $establishment_id],['changed',false]])
-                        ->whereIn('state_type_id', ['01','03','05','07','13'])->get();
-
+            $doc_items_query->whereBetween('d.date_of_issue', [$d_start, $d_end]);
+            $sn_items_query->whereBetween('sn.date_of_issue', [$d_start, $d_end]);
         }
 
-        $document_items = collect([]);
-        $sale_note_items = collect([]);
+        $doc_items = $doc_items_query->groupBy('di.item_id')->get()->keyBy('item_id');
+        $sn_items = $sn_items_query->groupBy('sni.item_id')->get()->keyBy('item_id');
 
-        foreach ($documents as $doc) {
-            foreach ($doc->items as $item) {
-                $document_items->push($item);
+        // 3) Merge por item_id
+        $merged = [];
+        foreach ($doc_items as $item_id => $row) {
+            $merged[(int) $item_id] = [
+                'item_id' => (int) $item_id,
+                'total_sale' => (float) $row->total_sale,
+                'total_credit' => (float) $row->total_credit,
+                'move_quantity' => (float) $row->move_quantity,
+            ];
+        }
+        foreach ($sn_items as $item_id => $row) {
+            $id = (int) $item_id;
+            if (isset($merged[$id])) {
+                $merged[$id]['total_sale'] += (float) $row->total_sale;
+                $merged[$id]['move_quantity'] += (float) $row->move_quantity;
+            } else {
+                $merged[$id] = [
+                    'item_id' => $id,
+                    'total_sale' => (float) $row->total_sale,
+                    'total_credit' => 0,
+                    'move_quantity' => (float) $row->move_quantity,
+                ];
             }
         }
 
-        foreach ($sale_notes as $s_notes) {
-            foreach ($s_notes->items as $item) {
-                $sale_note_items->push($item);
-            }
-        }
-
-
-        foreach ($sale_note_items as $sni) {
-            $document_items->push($sni);
-        }
-
-        $all_items = $document_items;
-        $group_items = $all_items->groupBy('item_id');
-
-        $items_by_sales = collect([]);
-        // dd($group_items);
-
-        foreach ($group_items as $items) {
-            $item = Item::without(['item_type', 'unit_type', 'currency_type', 'warehouses','item_unit_types', 'tags'])
-                ->where('status',true)->find($items[0]->item_id);
-
-            $totals = 0;
-            $total_credit_note = 0;
-            $move_quantity = 0;
-
-            foreach ($items as $it) {
-
-                if($it->document){
-
-                    if(in_array($it->document->document_type_id,['01','03','08'])){
-
-
-                        $totals += $this->calculateTotalCurrency($it->document->currency_type_id, $it->document->exchange_rate_sale, $it->total);
-                        // $totals += $this->calculateTotalCurrency($it->document->currency_type_id, $it->document->exchange_rate_sale, $it->document->total);
-                        $move_quantity += $it->quantity;
-
-                    }else{
-
-                        $total_credit_note += $this->calculateTotalCurrency($it->document->currency_type_id, $it->document->exchange_rate_sale, $it->total);
-                        // $total_credit_note += $this->calculateTotalCurrency($it->document->currency_type_id, $it->document->exchange_rate_sale, $it->document->total);
-                        $move_quantity -= $it->quantity;
-
-                    }
-
-                }else{
-
-                    $totals += $this->calculateTotalCurrency($it->sale_note->currency_type_id, $it->sale_note->exchange_rate_sale, $it->total);
-                    // $totals += $this->calculateTotalCurrency($it->sale_note->currency_type_id, $it->sale_note->exchange_rate_sale, $it->sale_note->total);
-                    $move_quantity += $it->quantity;
-
-                }
-                
-            }
-
-            $difference = $totals - $total_credit_note;
-
-            if($item && $difference > 0){
+        // 4) Filtra > 0 y ordena descendente
+        $items_by_sales = collect();
+        foreach ($merged as $r) {
+            $difference = $r['total_sale'] - $r['total_credit'];
+            if ($difference > 0) {
                 $items_by_sales->push([
-                    'total' => number_format($difference, 2, ".", ""),
-                    'description' => $item->description,
-                    'internal_id' => $item->internal_id,
-                    'move_quantity' => number_format($move_quantity, 2, ".", ""),
+                    'item_id' => $r['item_id'],
+                    'total' => $difference,
+                    'move_quantity' => $r['move_quantity'],
                 ]);
             }
         }
 
         $order_column = ($enabled_move_item) ? 'move_quantity' : 'total';
-        $sorted = $items_by_sales->sortByDesc($order_column);
+        $items_by_sales = $items_by_sales->sortByDesc($order_column)->values();
 
-        if($no_take) {
-            $collect = $sorted->values();
-            return new LengthAwarePaginator($collect->forPage($page, 10), $collect->count(), 10, $page);
-            //config('tenant.items_per_page_simple_d_table')
-        } else {
-            return $sorted->values()->take(10);
+        // 5) Batch lookup de items activos para descripción (solo si hay items)
+        if ($items_by_sales->isEmpty()) {
+            return $no_take
+                ? new LengthAwarePaginator(collect(), 0, 10, $page)
+                : collect([]);
         }
+
+        $item_records = DB::connection('tenant')->table('items')
+            ->select('id', 'description', 'internal_id')
+            ->whereIn('id', $items_by_sales->pluck('item_id')->all())
+            ->where('status', true)
+            ->get()
+            ->keyBy('id');
+
+        // 6) Construye respuesta con el MISMO shape JSON que la versión previa
+        $final = collect();
+        foreach ($items_by_sales as $r) {
+            $item = $item_records->get($r['item_id']);
+            if (!$item) continue;
+            $final->push([
+                'total' => number_format($r['total'], 2, ".", ""),
+                'description' => $item->description,
+                'internal_id' => $item->internal_id,
+                'move_quantity' => number_format($r['move_quantity'], 2, ".", ""),
+            ]);
+        }
+
+        if ($no_take) {
+            return new LengthAwarePaginator($final->forPage($page, 10), $final->count(), 10, $page);
+        }
+        return $final->take(10)->values();
     }
 
     /**

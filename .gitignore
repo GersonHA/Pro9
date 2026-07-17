@@ -70,3 +70,11 @@ FacturoomBrain/**/*.jpg
 FacturoomBrain/**/*.jpeg
 FacturoomBrain/**/*.gif
 FacturoomBrain/**/*.webp
+
+# ── Housekeeping (2026-07-17) ─────────────────────────────────────────────
+# Backups de refactor previos (Debtors v1, DashboardUtility, etc.).
+# Quedan en disco como evidencia histórica, no se commitean.
+modules/Dashboard/Helpers/*.bak.*
+
+# Scripts de medición one-off en raíz (measure_*.php).
+measure_*.php

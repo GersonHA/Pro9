@@ -762,7 +762,7 @@ class DashboardData
         ];
     }
 
-    public function debtors($request = [], $limit = 15)
+    public function debtors($request = [], $limit = 10)
     {
         if (is_numeric($request)) {
             $limit = (int) $request;

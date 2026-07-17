@@ -2,7 +2,10 @@
   <section class="card card-dashboard db-panel">
     <div class="card-body">
       <div class="db-head">
-        <h5 class="db-title m-0">¿Quién me debe?</h5>
+        <div class="db-title-row">
+          <h5 class="db-title m-0">¿Quién me debe?</h5>
+          <span v-if="count > 0" class="db-top-badge">TOP {{ Math.min(count, 10) }}</span>
+        </div>
         <small class="text-muted">
           S/ {{ total | dbMoney }} por cobrar · {{ count }} {{ count === 1 ? "cliente" : "clientes" }}
         </small>
@@ -204,6 +207,21 @@ export default {
   font-size: 1.15rem;
   font-weight: 800;
 }
+.db-title-row {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+.db-top-badge {
+  background: #f1f2f5;
+  border-radius: 999px;
+  color: #5a6068;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 0.18rem 0.55rem;
+}
 .db-urgent {
   align-items: center;
   background: color-mix(in srgb, var(--danger) 15%, #ffffff00);
@@ -268,7 +286,7 @@ export default {
   list-style: none;
   margin: 0;
   padding: 0 4px 0 0;
-  max-height: 350px;
+  max-height: 425px;
   overflow-y: auto;
   scrollbar-color: rgba(155, 161, 173, 0.32) transparent;
   scrollbar-width: thin;

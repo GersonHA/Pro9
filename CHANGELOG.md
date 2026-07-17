@@ -1,11 +1,13 @@
 ## 5.4.0
 
 ### docs
+2026-07-17 : docs | #housekeeping | .gitignore raíz: reglas para modules/Dashboard/Helpers/*.bak.* (backups de refactor previos) y measure_*.php (scripts de medición one-off) — dejan de filtrarse al repo
 2022-09-01 : docs | chalgelog update<br>
 
 
 ### fixed
 2026-07-17 : fixed | #dashboard | debtors() "¿Quién me debe?": NV sin date_of_due ahora honesto (status='sin_vencimiento' + badge gris) en lugar de mentir con 'al_dia'; código muerto 899-924 sobre $c['due']=null eliminado; $limit default 4→15 (alineado con pro8); state_type_id '07' (Observado) excluido del filtro deuda activa (pro8 ya lo hacía; HENAVI: 0 docs/NV en '07', seguro)
+2026-07-17 : fixed | #dashboard | debtors() "¿Quién me debe?" refinamiento v2: $limit 15→10; badge dinámico "TOP {Math.min(count,10)}" en el header para que el usuario sepa que la lista no muestra TODOS; .db-list max-height 350→425px (alineado con .tp-list de "Productos más vendidos"). Sin cambios de lógica ni colores — los 4 estados y tokens Bootstrap ya coinciden con la campana del POS de pro8 (text-danger/text-warning/text-success)
 2026-07-17 : perf  | #dashboard | top_customers() 500 OOM fix (Mes 06/2026): UNION ALL documents+sale_notes GROUP BY customer_id + batch Person::whereIn lookup; top_customers 130ms→10ms, data_aditional 153ms→37ms / HENAVI jun-26 (commit fb079a0b→fase 5, ver modules/Dashboard/PERFORMANCE.md)
 2026-07-17 : perf  | #dashboard | /utilities 500 OOM fix: 3 cambios en DashboardUtility (SQL SUM(CASE WHEN) + with(sale_note/document) + fix exchange_rate_sale faltante en select); 4,350ms→31ms / 94.5MB→34MB / 30k→9 queries / HENAVI Mes 05/2026 (ver modules/Dashboard/PERFORMANCE.md § Fase 3)
 2026-07-17 : perf  | #dashboard | items_by_sales(): triple N+1 reemplazado por 2 GROUP BY + 1 batch lookup; 4,383ms→124ms en data_aditional (HENAVI Mes 05/2026, ver modules/Dashboard/PERFORMANCE.md)<br>

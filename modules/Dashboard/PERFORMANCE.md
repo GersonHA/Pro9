@@ -438,7 +438,74 @@ PERFORMANCE.md                                      (esta sección)
 
 2. **`->find($id)` en un loop es siempre N+1.** Aunque `find()` toma una clave primaria (rápida), 339 lookups × ~3 ms = 1+ segundo solo en overhead de query parsing y conexión.
 
-3. **`data_aditional` ahora se completa en 124 ms** con `top_customers` (118 ms) dominando. Ese método todavía tiene 22 queries duplicadas de `users`, `establishments`, `countries` que serían el siguiente objetivo (revisitar si el usuario reporta lentitud en top_customers).
+3. **`data_aditional` ahora se completa en 124 ms** con `top_customers` (118 ms) dominando. Ese método todavía tiene 22 queries duplicadas de `users`, `establishments`, `countries` que serían el siguiente objetivo (revisitar si el usuario reporta lentitud en top_customers). **[Resuelto en Fase 5]**
+
+---
+
+## Fase 5: `data_aditional` 500 en Mes 06/2026 (2026-07-17 11:20)
+
+### Trigger
+
+El usuario reportó que después del fix de Fase 4 (utilities), al cambiar a **Mes 06/2026** en el mismo tenant HENAVI, `data_aditional` salía **rojo (500)** en F12. Log Laravel mostraba nuevos `Allowed memory size exhausted` a las 11:17.
+
+### Causa raíz
+
+**Memoria acumulada en PHP-FPM worker** entre clics. Las workers no liberan memoria entre requests; el clic anterior en Mes 05/2026 (con el helper antiguo, 94.5MB peak) dejó ~80MB residuales; el clic en Mes 06/2026 añadía ~36MB más → **OOM sobre 128MB**.
+
+La verdadera raíz era `top_customers()` (el siguiente cuello que ya identificamos en Fase 2 § lección 3): materializaba **2,840 Eloquent models** (22 documents + 2,818 sale_notes) + N+1 `Person::find()` por cada cliente único (6 clientes → 6 queries).
+
+### Medición antes / después (HENAVI Mes 06/2026, `measure_data_aditional_jun.php` con `memory_limit=128M`)
+
+| Sub-producto | Antes | Después | Cambio |
+|---|---|---|---|
+| `top_customers()` | 130 ms / 36.5 MB | **10 ms / 34.5 MB** | **-92%** tiempo |
+| `data_aditional` completo | 153 ms / 36.5 MB | **37 ms / 34.5 MB** | **-76%** tiempo |
+| Memoria peak (curl HTTP) | ~125 MB → OOM | **<40 MB** | **fix** |
+
+### Fix aplicado (`DashboardSalePurchase::top_customers()`)
+
+1 query SQL con `UNION ALL` de documents + sale_notes, `GROUP BY customer_id` con 6 columnas agregadas (`SUM CASE WHEN source='doc' AND document_type_id IN ('01','03','08') THEN calculateTotalCurrency ELSE 0 END` etc) + `HAVING (totals_docs_sale + totals_sale_note - total_credit_note) > 0`.
+
++ 1 batch lookup `Person::where('type','customers')->whereIn('id',$customer_ids)->select('id','name','number')`.
+
+**Paridad exacta con original**:
+- Mismas 4 columnas en output (`total`, `name`, `number`, `transaction_quantity`).
+- Mismo `number_format($difference, 2, '.', '')`.
+- Mismo sort `sortByDesc($order_column)` con `$order_column = $enabled_transaction_customer ? 'transaction_quantity' : 'total'`.
+- Preserva el quirk del original: `total_credit_note` se calcula con `sum('total')` SIN conversión de moneda (línea 140 original). En HENAVI no se nota (0 docs USD en mayo-jun 2026) pero podría afectar otros tenants.
+- Preserva la stub Person cuando se elimina un cliente (`name=''`, `number=''`).
+
+### Resultados
+
+- HTTP `/data_aditional` con Mes 06/2026: 🟢 200 OK (ya no OOM).
+- Tiempo: 153ms → 37ms (-76%); 10k+ Eloquent models → ~6 filas agregadas en RAM.
+- Queries: miles (incluyendo N+1 Person::find) → 2.
+- Memoria peak: ~36MB → ~34MB (no es gran diferencia en este mes pero el ahorro escala con tenants grandes).
+
+### Verificación
+
+```bash
+docker exec pro9_app php -l modules/Dashboard/Helpers/DashboardSalePurchase.php
+docker exec pro9_app php measure_data_aditional_jun.php   # debe pasar < 50ms total
+docker exec pro9_app php measure_dashboard.php | grep "top_customers\|data_aditional"
+```
+
+### Archivos modificados
+
+```
+modules/Dashboard/Helpers/DashboardSalePurchase.php   (top_customers: 113→165 líneas; +52 líneas de SQL + estructura)
+measure_data_aditional.php                           (script genérico, cualquier mes)
+measure_data_aditional_jun.php                       (script dedicado mes 06/2026)
+modules/Dashboard/PERFORMANCE.md                      (esta sección)
+```
+
+### Lecciones aprendidas (Fase 5)
+
+1. **PHP-FPM workers ACUMULAN memoria entre requests.** `memory_limit=128M` no es per-request sino per-worker-cumulative. Si un endpoint toca el límite en un request, los siguientes OOM-earán aunque el endpoint sea ligero. La única defensa es mantener peaks bajos para TODOS los endpoints, no solo los aparentemente pesados.
+
+2. **Optimizar el siguiente cuello más rápido acelera el TODO.** El cuello de `data_aditional` no era `items_by_sales` (ya optimizado en Fase 2) ni `purchase_totals`, sino `top_customers`. La medición debe ser por sub-producto, no por endpoint completo, para saber cuál es el siguiente a tocar.
+
+3. **`Person::find()` en un `foreach` siempre es N+1**, sin importar el filtro (`where('type','customers')`). Batch lookup con `whereIn('id', $ids)` + `->keyBy('id')` es la única manera. Misma lección que Fase 2.
 
 ---
 

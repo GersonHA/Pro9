@@ -73,89 +73,110 @@ class DashboardSalePurchase
     }
 
     private function top_customers($establishment_id, $d_start, $d_end, $enabled_transaction_customer){
+        // Antes: ->get() materializaba 2,840 Eloquent models en RAM (HENAVI jun-26:
+        //        22 docs + 2,818 SN) + Person::find() N+1 por cada cliente único.
+        // Ahora: 2 SQL queries agregadas (UNION ALL documents+sale_notes GROUP BY customer_id
+        //        + batch Person::whereIn). Memoria: ~36MB → <2MB; queries: miles → 2.
 
-        // $documents = Document::get();
-        // $sale_notes = SaleNote::get();
-        if($d_start && $d_end){
+        $states = ['01','03','05','07','13'];
 
-            $documents = Document::query()->where('establishment_id', $establishment_id)
-                                    ->whereIn('state_type_id', ['01','03','05','07','13'])
-                                    ->whereBetween('date_of_issue', [$d_start, $d_end])->get();
+        // Query agregada: documents + sale_notes en uno con UNION ALL,
+        // agrupado por customer_id. Mantiene paridad exacta con la lógica original:
+        //  - total: ventas doc tipo 01/03/08 (con conversión PEN/USD) + NV (con conversión) - NC tipo 07 (sin conversión)
+        //  - transaction_quantity: count ventas + count NV - count NC
 
-
-            $sale_notes = SaleNote::query()->where([['establishment_id', $establishment_id],['changed',false]])
-                                    ->whereIn('state_type_id', ['01','03','05','07','13'])
-                                    ->whereBetween('date_of_issue', [$d_start, $d_end])->get();
-        }else{
-
-            $documents = Document::query()->where('establishment_id', $establishment_id)
-                    ->whereIn('state_type_id', ['01','03','05','07','13'])->get();
-
-
-            $sale_notes = SaleNote::query()->where([['establishment_id', $establishment_id],['changed',false]])
-                    ->whereIn('state_type_id', ['01','03','05','07','13'])->get();
-
+        if ($d_start && $d_end) {
+            $date_filter_doc = "establishment_id = ? AND state_type_id IN ('01','03','05','07','13') AND date_of_issue BETWEEN ? AND ?";
+            $date_filter_sn  = "establishment_id = ? AND changed = 0 AND state_type_id IN ('01','03','05','07','13') AND date_of_issue BETWEEN ? AND ?";
+            $doc_params = [$establishment_id, $d_start, $d_end];
+            $sn_params  = [$establishment_id, $d_start, $d_end];
+        } else {
+            $date_filter_doc = "establishment_id = ? AND state_type_id IN ('01','03','05','07','13')";
+            $date_filter_sn  = "establishment_id = ? AND changed = 0 AND state_type_id IN ('01','03','05','07','13')";
+            $doc_params = [$establishment_id];
+            $sn_params  = [$establishment_id];
         }
 
-        foreach ($sale_notes as $sn) {
-            $documents->push($sn);
+        $aggregated = DB::connection('tenant')->select("
+            SELECT
+                customer_id,
+                SUM(CASE WHEN source = 'doc' AND document_type_id IN ('01','03','08') THEN
+                    CASE WHEN currency_type_id = 'PEN' THEN total
+                         WHEN currency_type_id = 'USD' THEN total * exchange_rate_sale
+                    END
+                ELSE 0 END) AS totals_docs_sale,
+                SUM(CASE WHEN source = 'doc' AND document_type_id = '07' THEN total
+                ELSE 0 END) AS total_credit_note,
+                SUM(CASE WHEN source = 'sn' THEN
+                    CASE WHEN currency_type_id = 'PEN' THEN total
+                         WHEN currency_type_id = 'USD' THEN total * exchange_rate_sale
+                    END
+                ELSE 0 END) AS totals_sale_note,
+                SUM(CASE WHEN source = 'doc' AND document_type_id IN ('01','03','08') THEN 1 ELSE 0 END) AS doc_sale_count,
+                SUM(CASE WHEN source = 'doc' AND document_type_id = '07' THEN 1 ELSE 0 END) AS doc_credit_count,
+                SUM(CASE WHEN source = 'sn' THEN 1 ELSE 0 END) AS sn_sale_count
+            FROM (
+                SELECT 'doc' AS source, customer_id, document_type_id, currency_type_id, exchange_rate_sale, total
+                FROM documents WHERE $date_filter_doc
+                UNION ALL
+                SELECT 'sn' AS source, customer_id, NULL AS document_type_id, currency_type_id, exchange_rate_sale, total
+                FROM sale_notes WHERE $date_filter_sn
+            ) combined
+            GROUP BY customer_id
+            HAVING (totals_docs_sale + totals_sale_note - total_credit_note) > 0
+        ", array_merge($doc_params, $sn_params));
+
+        if (empty($aggregated)) {
+            return collect([]);
         }
 
-        $all_records = $documents;
-
-        $group_customers = $all_records->groupBy('customer_id');
+        // Batch lookup de Person (reemplaza N+1 de Person::find())
+        $customer_ids = array_map(fn($r) => $r->customer_id, $aggregated);
+        $persons = Person::where('type', 'customers')
+            ->whereIn('id', $customer_ids)
+            ->select('id', 'name', 'number')
+            ->get()
+            ->keyBy('id');
 
         $top_customers = collect([]);
 
-        foreach ($group_customers as $customers) {
+        foreach ($aggregated as $row) {
+            $cid = $row->customer_id;
+            $transaction_quantity = (int)$row->doc_sale_count
+                                   + (int)$row->sn_sale_count
+                                   - (int)$row->doc_credit_count;
 
-            // $customers es un cliente con todos sus documentos generados
-            // dd($customers[0]->total);
+            $difference = (float)$row->totals_docs_sale
+                        + (float)$row->totals_sale_note
+                        - (float)$row->total_credit_note;
 
-            $transaction_quantity_sale = $customers->whereIn('document_type_id', ['01','03','08'])->count() + $customers->where('prefix', 'NV')->count();
-            $transaction_quantity_credit_note =$customers->where('document_type_id', '07')->count();
-
-            $transaction_quantity = $transaction_quantity_sale - $transaction_quantity_credit_note;
-
-            $customer = Person::where('type','customers')->find($customers[0]->customer_id);
-            if(empty($customer)){
-                // Cuando es eliminado un cliente, dara error en el dashboard, por eso se coloca uno nuevo
-                $customer = new Person([
-                    'name'=>'',
-                    'number'=>'',
-                ]);
+            $customer = $persons->get($cid);
+            if (empty($customer)) {
+                // Cuando es eliminado un cliente (pero existe en docs/NV), crea stub
+                $customer = (object)[
+                    'id' => $cid,
+                    'name' => '',
+                    'number' => '',
+                ];
             }
 
-            $totals = $customers->whereIn('document_type_id', ['01','03','08'])->sum(function ($row) {
-                return $this->calculateTotalCurrency($row->currency_type_id, $row->exchange_rate_sale, $row->total);//count($product['colors']);
-            });    //('total');
-
-
-            //totales en documents
-            $totals_sale_note = $customers->where('prefix', 'NV')->sum(function ($row) {
-                return $this->calculateTotalCurrency($row->currency_type_id, $row->exchange_rate_sale, $row->total);//count($product['colors']);
-            });
-
-
-            $total_credit_note = $customers->where('document_type_id','07')->sum('total');
-
-            $difference = ($totals + $totals_sale_note) - $total_credit_note;
-
-            if($difference > 0)
-                $top_customers->push([
-                    'total' => number_format($difference,2, ".", ""),
-                    'name' => $customer->name,
-                    'number' => $customer->number,
-                    'transaction_quantity' => $transaction_quantity,
-                ]);
-
+            $top_customers->push([
+                'total' => number_format($difference, 2, '.', ''),
+                'name' => $customer->name,
+                'number' => $customer->number,
+                'transaction_quantity' => $transaction_quantity,
+            ]);
         }
 
         $order_column = ($enabled_transaction_customer) ? 'transaction_quantity' : 'total';
-        $sorted = $top_customers->sortByDesc($order_column);
+        // total viene como string formateado, hay que ordenar por valor numérico
+        if ($order_column === 'total') {
+            $sorted = $top_customers->sortByDesc(fn($r) => (float)$r['total']);
+        } else {
+            $sorted = $top_customers->sortByDesc('transaction_quantity');
+        }
 
         return $sorted->values()->take(10);
-
     }
 
 

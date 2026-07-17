@@ -121,6 +121,7 @@ export default {
         { status: "vencido", label: "Vencidas", items: [] },
         { status: "por_vencer", label: "Por vencer", items: [] },
         { status: "al_dia", label: "Al día", items: [] },
+        { status: "sin_vencimiento", label: "Sin vencimiento", items: [] },
       ];
 
       groups.forEach((group) => {
@@ -164,6 +165,7 @@ export default {
         "is-vencido": status === "vencido",
         "is-por_vencer": status === "por_vencer",
         "is-al_dia": status === "al_dia",
+        "is-sin_vencimiento": status === "sin_vencimiento",
       };
     },
     debtClass(status) {
@@ -171,11 +173,12 @@ export default {
         "is-vencido": status === "vencido",
         "is-por_vencer": status === "por_vencer",
         "is-al_dia": status === "al_dia",
+        "is-sin_vencimiento": status === "sin_vencimiento",
       };
     },
     badgeText(row) {
       if (row.due_days !== null && row.due_days !== undefined && Number(row.due_days) === 0) return "vence hoy";
-      const labels = { vencido: "vencido", por_vencer: "por vencer", al_dia: "al día" };
+      const labels = { vencido: "vencido", por_vencer: "por vencer", al_dia: "al día", sin_vencimiento: "sin vencimiento" };
       return labels[row.status] || row.status;
     },
   },
@@ -374,6 +377,14 @@ export default {
   background: var(--success);
   color: var(--success);
 }
+.db-badge.is-sin_vencimiento {
+  background: color-mix(in srgb, var(--secondary) 15%, #ffffff00);
+  color: var(--secondary);
+}
+.db-group-head i.is-sin_vencimiento {
+  background: var(--secondary);
+  color: var(--secondary);
+}
 .db-detail {
   display: grid;
   grid-template-rows: 0fr;
@@ -411,6 +422,9 @@ export default {
 }
 .db-debt.is-al_dia::before {
   background: var(--success);
+}
+.db-debt.is-sin_vencimiento::before {
+  background: var(--secondary);
 }
 .db-debt-main {
   display: flex;

@@ -762,7 +762,7 @@ class DashboardData
         ];
     }
 
-    public function debtors($request = [], $limit = 4)
+    public function debtors($request = [], $limit = 15)
     {
         if (is_numeric($request)) {
             $limit = (int) $request;
@@ -784,7 +784,7 @@ class DashboardData
                 $join->on('documents.id', '=', 'credit_notes.affected_document_id');
             })
             ->leftJoin('invoices', 'invoices.document_id', '=', 'documents.id')
-            ->whereIn('documents.state_type_id', ['01', '03', '05', '07', '13'])
+            ->whereIn('documents.state_type_id', ['01', '03', '05', '13'])
             ->whereIn('documents.document_type_id', ['01', '03', '08'])
             ->where('documents.total_canceled', 0)
             ->when($filters['establishment_id'], function ($query) use ($filters) {
@@ -812,7 +812,7 @@ class DashboardData
             ->leftJoinSub($sale_note_payments, 'payments', function ($join) {
                 $join->on('sale_notes.id', '=', 'payments.sale_note_id');
             })
-            ->whereIn('sale_notes.state_type_id', ['01', '03', '05', '07', '13'])
+            ->whereIn('sale_notes.state_type_id', ['01', '03', '05', '13'])
             ->where('sale_notes.changed', false)
             ->where('sale_notes.total_canceled', false)
             ->when($filters['establishment_id'], function ($query) use ($filters) {
@@ -838,7 +838,7 @@ class DashboardData
                 return [
                     'due_days' => null,
                     'due_text' => 'sin vencimiento',
-                    'status' => 'al_dia',
+                    'status' => 'sin_vencimiento',
                 ];
             }
 
@@ -896,33 +896,6 @@ class DashboardData
 
         $list = collect($customers)->sortByDesc('total_to_pay');
 
-        $items = $list->take($limit)->map(function ($c) use ($today) {
-            $status = 'al_dia';
-            $due_text = null;
-
-            if ($c['due']) {
-                $days = $today->diffInDays($c['due'], false);
-                if ($days < 0) {
-                    $status = 'vencido';
-                    $abs = abs($days);
-                    $due_text = "venció hace {$abs} " . ($abs === 1 ? 'día' : 'días');
-                } elseif ($days === 0) {
-                    $status = 'por_vencer';
-                    $due_text = 'vence hoy';
-                } else {
-                    $status = ($days <= 7) ? 'por_vencer' : 'al_dia';
-                    $due_text = "vence en {$days} " . ($days === 1 ? 'día' : 'días');
-                }
-            }
-
-            return [
-                'customer' => $c['customer'],
-                'total_to_pay' => round($c['total_to_pay'], 2),
-                'status' => $status,
-                'due_text' => $due_text,
-            ];
-        })->values();
-
         $items = $list->take($limit)->map(function ($c) {
             $debts = collect($c['debts'])->sortBy(function ($debt) {
                 return is_null($debt['due_days']) ? 999999 : $debt['due_days'];
@@ -932,7 +905,7 @@ class DashboardData
             return [
                 'customer' => $c['customer'],
                 'total_to_pay' => round($c['total_to_pay'], 2),
-                'status' => $urgent_debt ? $urgent_debt['status'] : 'al_dia',
+                'status' => $urgent_debt ? $urgent_debt['status'] : 'sin_vencimiento',
                 'due_days' => $urgent_debt ? $urgent_debt['due_days'] : null,
                 'due_text' => $urgent_debt ? $urgent_debt['due_text'] : null,
                 'urgent_amount' => $urgent_debt ? $urgent_debt['total_to_pay'] : 0,

@@ -5,6 +5,7 @@
 
 
 ### fixed
+2026-07-17 : fixed | #dashboard | debtors() "¿Quién me debe?": NV sin date_of_due ahora honesto (status='sin_vencimiento' + badge gris) en lugar de mentir con 'al_dia'; código muerto 899-924 sobre $c['due']=null eliminado; $limit default 4→15 (alineado con pro8); state_type_id '07' (Observado) excluido del filtro deuda activa (pro8 ya lo hacía; HENAVI: 0 docs/NV en '07', seguro)
 2026-07-17 : perf  | #dashboard | top_customers() 500 OOM fix (Mes 06/2026): UNION ALL documents+sale_notes GROUP BY customer_id + batch Person::whereIn lookup; top_customers 130ms→10ms, data_aditional 153ms→37ms / HENAVI jun-26 (commit fb079a0b→fase 5, ver modules/Dashboard/PERFORMANCE.md)
 2026-07-17 : perf  | #dashboard | /utilities 500 OOM fix: 3 cambios en DashboardUtility (SQL SUM(CASE WHEN) + with(sale_note/document) + fix exchange_rate_sale faltante en select); 4,350ms→31ms / 94.5MB→34MB / 30k→9 queries / HENAVI Mes 05/2026 (ver modules/Dashboard/PERFORMANCE.md § Fase 3)
 2026-07-17 : perf  | #dashboard | items_by_sales(): triple N+1 reemplazado por 2 GROUP BY + 1 batch lookup; 4,383ms→124ms en data_aditional (HENAVI Mes 05/2026, ver modules/Dashboard/PERFORMANCE.md)<br>

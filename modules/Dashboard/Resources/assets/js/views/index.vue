@@ -278,7 +278,7 @@
                     </div>
                     <div class="col-12 col-xl-4 mb-2 d-flex flex-column">
                         <sunat-status :filters="form"></sunat-status>
-                        <payment-methods class="mt-2 mb-0 align-self-start" :filters="form"></payment-methods>
+                        <payment-methods class="mt-2 mb-0" :filters="form"></payment-methods>
                     </div>
                     
                     <template v-if="showLegacyCards && configuration.dashboard_general">

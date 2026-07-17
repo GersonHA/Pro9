@@ -1,5 +1,5 @@
 <template>
-  <section class="card card-dashboard ls-panel mt-2">
+  <section class="card card-dashboard ls-panel">
     <div class="card-body mt-0">
       <div class="ls-head">
         <h5 class="ls-title m-0">Stock por agotarse</h5>

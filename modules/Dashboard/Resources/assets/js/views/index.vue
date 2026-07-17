@@ -77,9 +77,11 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes de</label>
                                         <el-date-picker
+                                            ref="monthStartPicker"
                                             v-model="form.month_start"
                                             type="month"
                                             @change="changeDisabledMonths"
+                                            @visible-change="(v) => syncPickerToValue('monthStartPicker', 'month_start', v)"
                                             value-format="yyyy-MM"
                                             format="MM/yyyy"
                                             :clearable="false"
@@ -90,10 +92,12 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes al</label>
                                         <el-date-picker
+                                            ref="monthEndPicker"
                                             v-model="form.month_end"
                                             type="month"
                                             :picker-options="pickerOptionsMonths"
                                             @change="loadAll"
+                                            @visible-change="(v) => syncPickerToValue('monthEndPicker', 'month_end', v)"
                                             value-format="yyyy-MM"
                                             format="MM/yyyy"
                                             :clearable="false"
@@ -104,9 +108,11 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha del</label>
                                         <el-date-picker
+                                            ref="dateStartPicker"
                                             v-model="form.date_start"
                                             type="date"
                                             @change="changeDisabledDates"
+                                            @visible-change="(v) => syncPickerToValue('dateStartPicker', 'date_start', v)"
                                             value-format="yyyy-MM-dd"
                                             format="dd/MM/yyyy"
                                             :clearable="false"
@@ -117,10 +123,12 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha al</label>
                                         <el-date-picker
+                                            ref="dateEndPicker"
                                             v-model="form.date_end"
                                             type="date"
                                             :picker-options="pickerOptionsDates"
                                             @change="loadAll"
+                                            @visible-change="(v) => syncPickerToValue('dateEndPicker', 'date_end', v)"
                                             value-format="yyyy-MM-dd"
                                             format="dd/MM/yyyy"
                                             :clearable="false"
@@ -1294,6 +1302,40 @@ export default {
         this.form.date_end = this.form.date_start;
       }
       this.loadAll();
+    },
+    /**
+     * Sincroniza el panel interno del el-date-picker con el valor seleccionado.
+     * Element UI 2.13 no siempre refresca el "mes/fecha visualizado" cuando el valor
+     * viene como string desde value-format, así que el popup queda en el mes actual
+     * aunque v-model tenga otro mes. Forzamos picker.picker.date al abrir.
+     */
+    syncPickerToValue(refName, formKey, visible) {
+      if (!visible) return;
+      const picker = this.$refs[refName];
+      if (!picker || !picker.picker) return;
+
+      const value = this.form[formKey];
+      if (!value) return;
+
+      let target = null;
+      if (formKey === 'month_start' || formKey === 'month_end') {
+        const match = /^(\d{4})-(\d{2})$/.exec(value);
+        if (!match) return;
+        target = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, 1);
+      } else if (formKey === 'date_start' || formKey === 'date_end') {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return;
+        target = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+      }
+      if (!target) return;
+
+      // panel.month expone `date`; panel.date expone `date` + `showDate`/`currentView`
+      const panel = picker.picker;
+      if (panel.date !== undefined) panel.date = new Date(target);
+      if (panel.showDate !== undefined) panel.showDate = new Date(target);
+      if (panel.currentView !== undefined) panel.currentView = new Date(target);
+      if (panel.leftDate !== undefined) panel.leftDate = new Date(target);
+      if (panel.rightDate !== undefined) panel.rightDate = new Date(target);
     },
     changeDisabledMonths() {
       if (this.form.month_end < this.form.month_start) {

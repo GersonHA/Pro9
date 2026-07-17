@@ -127,7 +127,9 @@ export default {
 
 <style scoped>
 .pm-panel {
-  height: 100%;
+  /* height: 100% quitado — ahora vive stacked en fila 5 col-xl-4 d-flex
+     flex-column junto a SUNAT, y la altura 100% lo estiraba verticalmente
+     dejando aire vacío abajo. Usa su altura natural. */
 }
 .pm-head {
   margin-bottom: 1rem;

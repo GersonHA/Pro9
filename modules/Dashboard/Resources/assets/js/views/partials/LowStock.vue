@@ -74,7 +74,7 @@ export default {
 .ls-list {
   list-style: none;
   margin: 0;
-  max-height: 100px;
+  max-height: 350px;
   overflow-y: auto;
   padding: 0 4px 0 0;
   scrollbar-color: rgba(155, 161, 173, 0.32) transparent;

@@ -245,3 +245,13 @@ html.dark {
         }
     }
 }
+
+// Element UI 2.13: el-date-picker type="month" solo aplica `font-weight: bold`
+// al mes de HOY (.today), no al mes SELECCIONADO (.current). En tenants con
+// tema donde $--color-primary y $--datepicker-active-color son similares, el
+// usuario no puede distinguir el mes que seleccionó del mes actual.
+// Override: pone en negrita también el mes seleccionado para que sea visible.
+// (Bug reportado 2026-07-17 — ver modules/Dashboard/PERFORMANCE.md § bugs)
+.el-month-table td.current:not(.disabled) .cell {
+    font-weight: bold;
+}

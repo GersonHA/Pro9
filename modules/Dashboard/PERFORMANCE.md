@@ -1,0 +1,286 @@
+# Dashboard — Optimización de Performance
+
+> Documento técnico de la optimización del módulo Dashboard de Pro9 (HENAVI),
+> julio 2026. Reemplaza las notas dispersas en `CHANGELOG.md` con un registro
+> completo de los hallazgos, fixes y lecciones aprendidas.
+
+**Tenant de referencia**: `grupomultiservicioshenavi.localhost` (HENAVI)
+- 9.451 `sale_notes` totales
+- 2.727 `sale_notes` en mayo 2026
+- 152 `documents` totales, 30 en mayo 2026
+- Datos inician 2026-03-09
+
+---
+
+## 1. Contexto y motivación
+
+Pro9 cargaba el dashboard en **~7 segundos** cuando se seleccionaba Mes 05/2026
+en HENAVI. pro8 cargaba el mismo escenario en ~600 ms. La diferencia provenía de:
+
+1. Pro9 ejecutaba los **mismos métodos base** de pro8 + 6 widgets nuevos
+   heredados del merge upstream Buho (Mozo, WhatsApp, etc.).
+2. Los métodos base no habían sido optimizados: cada consulta pagaba su coste
+   íntegro de Eloquent + colecciones en PHP.
+
+La estrategia fue **medir primero**, **optimizar los cuellos de botella
+existentes** y solo después tocar el frontend.
+
+---
+
+## 2. Medición inicial (measure_dashboard.php)
+
+Script independiente que cargaba `DashboardData` por reflexión, activaba el
+query log y medía cada método público. Resultados para Mes 05/2026:
+
+| Endpoint | Antes | Objetivo | Diagnóstico |
+|---|---|---|---|
+| `globalData(month=05)` | **3.029 ms** 🔴 | <400 ms | 198 queries; 6 iteraciones × 3 tablas idénticas |
+| `paymentMethods(mes05)` | **1.225 ms** 🔴 | <200 ms | 40 queries; foreach sin eager load |
+| `salesWeek()` | 917 ms 🟡 | <100 ms | 218 queries; itera 7 días uno por uno |
+| `data()` (Mes 05) | 360 ms | <200 ms | `collect()->sum()` en PHP |
+| `monthGoal()` | 339 ms | <100 ms | Eager load faltante |
+| `cashFlow(months=6)` | 309 ms | <100 ms | 8 iteraciones × 3 tablas idénticas |
+| `kpi->data(mes05)` | 30 ms ✅ | — | OK |
+| `debtors(limit=4)` | 39 ms ✅ | — | OK |
+
+**Estimación de carga total del dashboard** al abrir con Mes 05/2026:
+- `data()` + `globalData()` + 7 widgets de Buho + `kpi()` + … = **~7.400 ms**
+  ejecutándose en paralelo.
+- Cliente recibe el último ≈ **3.000-4.000 ms**.
+
+### Patrones problemáticos identificados
+
+**A — `globalData()` ejecuta 6 veces las mismas 3 queries base.**
+`monthlyKpis()` iteraba mes por mes y dentro de cada mes llamaba
+`document_totals_globals()` + `sale_note_totals_global()`. Cada uno hacía `->get()`
+de TODA la tabla filtrada. 18 queries `whereBetween('date_of_issue', ...)` cuando
+1 query agregada `GROUP BY DATE_FORMAT(...)` bastaba.
+
+**B — `document_totals()` / `sale_note_totals()` descargaban TODOS los registros
+y filtraban en PHP.** Además hacían N+1 dentro del foreach para sumar `payments`.
+
+**C — N+1 confirmado** en `paymentMethods`, `salesWeek`, `monthGoal`, `cashFlow`
+por lazy loads de relaciones no desactivados (`users`, `establishments`,
+`countries`, `departments` recargados en cada iteración).
+
+**D — `salesWeek()` iteraba 7 días × 3 tablas × N estados** = ~218 queries.
+
+**E — `cashFlow()` iteraba 8 meses** con la misma query redundante.
+
+---
+
+## 3. Fixes aplicados
+
+Todos los cambios viven en `modules/Dashboard/Helpers/DashboardData.php` y
+`modules/Dashboard/Traits/TotalsTrait.php`. Commit principal:
+**`7fdcd9b0` perf(dashboard): SQL aggregations replace Eloquent->get()+collect()->sum() loops**
+
+### Fix #1 — `monthlyKpis()` → GROUP BY agregado
+Reemplazado el loop de 6 meses con UNA query `GROUP BY DATE_FORMAT(...)` que
+devuelve suma por mes y por moneda. Toca también `kpisForRangesAggregated()`
+y `kpisForRangeAggregatedByMonth()`.
+
+```php
+// Antes: 6 iteraciones × 3 tablas × get() + collect()->sum()
+foreach ($months as $m) {
+    $sn = SaleNote::whereBetween('date_of_issue', [$m->start, $m->end])->get();
+    $doc = Document::whereBetween('date_of_issue', [$m->start, $m->end])->get();
+    // ... collect()->sum() en PHP
+}
+
+// Después: 1 query por tabla con GROUP BY
+$sale_notes_by_month = DB::connection('tenant')->table('sale_notes')
+    ->selectRaw("DATE_FORMAT(date_of_issue, '%Y-%m') as month,
+                 currency_type_id,
+                 SUM(total) as total,
+                 SUM(total * exchange_rate_sale) as total_pen")
+    ->whereBetween('date_of_issue', [$start, $end])
+    ->groupBy('month', 'currency_type_id')
+    ->get()
+    ->groupBy('month');
+```
+
+### Fix #2 — `document_totals()` / `sale_note_totals()` → SUM en SQL
+Reemplazado el `->get()` + `collect()->sum()` + `foreach payments` con queries
+agregadas directas que diferencian PEN/USD y NC (notas de crédito) en el mismo
+`SELECT` con `CASE WHEN`.
+
+### Fix #3 — `document_totals_globals()` / `sale_note_totals_global()` → SUM en SQL
+Idéntico al Fix #2 pero sin filtro de establishment. Impacto grande con rangos
+largos porque ya no descarga las 9.451 NV en PHP.
+
+### Fix #4 — `salesWeek()` → GROUP BY por día
+1 query agregada por tabla que agrupa por día, en lugar de iterar 7 días con
+`getDocumentsByDay()`.
+
+### Fix #5 — `paymentMethods()` → JOINs + GROUP BY
+`document_payments` JOIN `documents` + GROUP BY método. Sin N+1.
+
+### Fix #6 — `lowStock()`, `monthGoal()`, `cashFlow()` → eliminar redundancias
+- `cashFlow()` ya no llama `kpisForRange()` en bucle (era 1 query por mes).
+- `monthGoal()` se beneficia de los eager loads previos.
+- `lowStock()` separó la carga eager a un solo batch query.
+
+### Fix #7 — `totals()` → SQL aggregation con DB::table()
+`DashboardData::totals()` reemplazó `Eloquent->get()` por `DB::table()->get()` para
+evitar lazy loads implícitos. Esto introdujo el bug del Fix #9 abajo.
+
+### Fix #8 — `TotalsTrait` (purchase/expense/sale_note/document totals) → SUM
+Archivo: `modules/Dashboard/Traits/TotalsTrait.php` (271 líneas).
+Los 4 métodos `get_*_totals()` ahora hacen:
+- 1 SUM aggregation por tabla principal
+- 1 JOIN aggregation por tabla de pagos
+
+```php
+// Patrón aplicado en los 4 métodos:
+$agg = (clone $builder)->selectRaw("
+    SUM(CASE WHEN currency_type_id = 'PEN' THEN total ELSE 0 END) as pen,
+    SUM(CASE WHEN currency_type_id = 'USD' THEN total * exchange_rate_sale ELSE 0 END) as usd_pen
+")->first();
+
+$payments = (clone $payment_query)->selectRaw("
+    SUM(CASE WHEN sale_notes.currency_type_id = 'PEN' THEN sale_note_payments.payment ELSE 0 END) as pen_pay,
+    SUM(CASE WHEN sale_notes.currency_type_id = 'USD' THEN sale_note_payments.payment * sale_notes.exchange_rate_sale ELSE 0 END) as usd_pay
+")->first();
+```
+
+---
+
+## 4. Bugs encontrados durante la verificación
+
+### Fix #9 — Chart desaparecía al seleccionar mes con datos (commit `63ee5aab`)
+
+**Síntoma**: Seleccionar 06/2026 → "Sin totales para graficar en el periodo."
+
+**Causa raíz**: El cambio de `Eloquent->get()` (que hidrata columnas fecha como
+`Carbon`) a `DB::table()->get()` (que devuelve `stdClass` con fechas como string)
+rompió dos métodos:
+
+1. `getDocumentsByDays()`: comparaba `where('date_of_issue', $d_start)` donde
+   `$d_start` era `Carbon` — comparación siempre falsa → todos los días en 0.
+2. `getDocumentsByMonths()`: `$row->date_of_issue->format('m')` —
+   `stdClass` no tiene método `->format()` → excepción silenciosa.
+
+**Fix**:
+- `getDocumentsByDays()`: agregado `$date_str = $d_start->format('Y-m-d');` al
+  inicio del `while` y usado string en `where('date_of_issue', $date_str)`.
+- `getDocumentsByMonths()`: reemplazado `$row->date_of_issue->format('m')` por
+  `substr($row->date_of_issue, 5, 2)` en todos los callbacks de filtro.
+
+**Verificación**: totales cuadran exactamente con pro8 para 2026-04, 2026-05 y
+2026-06. Performance mantenida (`data()` en 62 ms con 26 queries, `totals()` en
+15 ms con 4 queries).
+
+### Fix #10 — Datepicker quedaba en mes actual en vez del seleccionado
+
+**Síntoma**: Seleccionar 05/2026 → input muestra "05/2026" pero al abrir el
+popup el mes en negrita es "jul" (mes actual del sistema). El usuario pidió
+"debería estar en negrita mayo".
+
+**Causa raíz**: Element UI 2.13 usa **`fecha`** (no moment) para parsear el
+valor de `value-format`. Con `value-format="yyyy-MM"` y value `"2026-05"`,
+`fecha.parse()` devuelve **Invalid Date** porque falta el componente día.
+El panel del popup queda con `new Date()` (hoy = julio) como fecha base y
+el valor del input se ignora.
+
+**Fix** (commits `7b7b6fca` + `8276b956`):
+
+1. Refactor: `form.month_start`, `form.month_end`, `form.date_start`,
+   `form.date_end` ahora son **objetos `Date` nativos** en lugar de strings.
+2. Eliminados los `value-format="yyyy-MM"` / `"yyyy-MM-dd"` de los 4
+   `el-date-picker` (se mantiene `format="MM/yyyy"` solo para el rendering
+   del input).
+3. Nuevo método `apiPayload()` que formatea las fechas a string justo antes
+   de enviarlas al backend (`YYYY-MM` y `YYYY-MM-DD`, lo que
+   `Carbon::parse($x.'-01')` espera).
+4. `loadData()`, `loadDataAditional()`, `loadDataUtilities()` y
+   `clickDownload()` usan `apiPayload()` en lugar de `this.form` crudo.
+5. `initForm()` y `changePeriod()` inicializan con `moment().toDate()`.
+6. `pickerOptionsMonths` / `pickerOptionsDates` reescritas para comparar
+   Date vs Date con `moment(time).isBefore(form.month_start, 'month')`.
+7. `getGeneralChartStartDate()` ya no usa strict parsing
+   (`moment(date, "YYYY-MM", true)`).
+8. Se eliminó el método auxiliar `syncPickerToValue()` (con el refactor ya
+   no hace falta; era un parche para un síntoma, no para la causa).
+
+**Lecciones aprendidas**:
+- `fecha` (parser interno de Element UI 2.x) **no maneja formatos sin día**.
+- Cualquier workaround vía `panel.date` falla porque el panel se renderiza
+  con la fecha inválida.
+- Usar Date objects en `v-model` es la única forma robusta de evitar este bug.
+
+---
+
+## 5. Resultados finales
+
+| Endpoint | Antes | Después | Reducción |
+|---|---|---|---|
+| `globalData(month=05)` | 3.029 ms | ~400 ms | **-87 %** |
+| `globalData(last_week)` | 580 ms | ~100 ms | -83 % |
+| `salesWeek()` | 917 ms | ~80 ms | -91 % |
+| `paymentMethods()` | 1.225 ms | ~200 ms | -84 % |
+| `data()` (Mes 05) | 360 ms | ~80 ms | -78 % |
+| `cashFlow()` | 309 ms | ~100 ms | -68 % |
+| Otros (~6 widgets) | ~600 ms | ~200 ms | -67 % |
+| **TOTAL dashboard** | **~7.000 ms** | **~1.200 ms** | **-83 %** |
+
+El dashboard pasa de **~7 segundos a ~1.2 segundos** de carga con Mes 05/2026
+en HENAVI. Sigue siendo más lento que pro8 (~600 ms) porque pro9 carga los
+mismos widgets básicos + 7 widgets nuevos de Buho, pero la diferencia dejó de
+ser bloqueante.
+
+---
+
+## 6. Archivos modificados
+
+```
+modules/Dashboard/Helpers/DashboardData.php     (1.866 líneas, principal)
+modules/Dashboard/Traits/TotalsTrait.php       (271 líneas, reescrito)
+modules/Dashboard/Resources/assets/js/views/index.vue
+                                              (2 fixes UX: datepicker)
+```
+
+**No se modificó**:
+- `DashboardController.php` (mismos endpoints, mismo shape JSON)
+- `DashboardKpi.php` (ya estaba a 30 ms, OK)
+- Ningún modelo Eloquent
+- Ninguna migración
+- Ningún componente Vue de gráficos
+
+---
+
+## 7. Lecciones aprendidas
+
+1. **Medir antes de optimizar.** Sin `measure_dashboard.php` habríamos atacado
+   al azar. El script reveló que `globalData()` era 8× más lento que el segundo
+   peor endpoint.
+
+2. **`Eloquent->get()` no es gratis.** Hidratar modelos paga CPU + memoria y
+   abre la puerta a lazy loads. Para totales agregados, `DB::table()->selectRaw(...)`
+   es estrictamente mejor — pero hay que recordar que devuelve `stdClass` con
+   fechas como **string**, no `Carbon` (Fix #9).
+
+3. **Los N+1 de relaciones se acumulan.** `users`, `establishments`,
+   `countries` recargados en cada iteración del foreach suman cientos de
+   queries. Eager load explícito o `without()` selectivo.
+
+4. **`fecha` (parser de Element UI) no acepta año-mes sin día.** Cualquier
+   `value-format="yyyy-MM"` está roto silenciosamente. Usar Date objects en
+   `v-model` y formatear solo al cruzar la frontera con el backend.
+
+5. **El JSON shape no cambia.** Mantener las mismas claves en cada método
+   permite meter la optimización sin tocar el frontend ni un solo componente
+   Vue de gráficos.
+
+---
+
+## 8. Trabajo futuro (no hecho)
+
+Estos son pendientes identificados durante la optimización pero fuera del scope:
+
+- Cachear `globalData()` con TTL de 5-10 min cuando no hay filtro custom.
+- Mover el `SaleNote::with(['customer','items'])` de los 6 widgets de Buho a
+  una sola query agregada.
+- Reemplazar el array de charts con `@vue/server-rendered` para primer paint
+  más rápido.
+- Auditar `DashboardSalePurchase` (data_aditional) por el mismo patrón N+1.

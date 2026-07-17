@@ -77,12 +77,9 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes de</label>
                                         <el-date-picker
-                                            ref="monthStartPicker"
                                             v-model="form.month_start"
                                             type="month"
                                             @change="changeDisabledMonths"
-                                            @visible-change="(v) => syncPickerToValue('monthStartPicker', 'month_start', v)"
-                                            value-format="yyyy-MM"
                                             format="MM/yyyy"
                                             :clearable="false"
                                         ></el-date-picker>
@@ -92,13 +89,10 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Mes al</label>
                                         <el-date-picker
-                                            ref="monthEndPicker"
                                             v-model="form.month_end"
                                             type="month"
                                             :picker-options="pickerOptionsMonths"
                                             @change="loadAll"
-                                            @visible-change="(v) => syncPickerToValue('monthEndPicker', 'month_end', v)"
-                                            value-format="yyyy-MM"
                                             format="MM/yyyy"
                                             :clearable="false"
                                         ></el-date-picker>
@@ -108,12 +102,9 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha del</label>
                                         <el-date-picker
-                                            ref="dateStartPicker"
                                             v-model="form.date_start"
                                             type="date"
                                             @change="changeDisabledDates"
-                                            @visible-change="(v) => syncPickerToValue('dateStartPicker', 'date_start', v)"
-                                            value-format="yyyy-MM-dd"
                                             format="dd/MM/yyyy"
                                             :clearable="false"
                                         ></el-date-picker>
@@ -123,13 +114,10 @@
                                     <div :class="filterColumnClass" class="form-group">
                                         <label class="control-label">Fecha al</label>
                                         <el-date-picker
-                                            ref="dateEndPicker"
                                             v-model="form.date_end"
                                             type="date"
                                             :picker-options="pickerOptionsDates"
                                             @change="loadAll"
-                                            @visible-change="(v) => syncPickerToValue('dateEndPicker', 'date_end', v)"
-                                            value-format="yyyy-MM-dd"
                                             format="dd/MM/yyyy"
                                             :clearable="false"
                                         ></el-date-picker>
@@ -742,14 +730,17 @@ export default {
       form: {},
       pickerOptionsDates: {
         disabledDate: (time) => {
-          time = moment(time).format("YYYY-MM-DD");
-          return this.form.date_start > time;
+          // `time` es Date del calendario interno del picker; form.date_start
+          // también es Date (desde el refactor). Comparamos por día.
+          if (!this.form.date_start) return false;
+          return moment(time).isBefore(moment(this.form.date_start), "day");
         },
       },
       pickerOptionsMonths: {
         disabledDate: (time) => {
-          time = moment(time).format("YYYY-MM");
-          return this.form.month_start > time;
+          // `time` es Date; form.month_start es Date. Comparamos por mes.
+          if (!this.form.month_start) return false;
+          return moment(time).isBefore(moment(this.form.month_start), "month");
         },
       },
       records: [],
@@ -1277,9 +1268,7 @@ export default {
       window.open(download, "_blank");
     },
     clickDownload(type) {
-      let query = queryString.stringify({
-        ...this.form,
-      });
+      let query = queryString.stringify(this.apiPayload());
       window.open(`/reports/no_paid/${type}/?${query}`, "_blank");
     },
     initForm() {
@@ -1290,79 +1279,67 @@ export default {
         enabled_move_item: false,
         enabled_transaction_customer: false,
         period: "last_week",
-        date_start: moment().startOf("isoWeek").format("YYYY-MM-DD"),
-        date_end: moment().endOf("isoWeek").format("YYYY-MM-DD"),
-        month_start: moment().format("YYYY-MM"),
-        month_end: moment().format("YYYY-MM"),
+        // Fechas como objetos Date para que el-date-picker las reconozca
+        // correctamente (Element UI 2.13 falla parseando value-format="yyyy-MM"
+        // porque fecha no acepta año-mes sin día). Se formatean a string en
+        // apiPayload() justo antes de enviarlas al backend.
+        date_start: moment().startOf("isoWeek").toDate(),
+        date_end: moment().endOf("isoWeek").toDate(),
+        month_start: moment().toDate(),
+        month_end: moment().toDate(),
         customer_id: null,
       };
     },
     changeDisabledDates() {
-      if (this.form.date_end < this.form.date_start) {
+      if (this.form.date_end && this.form.date_start
+          && moment(this.form.date_end).isBefore(this.form.date_start)) {
         this.form.date_end = this.form.date_start;
       }
       this.loadAll();
     },
     /**
-     * Sincroniza el panel interno del el-date-picker con el valor seleccionado.
-     * Element UI 2.13 no siempre refresca el "mes/fecha visualizado" cuando el valor
-     * viene como string desde value-format, así que el popup queda en el mes actual
-     * aunque v-model tenga otro mes. Forzamos picker.picker.date al abrir.
+     * Construye el payload que se envía al backend a partir de `this.form`.
+     * Convierte las fechas (Date objects) al formato string que el backend
+     * espera: month_start/end → "yyyy-MM" (para Carbon::parse($x.'-01')),
+     * date_start/end → "yyyy-MM-dd".
      */
-    syncPickerToValue(refName, formKey, visible) {
-      if (!visible) return;
-      const picker = this.$refs[refName];
-      if (!picker || !picker.picker) return;
-
-      const value = this.form[formKey];
-      if (!value) return;
-
-      let target = null;
-      if (formKey === 'month_start' || formKey === 'month_end') {
-        const match = /^(\d{4})-(\d{2})$/.exec(value);
-        if (!match) return;
-        target = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, 1);
-      } else if (formKey === 'date_start' || formKey === 'date_end') {
-        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-        if (!match) return;
-        target = new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
-      }
-      if (!target) return;
-
-      // panel.month expone `date`; panel.date expone `date` + `showDate`/`currentView`
-      const panel = picker.picker;
-      if (panel.date !== undefined) panel.date = new Date(target);
-      if (panel.showDate !== undefined) panel.showDate = new Date(target);
-      if (panel.currentView !== undefined) panel.currentView = new Date(target);
-      if (panel.leftDate !== undefined) panel.leftDate = new Date(target);
-      if (panel.rightDate !== undefined) panel.rightDate = new Date(target);
+    apiPayload() {
+      const fmt = (d, pattern) => (d ? moment(d).format(pattern) : null);
+      return {
+        ...this.form,
+        month_start: fmt(this.form.month_start, "YYYY-MM"),
+        month_end: fmt(this.form.month_end, "YYYY-MM"),
+        date_start: fmt(this.form.date_start, "YYYY-MM-DD"),
+        date_end: fmt(this.form.date_end, "YYYY-MM-DD"),
+      };
     },
     changeDisabledMonths() {
-      if (this.form.month_end < this.form.month_start) {
+      if (this.form.month_end && this.form.month_start
+          && moment(this.form.month_end).isBefore(this.form.month_start)) {
         this.form.month_end = this.form.month_start;
       }
       this.loadAll();
     },
     changePeriod() {
       if (this.form.period === "last_week") {
-        this.form.date_start = moment().startOf("isoWeek").format("YYYY-MM-DD");
-        this.form.date_end = moment().endOf("isoWeek").format("YYYY-MM-DD");
+        this.form.date_start = moment().startOf("isoWeek").toDate();
+        this.form.date_end = moment().endOf("isoWeek").toDate();
       }
       if (this.form.period === "month") {
-        this.form.month_start = moment().format("YYYY-MM");
-        this.form.month_end = moment().format("YYYY-MM");
+        this.form.month_start = moment().toDate();
+        this.form.month_end = moment().toDate();
       }
       if (this.form.period === "between_months") {
-        this.form.month_start = moment().startOf("year").format("YYYY-MM"); //'2019-01';
-        this.form.month_end = moment().endOf("year").format("YYYY-MM");
+        this.form.month_start = moment().startOf("year").toDate(); //'2019-01';
+        this.form.month_end = moment().endOf("year").toDate();
       }
       if (this.form.period === "date") {
-        this.form.date_start = moment().format("YYYY-MM-DD");
-        this.form.date_end = moment().format("YYYY-MM-DD");
+        this.form.date_start = moment().toDate();
+        this.form.date_end = moment().toDate();
       }
       if (this.form.period === "between_dates") {
-        this.form.date_start = moment().startOf("month").format("YYYY-MM-DD");
-        this.form.date_end = moment().endOf("month").format("YYYY-MM-DD");
+        this.form.date_start = moment().startOf("month").toDate();
+        this.form.date_end = moment().endOf("month").toDate();
       }
       this.loadAll();
     },
@@ -1410,7 +1387,7 @@ export default {
     loadData() {
       this.showLoadersLoadData();
 
-      this.$http.post(`/${this.resource}/data`, this.form).then((response) => {
+      this.$http.post(`/${this.resource}/data`, this.apiPayload()).then((response) => {
         this.document = response.data.data.document;
         // this.documents_quantity = response.data.data.quantity;
         this.balance = response.data.data.balance;
@@ -1425,7 +1402,7 @@ export default {
       this.showLoadersLoadDataAditional();
 
       this.$http
-        .post(`/${this.resource}/data_aditional`, this.form)
+        .post(`/${this.resource}/data_aditional`, this.apiPayload())
         .then((response) => {
           this.purchase = response.data.data.purchase;
           this.items_by_sales = response.data.data.items_by_sales;
@@ -1437,7 +1414,7 @@ export default {
       this.loaders.utility = true;
 
       this.$http
-        .post(`/${this.resource}/utilities`, this.form)
+        .post(`/${this.resource}/utilities`, this.apiPayload())
         .then((response) => {
           this.utilities = response.data.data.utilities;
           this.loaders.utility = false;
@@ -1480,11 +1457,11 @@ export default {
     },
     getGeneralChartStartDate() {
       if (["last_week", "date", "between_dates"].includes(this.form.period) && this.form.date_start) {
-        return moment(this.form.date_start, "YYYY-MM-DD", true);
+        return moment(this.form.date_start).startOf("day");
       }
 
       if (["month", "between_months"].includes(this.form.period) && this.form.month_start) {
-        return moment(this.form.month_start, "YYYY-MM", true).startOf("month");
+        return moment(this.form.month_start).startOf("month");
       }
 
       return null;

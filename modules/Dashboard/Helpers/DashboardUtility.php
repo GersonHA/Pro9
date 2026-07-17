@@ -7,6 +7,7 @@ use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\PurchaseItem;
 use App\Models\Tenant\SaleNoteItem;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Expense\Models\Expense;
 use App\Models\Tenant\SaleNote;
 
@@ -65,6 +66,10 @@ class DashboardUtility
         if($d_start && $d_end){
 
             $document_items = DocumentItem::without(['affectation_igv_type', 'system_isc_type', 'price_type'])
+                                            ->with(['document' => function($q) {
+                                                $q->without(['user','soap_type','state_type','document_type','currency_type','group','items','invoice','note','payments'])
+                                                  ->select('id','currency_type_id','document_type_id','exchange_rate_sale');
+                                            }])
                                             ->whereHas('document',function($query) use($establishment_id, $d_start, $d_end){
                                                 $query->where('establishment_id', $establishment_id)
                                                         ->whereIn('state_type_id', ['01','03','05','07','13'])
@@ -75,6 +80,10 @@ class DashboardUtility
 
 
             $sale_note_items = SaleNoteItem::without(['affectation_igv_type', 'system_isc_type', 'price_type'])
+                                            ->with(['sale_note' => function($q) {
+                                                $q->without(['user','soap_type','state_type','currency_type','items','payments'])
+                                                  ->select('id','currency_type_id','exchange_rate_sale');
+                                            }])
                                             ->whereHas('sale_note', function($query) use($establishment_id, $d_start, $d_end){
 
                                                 $query->where([['establishment_id', $establishment_id],['changed',false]])
@@ -91,6 +100,10 @@ class DashboardUtility
 
         }else{
             $document_items = DocumentItem::without(['affectation_igv_type', 'system_isc_type', 'price_type'])
+                                            ->with(['document' => function($q) {
+                                                $q->without(['user','soap_type','state_type','document_type','currency_type','group','items','invoice','note','payments'])
+                                                  ->select('id','currency_type_id','document_type_id','exchange_rate_sale');
+                                            }])
                                             ->whereHas('document', function($query) use($establishment_id) {
                                                 $query->where('establishment_id', $establishment_id)
                                                         ->whereIn('state_type_id', ['01','03','05','07','13']);
@@ -99,6 +112,10 @@ class DashboardUtility
 
 
             $sale_note_items = SaleNoteItem::without(['affectation_igv_type', 'system_isc_type', 'price_type'])
+                                            ->with(['sale_note' => function($q) {
+                                                $q->without(['user','soap_type','state_type','currency_type','items','payments'])
+                                                  ->select('id','currency_type_id','exchange_rate_sale');
+                                            }])
                                             ->whereHas('sale_note', function($query) use($establishment_id){
 
                                                 $query->where([['establishment_id', $establishment_id],['changed',false]])
@@ -218,19 +235,27 @@ class DashboardUtility
 
     
     /**
-     * 
+     *
      * Obtener totales de nota de venta basado en los items filtrados
+     *
+     * Antes: ->get()->sum(getTransformTotal) → materializaba N modelos en RAM
+     *        y causaba Allowed memory size exhausted en HENAVI may-26 (2,716 NV).
+     * Ahora: 1 query agregada con CASE WHEN para convertir PEN/USD sin cargar modelos.
      *
      * @param  $sale_note_items
      * @return float
      */
     private function getTotalSaleNotesByItems($sale_note_items)
     {
-        return SaleNote::whereRecordsByItems($sale_note_items->pluck('sale_note_id')->toArray())
-                                ->get()
-                                ->sum(function($sale_note){
-                                    return $sale_note->getTransformTotal();
-                                });
+        $sale_note_ids = $sale_note_items->pluck('sale_note_id')->unique()->toArray();
+        if (empty($sale_note_ids)) return 0;
+
+        return (float) DB::connection('tenant')->table('sale_notes')
+            ->whereIn('id', $sale_note_ids)
+            ->selectRaw("SUM(CASE WHEN currency_type_id = 'PEN' THEN total
+                                  WHEN currency_type_id = 'USD' THEN total * exchange_rate_sale
+                             END) as total_transformed")
+            ->value('total_transformed') ?? 0;
     }
     
 
@@ -306,7 +331,7 @@ class DashboardUtility
         // Obteniendo todos los documentos de los items q recibe la función
         $documents = Document::without(['user', 'soap_type', 'state_type', 'document_type', 'currency_type', 'group', 'items', 'invoice', 'note', 'payments'])
             ->whereIn('id', $documentsIds)
-            ->select('id', 'total', 'document_type_id', 'currency_type_id')
+            ->select('id', 'total', 'document_type_id', 'currency_type_id', 'exchange_rate_sale')
             ->get();
 
         foreach ($documents as $doc) {

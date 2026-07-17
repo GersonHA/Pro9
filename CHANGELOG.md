@@ -5,6 +5,7 @@
 
 
 ### fixed
+2026-07-17 : perf  | #dashboard | /utilities 500 OOM fix: 3 cambios en DashboardUtility (SQL SUM(CASE WHEN) + with(sale_note/document) + fix exchange_rate_sale faltante en select); 4,350ms→31ms / 94.5MB→34MB / 30k→9 queries / HENAVI Mes 05/2026 (ver modules/Dashboard/PERFORMANCE.md § Fase 3)
 2026-07-17 : perf  | #dashboard | items_by_sales(): triple N+1 reemplazado por 2 GROUP BY + 1 batch lookup; 4,383ms→124ms en data_aditional (HENAVI Mes 05/2026, ver modules/Dashboard/PERFORMANCE.md)<br>
 2026-07-17 : fixed | #dashboard | datepicker popup: form.month_*/form.date_* ahora son objetos Date (Element UI 2.13 falla parseando value-format yyyy-MM sin día)<br>
 2026-07-17 : fixed | #dashboard | chart del mes desaparecía: getDocumentsByDays/Months usaban Carbon->format() sobre stdClass de DB::table()->get() (commit 63ee5aab)<br>

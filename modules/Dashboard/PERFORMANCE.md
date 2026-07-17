@@ -439,3 +439,100 @@ PERFORMANCE.md                                      (esta sección)
 2. **`->find($id)` en un loop es siempre N+1.** Aunque `find()` toma una clave primaria (rápida), 339 lookups × ~3 ms = 1+ segundo solo en overhead de query parsing y conexión.
 
 3. **`data_aditional` ahora se completa en 124 ms** con `top_customers` (118 ms) dominando. Ese método todavía tiene 22 queries duplicadas de `users`, `establishments`, `countries` que serían el siguiente objetivo (revisitar si el usuario reporta lentitud en top_customers).
+
+---
+
+## Fase 3: `/utilities` 500 por OOM (2026-07-17 11:10)
+
+### Trigger
+
+El usuario revisó F12 → network y reportó que el endpoint `/utilities` salía en
+**rojo (500)** al seleccionar **Mes 05/2026** en HENAVI. Confirmado en
+`storage/logs/laravel-2026-07-17.log`:
+
+```
+[2026-07-17 10:07:52] local.ERROR: Allowed memory size of 134217728 bytes exhausted
+[2026-07-17 10:14:26] local.ERROR: Allowed memory size of 134217728 bytes exhausted
+... (15+ entradas idénticas hasta 10:57)
+```
+
+PHP-FPM prod corre con `memory_limit=128M`. La causa raíz: `DashboardUtility::data()`
+materializaba **15k+ modelos Eloquent** en RAM y disparaba N+1 masivo.
+
+### Medición del problema
+
+`measure_utilities.php` (script CLI con `memory_limit=128M` para igualar prod):
+
+| Métrica | Valor |
+|---|---|
+| `SaleNoteItem` cargados | **8,198** items |
+| `SaleNote` recargados en `getTotalSaleNotesByItems` | **2,716** modelos |
+| `DocumentItem` cargados | ~miles |
+| Memoria peak (CLI) | 94.5 MB / 128 MB (al límite) |
+| Tiempo total | 4,350 ms |
+| HTTP-FPM peak estimado | ~125 MB (sobre 128 MB → OOM) |
+
+### Causas específicas encontradas
+
+1. **`getTotalSaleNotesByItems()` (L229 original)** — `SaleNote::whereRecordsByItems($ids)->get()->sum(fn)` materializaba 2,716 modelos Eloquent solo para sumar 3 columnas.
+
+2. **`foreach ($sale_note_items as $sln)` (L255 original)** — dentro hacía `$sln->sale_note->currency_type_id` → **1 lazy load por item = ~8,198 queries**.
+
+3. **`foreach ($document_items as $doc_it)` (L328 original)** — `$doc_it->document->currency_type_id` y `$doc_it->document->document_type_id` → **2 lazy loads por item**.
+
+4. **Bug colateral** (L309 original) — `Document::select('id','total','document_type_id','currency_type_id')` pero líneas 321/323 usaban `$doc->exchange_rate_sale` que NO estaba en el select → **1 lazy load por cada documento USD**. HENAVI no tiene docs USD en mayo-26 (0 casos) pero en otros tenants esto causaría OOM.
+
+### Fix aplicado
+
+**3 cambios quirúrgicos** en `modules/Dashboard/Helpers/DashboardUtility.php`:
+
+**Cambio 1** — `getTotalSaleNotesByItems()` ahora es 1 query SQL agregada:
+```php
+return (float) DB::connection('tenant')->table('sale_notes')
+    ->whereIn('id', $sale_note_ids)
+    ->selectRaw("SUM(CASE WHEN currency_type_id = 'PEN' THEN total
+                          WHEN currency_type_id = 'USD' THEN total * exchange_rate_sale
+                     END) as total_transformed")
+    ->value('total_transformed') ?? 0;
+```
+
+Reproduce matemáticamente `getTransformTotal()`: PEN→total, USD→total×exchange_rate_sale.
+
+**Cambio 2** — `SaleNoteItem::whereHas('sale_note',...)` ahora precarga `sale_note` con `with(['sale_note' => fn($q) => $q->without([...])->select('id','currency_type_id','exchange_rate_sale')])`. Convierte 8,198 lazy loads en 1 query batch.
+
+**Cambio 3** — Análogo para `DocumentItem::whereHas('document',...)` + agregar `exchange_rate_sale` al `select` de `Document::whereIn` (línea L309) para eliminar el bug de lazy load por USD.
+
+### Resultado (HENAVI Mes 05/2026)
+
+| Métrica | Antes | Después | Cambio |
+|---|---|---|---|
+| Tiempo total | 4,350 ms | **31 ms** | **-99.3%** |
+| Memoria peak (CLI) | 94.5 MB | **34 MB** | **-64%** |
+| Queries totales | ~30k (N+1) | **9** (1 duplicada) | **-99.97%** |
+| HTTP-FPM | 🔴 500 OOM | 🟢 <500ms | **fix** |
+
+Output idéntico byte por byte: `{"total_income":"22567.60","total_egress":"5061.82","utility":"17505.78"}`.
+
+### Verificación
+
+```bash
+docker exec pro9_app php -l modules/Dashboard/Helpers/DashboardUtility.php
+docker exec pro9_app php -d memory_limit=128M measure_utilities.php
+docker exec pro9_app php measure_dashboard.php | grep "utilities\("
+```
+
+### Lo que NO se modificó
+
+- Frontend (Vue) — JSON shape idéntico.
+- `DashboardController::utilities()` — endpoint intacto.
+- `getTotalExpenses()`, `getPurchaseUnitPrice()`, `getQuantityUnitPresentation()` — no son hot path.
+
+### Lecciones aprendidas (Fase 3)
+
+1. **`->get()->sum(fn)` es siempre sospechoso cuando N crece.** Traer N modelos solo para sumar 3 columnas que ya están en el SELECT es desperdicio de RAM y CPU. La regla es: si necesitas solo sumas, `SUM(...)` en SQL; si necesitas lógica compleja por fila, `->pluck('col')->pipe('SUM')` o `->reduce()` sin materializar el modelo.
+
+2. **`with()` no es opcional cuando el foreach accede a relaciones.** Si el foreach hace `$item->relation->campo`, sin `with()` obtienes 1 query por item. La única manera fiable de detectar estos bugs es contar queries con `DB::enableQueryLog()` y revisar el patrón repetido.
+
+3. **`select(...)` debe incluir TODO lo que el foreach lee después.** Un campo faltante en el select NO causa error — causa un lazy load silencioso por cada fila. La revisión manual línea por línea es la única defensa.
+
+4. **128 MB es el nuevo límite crítico.** Con 15k+ modelos Eloquent en RAM, cualquier endpoint que materialice colecciones masivas puede cruzar el límite en HTTP-FPM aunque el CLI aguante. La regla práctica: peak CLI × 1.3 = peak HTTP-FPM estimado. Si > 100 MB, refactorizar a SQL aggregation.

@@ -245,7 +245,7 @@
                     <div v-if="configuration.dashboard_goal_enabled" class="col-12 col-xl-4 mb-2">
                         <month-goal></month-goal>
                     </div>
-                    <div class="col-12 col-md-6 mb-2" :class="configuration.dashboard_products ? 'col-xl-4' : 'col-xl-6'">
+                    <div class="col-12 mb-2" :class="configuration.dashboard_products ? 'col-md-6 col-xl-4' : 'col-xl-12'">
                         <debtors :filters="form"></debtors>
                     </div>
                     <template v-if="configuration.dashboard_products">
@@ -262,10 +262,10 @@
                                 @order-change="loadDataAditional"
                             ></top-products>
                         </div>
+                        <div class="col-12 col-md-6 col-xl-4 mb-2">
+                            <low-stock :filters="form"></low-stock>
+                        </div>
                     </template>
-                    <div class="col-12 col-md-6 mb-2" :class="configuration.dashboard_products ? 'col-xl-4' : 'col-xl-6'">
-                        <payment-methods :filters="form"></payment-methods>
-                    </div>
                     <!-- Nueva fila 2026-07-17: Top Clientes (mod) + Lotes por vencer (próximos 30d) -->
                     <div class="col-12 col-md-6 mb-2 col-xl-6">
                         <top-customers :items="top_customers"></top-customers>
@@ -278,9 +278,7 @@
                     </div>
                     <div class="col-12 col-xl-4 mb-2 d-flex flex-column">
                         <sunat-status :filters="form"></sunat-status>
-                        <template v-if="configuration.dashboard_products">
-                            <low-stock :filters="form"></low-stock>
-                        </template>
+                        <payment-methods class="mt-2 mb-0" :filters="form"></payment-methods>
                     </div>
                     
                     <template v-if="showLegacyCards && configuration.dashboard_general">

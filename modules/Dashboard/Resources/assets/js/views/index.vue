@@ -129,7 +129,7 @@
                 </div>
             </div>
 
-            <RowTop :company="company" :utilities="utilities" :filters="form"></RowTop>
+            <RowTop :company="company" :utilities="utilities" :filters="formattedFilters"></RowTop>
 
             <div class="row mx-0 px-1">
                 <div class="col-xl-12 card-dashboard-section">
@@ -240,13 +240,13 @@
                     </div>
                     </template>
                     <div class="col-12 mb-2" :class="{ 'col-xl-8': configuration.dashboard_goal_enabled }">
-                        <weekly-sales-chart :filters="form"></weekly-sales-chart>
+                        <weekly-sales-chart :filters="formattedFilters"></weekly-sales-chart>
                     </div>
                     <div v-if="configuration.dashboard_goal_enabled" class="col-12 col-xl-4 mb-2">
                         <month-goal></month-goal>
                     </div>
                     <div class="col-12 mb-2" :class="configuration.dashboard_products ? 'col-md-6 col-xl-4' : 'col-xl-12'">
-                        <debtors :filters="form"></debtors>
+                        <debtors :filters="formattedFilters"></debtors>
                     </div>
                     <template v-if="configuration.dashboard_products">
                         <div class="col-12 col-md-6 col-xl-4 mb-2">
@@ -263,7 +263,7 @@
                             ></top-products>
                         </div>
                         <div class="col-12 col-md-6 col-xl-4 mb-2">
-                            <low-stock :filters="form"></low-stock>
+                            <low-stock :filters="formattedFilters"></low-stock>
                         </div>
                     </template>
                     <!-- Nueva fila 2026-07-17: Top Clientes (mod) + Lotes por vencer (próximos 30d) -->
@@ -274,11 +274,11 @@
                         <expiring-lots :establishment_id="form.establishment_id"></expiring-lots>
                     </div>
                     <div class="col-12 col-xl-8 mb-2">
-                        <cash-flow-chart :filters="form"></cash-flow-chart>
+                        <cash-flow-chart :filters="formattedFilters"></cash-flow-chart>
                     </div>
                     <div class="col-12 col-xl-4 mb-2 d-flex flex-column">
-                        <sunat-status :filters="form"></sunat-status>
-                        <payment-methods class="mt-2 mb-0" :filters="form"></payment-methods>
+                        <sunat-status :filters="formattedFilters"></sunat-status>
+                        <payment-methods class="mt-2 mb-0" :filters="formattedFilters"></payment-methods>
                     </div>
                     
                     <template v-if="showLegacyCards && configuration.dashboard_general">
@@ -1119,7 +1119,25 @@ export default {
           },
         },
       };
-    }
+    },
+    // Wrapper formateado de `form` para los widgets que hacen axios directo
+    // desde su deep watcher de `filters`. Si les pasamos `form` tal cual, axios
+    // serializa los Date objects como ISO 8601 ("2026-07-17T00:00:00.000Z") y
+    // el backend hace `Carbon::parse($month_start.'-01')` que interpreta como
+    // un solo día, devolviendo "Sin cobros registrados" para mes completo.
+    //
+    // Mismo formato que `apiPayload()` (loadData/loadDataAditional/...) —
+    // `month_*` → "YYYY-MM", `date_*` → "YYYY-MM-DD".
+    formattedFilters() {
+      const fmt = (d, pattern) => (d ? moment(d).format(pattern) : null);
+      return {
+        ...this.form,
+        month_start: fmt(this.form.month_start, "YYYY-MM"),
+        month_end: fmt(this.form.month_end, "YYYY-MM"),
+        date_start: fmt(this.form.date_start, "YYYY-MM-DD"),
+        date_end: fmt(this.form.date_end, "YYYY-MM-DD"),
+      };
+    },
   },
   methods: {
     ...mapActions([

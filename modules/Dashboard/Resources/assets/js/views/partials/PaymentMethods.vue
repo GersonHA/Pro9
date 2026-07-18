@@ -37,18 +37,29 @@ export default {
       total: 0,
       subtitle: "Distribucion de cobros - mes actual",
       palette: ["var(--primary)", "var(--danger)", "var(--success)", "var(--info)", "var(--warning)", "#ffdd00"],
+      // Token para ignorar respuestas obsoletas cuando el usuario cambia
+      // el filtro muy rápido (race condition entre múltiples fetches).
+      fetchToken: 0,
     };
-  },
-  mounted() {
-    this.fetchData();
   },
   watch: {
     filters: {
       deep: true,
+      // `immediate: true` también cubre el caso del primer fetch — mounted()
+      // y el watcher con immediate:true pueden llegar a duplicar el primer
+      // fetch, así que dejamos montado en mounted() y SIN immediate aquí.
       handler() {
         this.fetchData();
       },
     },
+  },
+  mounted() {
+    this.fetchData();
+  },
+  beforeDestroy() {
+    if (this._pmAbortController) {
+      this._pmAbortController.abort();
+    }
   },
   computed: {
     emptyText() {
@@ -100,13 +111,45 @@ export default {
   },
   methods: {
     fetchData() {
-      this.$http.get("/dashboard/payment-methods", { params: this.filters || {} }).then((response) => {
-        const data = response.data;
-        this.labels = data.labels || [];
-        this.values = data.values || [];
-        this.total = data.total || 0;
-        this.subtitle = data.subtitle || this.subtitle;
-      });
+      // Captura filtros + token de invalidación en el momento de la llamada.
+      // Si llega otra llamada antes de que termine esta respuesta, abortamos
+      // para evitar race conditions (el bug que reportaba el usuario: cambiar
+      // de last_week a month mostraba datos stale/incorrectos).
+      const token = ++this.fetchToken;
+      const filtersSnapshot = JSON.parse(JSON.stringify(this.filters || {}));
+
+      if (this._pmAbortController) {
+        this._pmAbortController.abort();
+      }
+      this._pmAbortController = new AbortController();
+
+      this.$http
+        .get("/dashboard/payment-methods", {
+          params: filtersSnapshot,
+          signal: this._pmAbortController.signal,
+        })
+        .then((response) => {
+          // Si el token cambió mientras esperábamos, esta respuesta es vieja.
+          if (token !== this.fetchToken) return;
+          const data = response.data;
+          this.labels = data.labels || [];
+          this.values = data.values || [];
+          this.total = data.total || 0;
+          this.subtitle = data.subtitle || this.subtitle;
+        })
+        .catch((err) => {
+          // AbortError es esperado cuando hay un fetch más nuevo; ignorar.
+          // Acepta todas las variantes conocidas: axios v0.x (CanceledError),
+          // axios v1.x (CanceledError, ERR_CANCELED) y AbortController DOM.
+          const aborted =
+            !err ||
+            err.name === "CanceledError" ||
+            err.name === "AbortError" ||
+            err.code === "ERR_CANCELED" ||
+            err.code === "ECONNABORTED" ||
+            (err.message && /abort/i.test(err.message));
+          if (aborted) return;
+        });
     },
     formatK(val) {
       const num = Number(val) || 0;

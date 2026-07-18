@@ -1,5 +1,8 @@
 ## 5.4.0
 
+### fixed
+2026-07-18 : fixed | #dashboard | payment_methods "Cómo me pagan?" no actualizaba al cambiar el period desde el dashboard (race condition): cuando `changePeriod('month')` mutaba `form.period`, `form.month_start`, `form.month_end` en el mismo tick, el deep watcher del widget disparaba 2-3 fetches casi simultáneos. La respuesta correcta podía llegar DESPUÉS de una respuesta del mes anterior y el estado final quedaba inconsistente con `labels=[]` (`Sin cobros registrados`). Fix: `AbortController` para cancelar el fetch en vuelo cuando entra uno nuevo + `fetchToken` para descartar respuestas obsoletas en el `.then()` aunque la cancelación falle + catch robusto que ignora todas las variantes de cancelación (CanceledError / AbortError / ERR_CANCELED / ECONNABORTED / mensaje "abort"). Backend confirmado correcto en HENAVI 2026-07 (labels=1, total=S/7583.30) — la falla era 100% frontend.
+
 ### docs
 2026-07-17 : docs | #housekeeping | .gitignore raíz: reglas para modules/Dashboard/Helpers/*.bak.* (backups de refactor previos) y measure_*.php (scripts de medición one-off) — dejan de filtrarse al repo
 2022-09-01 : docs | chalgelog update<br>

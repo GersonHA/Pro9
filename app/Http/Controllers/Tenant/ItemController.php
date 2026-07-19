@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Tenant;
 
 use Illuminate\Support\Facades\DB;
 use App\Exports\DigemidItemExport;
+use App\Helpers\BarcodeHelper;
 use App\Exports\ItemExport;
 use App\Exports\ItemExportWp;
 use App\Exports\ItemExtraDataExport;
@@ -67,6 +68,7 @@ use Mpdf\HTMLParserMode;
 use Mpdf\Mpdf;
 use setasign\Fpdi\Fpdi;
 use Modules\Inventory\Models\InventoryConfiguration;
+use Modules\Inventory\Models\Inventory;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
@@ -721,16 +723,71 @@ class ItemController extends Controller
                     'state' => $lot['state'],
                 ]);
             }
-            $lots_enabled = isset($request->lots_enabled) ? $request->lots_enabled:false;
-            $stock = (int)$request->stock;
 
-            if ($lots_enabled && $stock > 0) {
-                ItemLotsGroup::create([
-                    'code'  => $request->lot_code,
-                    'quantity'  => $request->stock,
-                    'date_of_due'  => $request->date_of_due,
-                    'item_id' => $item->id
-                ]);
+            // ADR-0015 (rev.): switch GLOBAL "los lotes mandan sobre el stock"
+            // (configurations.lots_govern_stock). En OFF (default) el stock manda y se valida
+            // Σlotes ≤ stock. En ON el stock seguirá a los lotes (ver applyLotsGovernStock),
+            // por lo que ese clamp no aplica.
+            $lots_govern_stock = (bool) optional(Configuration::first())->lots_govern_stock;
+            $warehouse_id_resolved = $warehouse ? $warehouse->id : null;
+
+            // Guard de sobre-asignación: la suma de cantidades de lotes reales de cada
+            // almacén no puede exceder su stock real.
+            if (isset($request->lots_enabled) && $request->lots_enabled) {
+                foreach ($request->input('lots_tab', []) as $lot_data) {
+                    if ((float)($lot_data['quantity'] ?? 0) < 0) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'La cantidad de un lote no puede ser negativa.',
+                        ], 422);
+                    }
+                }
+
+                $sum_by_warehouse = [];
+                foreach ($request->input('lots_tab', []) as $lot_data) {
+                    if (($lot_data['code'] ?? null) === ItemLotsGroup::LIBRE_CODE) continue;
+                    $wh = !empty($lot_data['warehouse_id']) ? $lot_data['warehouse_id'] : $warehouse_id_resolved;
+                    $sum_by_warehouse[$wh] = ($sum_by_warehouse[$wh] ?? 0) + (float)($lot_data['quantity'] ?? 0);
+                }
+
+                if (!$lots_govern_stock && !empty($sum_by_warehouse)) {
+                    $stock_by_warehouse = [$warehouse_id_resolved => (float) $request->input('stock', 0)];
+                    $over = ItemLotsGroup::findStockOverAllocations($sum_by_warehouse, $stock_by_warehouse);
+                    if (!empty($over)) {
+                        $v    = $over[0];
+                        $diff = (float) $v['sum'] - (float) $v['stock'];
+                        return [
+                            'success' => false,
+                            'message' => "No se puede guardar. En el almacén [{$v['description']}] los lotes suman {$v['sum']} unidad(es) pero el stock real es {$v['stock']}. Reduce {$diff} unidad(es) antes de guardar.",
+                        ];
+                    }
+                }
+            }
+
+            $lots_enabled = isset($request->lots_enabled) ? $request->lots_enabled : false;
+            $lots_tab     = $request->input('lots_tab', []);
+
+            if ($lots_enabled && !empty($lots_tab)) {
+                foreach ($lots_tab as $lot_data) {
+                    $lot_warehouse = !empty($lot_data['warehouse_id']) ? $lot_data['warehouse_id'] : $warehouse_id_resolved;
+                    ItemLotsGroup::create([
+                        'code'         => $lot_data['code'],
+                        'item_id'      => $item->id,
+                        'quantity'     => (float)($lot_data['quantity'] ?? 0),
+                        'date_of_due'  => $lot_data['date_of_due'] ?? null,
+                        'warehouse_id' => $lot_warehouse,
+                    ]);
+                }
+            }
+
+            // En OFF el LIBRE absorbe el stock sin lotes de cada almacén.
+            // En ON el stock sigue a los lotes (ADR-0015).
+            if ($lots_enabled) {
+                if ($lots_govern_stock) {
+                    $this->applyLotsGovernStock($item);
+                } else {
+                    ItemLotsGroup::syncLibreForOrphanStock($item->id);
+                }
             }
         } else {
             /*
@@ -800,42 +857,88 @@ class ItemController extends Controller
             }
 
             $lots_enabled = isset($request->lots_enabled) ? $request->lots_enabled:false;
-            /****************************** SECCION PARA LOTE EN ITEM LOT_CODE ******************************************/
-            if ($lots_enabled and !empty($request->lot_code)) {
-                if(empty($current_lot)){
-                    $current_lot = new ItemLotsGroup([
-                        'code' => $item->lot_code,
-                        'item_id'=>$item->id,
-                        'quantity' => $request->stock,
-                         'date_of_due'=>$request->date_of_due,
-                    ]);
-                    $current_lot->push();
-                }else{
-                    $lotes = ItemLotsGroup::where([
-                        'code'=>$current_lot->code,
-                        // 'quantity',
-                        // 'date_of_due',
-                        'item_id'=>$item->id
-                    ])->get();
-                    /** @var ItemLotsGroup $lot */
-                    foreach($lotes as $lot){
-                        $lot
-                            ->setCode($request->lot_code)
-                            ->setDateOfDue($request->date_of_due)
-                            ->push();
+            $lots_tab     = $request->input('lots_tab', []);
+            $warehouse_id_resolved = $warehouse ? $warehouse->id : null;
+
+            if ($lots_enabled) {
+                // IDs que el frontend envía (lotes existentes que deben conservarse).
+                $incoming_ids = collect($lots_tab)
+                    ->pluck('id')
+                    ->filter()
+                    ->values()
+                    ->toArray();
+
+                // Eliminar lotes que el usuario quitó de la tabla — solo si no tienen movimientos.
+                // El LIBRE se excluye: lo gestiona el sync de stock huérfano, no la tabla de lotes.
+                $lots_to_delete = ItemLotsGroup::where('item_id', $item->id)
+                    ->where('code', '!=', ItemLotsGroup::LIBRE_CODE)
+                    ->whereNotIn('id', $incoming_ids)
+                    ->get();
+
+                $protected = $lots_to_delete->filter(fn($l) => $l->has_movements);
+                if ($protected->isNotEmpty()) {
+                    $codes = $protected->pluck('code')->join(', ');
+                    return response()->json([
+                        'success' => false,
+                        'message' => "No se pueden eliminar los lotes [{$codes}] porque tienen movimientos registrados.",
+                    ], 422);
+                }
+
+                $lots_to_delete->each->delete();
+
+                foreach ($lots_tab as $lot_data) {
+                    $lot_warehouse = !empty($lot_data['warehouse_id']) ? $lot_data['warehouse_id'] : $warehouse_id_resolved;
+
+                    if (!empty($lot_data['id'])) {
+                        // Lote existente → actualizar código, cantidad y fecha.
+                        $lot = ItemLotsGroup::find((int)$lot_data['id']);
+                        if ($lot) {
+                            $update_data = [
+                                'quantity'     => (float)($lot_data['quantity'] ?? 0),
+                                'warehouse_id' => $lot_warehouse,
+                            ];
+                            // código y fecha son inmutables si el lote tiene movimientos.
+                            if (!$lot->has_movements) {
+                                $update_data['code']        = $lot_data['code'];
+                                $update_data['date_of_due'] = $lot_data['date_of_due'] ?? null;
+                            }
+                            $lot->update($update_data);
+                        }
+                    } else {
+                        // Lote nuevo (sin id) → crear.
+                        ItemLotsGroup::create([
+                            'code'         => $lot_data['code'],
+                            'item_id'      => $item->id,
+                            'quantity'     => (float)($lot_data['quantity'] ?? 0),
+                            'date_of_due'  => $lot_data['date_of_due'] ?? null,
+                            'warehouse_id' => $lot_warehouse,
+                        ]);
                     }
                 }
-                /*
-                 ItemLotsGroup::where('item_id', $item->id)->delete();
-                ItemLotsGroup::create([
-                    'code'  => $request->lot_code,
-                    'quantity'  => $request->stock,
-                    'date_of_due'  => $request->date_of_due,
-                    'item_id' => $item->id
-                ]);
-                */
+
+                // OFF: recalcular el LIBRE de cada almacén (el sobrante sin clasificar queda
+                // representado). ON: el stock pasa a ser Σlotes + ajuste en kardex.
+                $lots_govern_stock = (bool) optional(Configuration::first())->lots_govern_stock;
+                if ($lots_govern_stock) {
+                    $this->applyLotsGovernStock($item);
+                } else {
+                    ItemLotsGroup::syncLibreForOrphanStock($item->id);
+                }
             } else {
-                // Si se desactiva el manejo de lotes, eliminar lotes de cabecera no usados por el item.
+                // lots_enabled desactivado → eliminar todos los lotes (solo si ninguno tiene
+                // movimientos). El LIBRE (gestionado por el sistema) no cuenta para el bloqueo,
+                // pero se borra igual.
+                $existing_lots = ItemLotsGroup::where('item_id', $item->id)->get();
+                $protected     = $existing_lots->filter(fn($l) => $l->has_movements && $l->code !== ItemLotsGroup::LIBRE_CODE);
+
+                if ($protected->isNotEmpty()) {
+                    $codes = $protected->pluck('code')->join(', ');
+                    return response()->json([
+                        'success' => false,
+                        'message' => "No se puede desactivar lotes porque los lotes [{$codes}] tienen movimientos registrados. Contacte a soporte si necesita hacerlo.",
+                    ], 422);
+                }
+
                 ItemLotsGroup::where('item_id', $item->id)->delete();
             }
         }
@@ -934,6 +1037,397 @@ class ItemController extends Controller
             'success' => true,
             'message' => ($id)?'Producto editado con éxito':'Producto registrado con éxito',
             'id' => $item->id
+        ];
+    }
+
+    /**
+     * Modo ON de ADR-0015 (los lotes mandan sobre el stock):
+     *   1. Vacía el LIBRE para que no contamine futuras sumas.
+     *   2. Calcula el delta = Σlotes reales − stock actual del almacén.
+     *   3. Crea un Inventory(type=1, quantity=delta). El listener Inventory::created
+     *      (InventoryChangeServiceProvider) aplica updateStock(+delta) y escribe el
+     *      kardex — NO duplicar esas operaciones aquí.
+     *
+     * La sobreventa la sigue gobernando stock_control (no este switch): el déficit vive
+     * en item_warehouse.stock negativo, fuera de lotes (ADR-0012).
+     */
+    private function applyLotsGovernStock(Item $item): void
+    {
+        $warehouse_ids = ItemLotsGroup::where('item_id', $item->id)
+            ->whereNotNull('warehouse_id')
+            ->distinct()
+            ->pluck('warehouse_id');
+
+        foreach ($warehouse_ids as $warehouse_id) {
+            if (empty($warehouse_id)) continue;
+
+            $sum_real = (float) ItemLotsGroup::where('item_id', $item->id)
+                ->where('warehouse_id', $warehouse_id)
+                ->where('code', '!=', ItemLotsGroup::LIBRE_CODE)
+                ->sum('quantity');
+
+            // El LIBRE deja de contar: lo vaciamos para que no contamine futuras sumas.
+            ItemLotsGroup::where('item_id', $item->id)
+                ->where('warehouse_id', $warehouse_id)
+                ->where('code', ItemLotsGroup::LIBRE_CODE)
+                ->update(['quantity' => 0]);
+
+            $current = (float) (ItemWarehouse::where('item_id', $item->id)
+                ->where('warehouse_id', $warehouse_id)
+                ->value('stock') ?? 0);
+            $delta = $sum_real - $current;
+
+            // Sin cambio real → no movemos stock ni ensuciamos el kardex.
+            if (abs($delta) < 0.0001) continue;
+
+            // El listener de Inventory::created (type 1) aplica updateStock(+delta) y crea
+            // el kardex. NO duplicar esas operaciones aquí.
+            Inventory::create([
+                'type'         => 1,
+                'description'  => 'Ajuste por lotes',
+                'item_id'      => $item->id,
+                'warehouse_id' => $warehouse_id,
+                'quantity'     => $delta,
+            ]);
+        }
+    }
+
+    /**
+     * Devuelve el siguiente internal_id sugerido (considera productos normales y compuestos)
+     * sin paginación, evitando la desincronización entre secciones.
+     *
+     * GET /items/next-internal-id
+     */
+    public function nextInternalId(): array
+    {
+        return ['next_internal_id' => Item::getNextInternalId()];
+    }
+
+    /**
+     * Reasigna internal_id a ítems cuyo código es un barcode colocado por error.
+     *
+     * Un barcode tiene 8–14 dígitos numéricos (EAN-8, EAN-13, UPC-A, etc.).
+     * Un internal_id legítimo tiene como máximo 5 dígitos (00001…99999).
+     * Los internal_ids alfanuméricos (LIBRE-SYS, DELIVERY-ECOM, etc.) NUNCA se tocan.
+     *
+     * Criterio de contaminación: numérico Y longitud >= 8.
+     *
+     * POST /items/repair-internal-ids
+     */
+    public function repairInternalIds(): array
+    {
+        $contaminated = Item::whereNotNull('internal_id')
+            ->whereRaw("internal_id REGEXP '^[0-9]+$'")
+            ->whereRaw("LENGTH(internal_id) >= 8")
+            ->orderBy('id')
+            ->get(['id', 'internal_id', 'description']);
+
+        if ($contaminated->isEmpty()) {
+            return [
+                'success' => true,
+                'fixed'   => 0,
+                'message' => 'No hay internal_ids contaminados con barcodes. Todo está limpio.',
+            ];
+        }
+
+        $changes = [];
+
+        foreach ($contaminated as $item) {
+            $newId = Item::getNextInternalId();
+
+            $changes[] = [
+                'id'       => $item->id,
+                'nombre'   => $item->description,
+                'anterior' => $item->internal_id,
+                'nuevo'    => $newId,
+            ];
+
+            $item->internal_id = $newId;
+            $item->save();
+        }
+
+        return [
+            'success' => true,
+            'fixed'   => count($changes),
+            'cambios' => $changes,
+        ];
+    }
+
+    /**
+     * Asigna un código interno numérico secuencial a los productos cuyo
+     * internal_id esté vacío o sea NULL.
+     *
+     * Por defecto es PREVIEW (solo reporta). Ejecuta los cambios con ?apply=1.
+     *
+     * POST /items/assign-missing-internal-ids
+     */
+    public function assignMissingInternalIds(Request $request): array
+    {
+        $apply = $request->boolean('apply');
+
+        $items = Item::where(function ($query) {
+                $query->whereNull('internal_id')
+                      ->orWhere('internal_id', '');
+            })
+            ->orderBy('id')
+            ->get(['id', 'description', 'internal_id']);
+
+        if ($items->isEmpty()) {
+            return [
+                'success' => true,
+                'fixed'   => 0,
+                'message' => 'No hay productos sin código interno.',
+            ];
+        }
+
+        $nextInternalId = (int) Item::getNextInternalId();
+        $changes = [];
+
+        foreach ($items as $item) {
+            $newId = $this->getNextAvailableInternalIdForAssignment($nextInternalId);
+
+            $changes[] = [
+                'id'       => $item->id,
+                'nombre'   => $item->description,
+                'anterior' => $item->internal_id,
+                'nuevo'    => $newId,
+            ];
+
+            if ($apply) {
+                $item->internal_id = $newId;
+                $item->save();
+            }
+        }
+
+        return [
+            'success' => true,
+            'apply'   => $apply,
+            'fixed'   => count($changes),
+            'cambios' => $changes,
+        ];
+    }
+
+    /**
+     * Devuelve el siguiente código interno numérico disponible para asignación
+     * masiva, saltando colisiones. Actualiza la referencia del contador.
+     */
+    private function getNextAvailableInternalIdForAssignment(int &$nextInternalId): string
+    {
+        do {
+            $candidate = str_pad((string) $nextInternalId, 5, '0', STR_PAD_LEFT);
+            $exists = Item::where('internal_id', $candidate)->exists();
+            if ($exists) {
+                $nextInternalId++;
+            }
+        } while ($exists);
+
+        $nextInternalId++;
+
+        return $candidate;
+    }
+
+    /**
+     * Limpia los códigos de barras existentes: elimina espacios, caracteres de
+     * control y normaliza separadores a comas para soportar múltiples barcodes
+     * por producto.
+     *
+     * Por defecto es PREVIEW (solo reporta). Ejecuta los cambios con ?apply=1.
+     *
+     * POST /items/clean-barcodes
+     */
+    public function cleanBarcodes(Request $request): array
+    {
+        $apply = $request->boolean('apply');
+
+        $items = Item::whereNotNull('barcode')
+            ->orderBy('id')
+            ->get(['id', 'internal_id', 'description', 'barcode']);
+
+        $changes = [];
+
+        foreach ($items as $item) {
+            $normalized = BarcodeHelper::normalize($item->barcode);
+
+            if ($normalized === $item->barcode) {
+                continue;
+            }
+
+            $changes[] = [
+                'id'          => $item->id,
+                'internal_id' => $item->internal_id,
+                'description' => $item->description,
+                'anterior'    => $item->barcode,
+                'nuevo'       => $normalized,
+            ];
+
+            if ($apply) {
+                $item->barcode = $normalized;
+                $item->save();
+            }
+        }
+
+        return [
+            'success' => true,
+            'apply'   => $apply,
+            'fixed'   => count($changes),
+            'cambios' => $changes,
+        ];
+    }
+
+    /**
+     * Reconcilia la sobre-asignación de lotes heredada del bug ADR-0014 (la Nota de
+     * Venta descontaba stock pero no el lote, dejando Σ(lotes reales) > stock).
+     *
+     * Para cada (item, almacén) con Σ(lotes reales) > max(stock,0), reduce los lotes
+     * en orden FEFO (vence primero → se consume primero, ADR-0003) hasta igualar el
+     * stock real (fuente autoritativa). Luego re-sincroniza el lote LIBRE.
+     *
+     * Por defecto es PREVIEW (solo reporta). Ejecuta los cambios con ?apply=1.
+     *
+     * GET /items/fix-lots
+     */
+    public function fixLots(Request $request): array
+    {
+        $apply = $request->boolean('apply');
+
+        $groups = ItemLotsGroup::where('code', '<>', ItemLotsGroup::LIBRE_CODE)
+            ->select('item_id', 'warehouse_id')
+            ->groupBy('item_id', 'warehouse_id')
+            ->get();
+
+        $changes = [];
+
+        foreach ($groups as $g) {
+            $stock = (float) (ItemWarehouse::where('item_id', $g->item_id)
+                ->where('warehouse_id', $g->warehouse_id)
+                ->value('stock') ?? 0);
+
+            $target = max($stock, 0);
+
+            $lots = ItemLotsGroup::where('item_id', $g->item_id)
+                ->where('warehouse_id', $g->warehouse_id)
+                ->where('code', '<>', ItemLotsGroup::LIBRE_CODE)
+                ->orderBy('date_of_due')
+                ->orderBy('id')
+                ->get();
+
+            $sum_real = (float) $lots->sum('quantity');
+
+            if ($sum_real <= $target) {
+                continue; // sin sobre-asignación: no se toca
+            }
+
+            $excess = $sum_real - $target;
+            $lot_changes = [];
+
+            foreach ($lots as $lot) {
+                if ($excess <= 0) {
+                    break;
+                }
+                $q = (float) $lot->quantity;
+                if ($q <= 0) {
+                    continue;
+                }
+                $reduce = min($q, $excess);
+
+                $lot_changes[] = [
+                    'lote'    => $lot->code,
+                    'vence'   => $lot->date_of_due,
+                    'antes'   => $q,
+                    'despues' => $q - $reduce,
+                ];
+
+                if ($apply) {
+                    $lot->quantity = $q - $reduce;
+                    $lot->save();
+                }
+
+                $excess -= $reduce;
+            }
+
+            if ($apply) {
+                // Mantiene la invariante LIBRE = max(0, stock − Σreales);
+                // tras la reducción Σreales == max(stock,0) → LIBRE queda en 0.
+                ItemLotsGroup::syncLibreForOrphanStock($g->item_id, $g->warehouse_id);
+            }
+
+            $item = Item::find($g->item_id);
+
+            $changes[] = [
+                'item_id'          => $g->item_id,
+                'producto'         => $item ? $item->description : null,
+                'almacen_id'       => $g->warehouse_id,
+                'suma_lotes_antes' => $sum_real,
+                'stock_real'       => $stock,
+                'reducido'         => round($sum_real - $target, 4),
+                'lotes'            => $lot_changes,
+            ];
+        }
+
+        return [
+            'success'          => true,
+            'modo'             => $apply ? 'APLICADO' : 'PREVIEW (agrega ?apply=1 para ejecutar)',
+            'grupos_afectados' => count($changes),
+            'detalle'          => $changes,
+        ];
+    }
+
+    /**
+     * Renumera TODOS los internal_ids numéricos de forma secuencial (00001, 00002, …)
+     * preservando el orden relativo actual. Los internal_ids no numéricos
+     * (ej: "LIBRE-SYS", "ABC-TOCAR") se omiten completamente.
+     *
+     * Útil para limpiar duplicados y huecos en la numeración tras una importación
+     * masiva incorrecta. Seguro de ejecutar múltiples veces (idempotente en orden).
+     *
+     * POST /items/reorder-internal-ids
+     */
+    public function reorderInternalIds(): array
+    {
+        // Captura el orden actual antes de tocar nada.
+        $items = Item::whereNotNull('internal_id')
+            ->whereRaw("internal_id REGEXP '^[0-9]+$'")
+            ->orderByRaw("CAST(internal_id AS UNSIGNED) ASC, id ASC")
+            ->get(['id', 'internal_id', 'description']);
+
+        if ($items->isEmpty()) {
+            return [
+                'success'   => true,
+                'reordered' => 0,
+                'message'   => 'No hay internal_ids numéricos para reordenar.',
+            ];
+        }
+
+        $changes = [];
+
+        DB::transaction(function () use ($items, &$changes) {
+            // Libera todos los numéricos a NULL primero para evitar colisiones
+            // lógicas durante la reasignación secuencial.
+            Item::whereNotNull('internal_id')
+                ->whereRaw("internal_id REGEXP '^[0-9]+$'")
+                ->update(['internal_id' => null]);
+
+            $counter = 1;
+
+            foreach ($items as $item) {
+                $newId = str_pad($counter, 5, '0', STR_PAD_LEFT);
+
+                $changes[] = [
+                    'id'       => $item->id,
+                    'nombre'   => $item->description,
+                    'anterior' => $item->internal_id,
+                    'nuevo'    => $newId,
+                ];
+
+                Item::where('id', $item->id)->update(['internal_id' => $newId]);
+                $counter++;
+            }
+        });
+
+        return [
+            'success'   => true,
+            'reordered' => count($changes),
+            'cambios'   => $changes,
         ];
     }
 

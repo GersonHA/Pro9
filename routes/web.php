@@ -275,6 +275,14 @@ if ($hostname) {
             Route::post('items', 'Tenant\ItemController@store');
             Route::post('items/destroyMassive', 'Tenant\ItemController@destroyMassive');
             Route::delete('items/{item}', 'Tenant\ItemController@destroy');
+
+            // 6 herramientas de mantenimiento (Fase 5C)
+            Route::get('items/next-internal-id', 'Tenant\ItemController@nextInternalId');
+            Route::post('items/repair-internal-ids', 'Tenant\ItemController@repairInternalIds');
+            Route::post('items/assign-missing-internal-ids', 'Tenant\ItemController@assignMissingInternalIds');
+            Route::post('items/clean-barcodes', 'Tenant\ItemController@cleanBarcodes');
+            Route::get('items/fix-lots', 'Tenant\ItemController@fixLots');
+            Route::post('items/reorder-internal-ids', 'Tenant\ItemController@reorderInternalIds');
             Route::delete('items/item-unit-type/{item}', 'Tenant\ItemController@destroyItemUnitType');
             Route::post('items/import', 'Tenant\ItemController@import');
             Route::post('items/import_presentations', 'Tenant\ItemController@importPresentations');

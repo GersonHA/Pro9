@@ -653,57 +653,80 @@
 
                         <template v-if="!isNrus">
                         <div class="col-12 mt-2">
-                            <div class="row attributes-row">
-                                <div class="col-md-3">
-                                    <el-checkbox v-model="form.has_perception"
-                                                 @change="changeHasPerception">Incluye percepción
-                                    </el-checkbox>
-                                    <div v-show="form.has_perception">
-                                        <div class="form-group">
-                                            <el-input v-model="form.percentage_perception"
-                                                      placeholder="% de percepción"></el-input>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div v-show="form.unit_type_id !='ZZ'">
-                                        <el-checkbox v-model="form.lots_enabled"
-                                                     :disabled="lots_locked"
-                                                     @change="changeLotsEnabled">¿Maneja lotes?
-                                        </el-checkbox>
-                                        <el-tooltip v-if="lots_locked"
-                                                    content="Este producto tiene ventas con lotes — no puede desactivarse"
-                                                    effect="dark" placement="right">
-                                            <i class="fa fa-lock text-muted ml-1"></i>
-                                        </el-tooltip>
-                                        <div v-show="form.unit_type_id !='ZZ' && form.lots_enabled">
-                                            <small class="text-muted">
-                                                <i class="fa fa-info-circle"></i>
-                                                Gestiona los lotes en la pestaña <strong>Lotes</strong>.
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div v-show="form.unit_type_id !='ZZ'">
-                                        <el-checkbox v-model="form.series_enabled"
-                                                     @change="changeLotsEnabled">¿Maneja series?
-                                        </el-checkbox>
-                                        <div v-show="form.unit_type_id !='ZZ' && form.series_enabled && !recordId">
-                                            <div :class="{'has-danger': errors.lot_code}"
-                                                 class="form-group">
-                                                <el-button icon="el-icon-edit-outline"
-                                                           size="small"
-                                                           type="primary"
-                                                           @click.prevent="clickLotcode">Ingrese series
-                                                </el-button>
-                                                <small v-if="errors.lot_code"
-                                                       class="form-control-feedback"
-                                                       v-text="errors.lot_code[0]"></small>
+                            <div class="table-responsive table-border-none">
+                                <table class="table table-sm mb-0 table-borderless attributes-table">
+                                    <thead>
+                                    <tr>
+                                        <th width="25%" class="bg-transparent border-0">
+                                            <el-checkbox v-model="form.has_perception"
+                                                         @change="changeHasPerception">Incluye percepción
+                                            </el-checkbox>
+                                        </th>
+                                        <th width="25%" class="bg-transparent border-0">
+                                            <div v-show="form.unit_type_id !='ZZ'">
+                                                <el-checkbox v-model="form.lots_enabled"
+                                                             :disabled="lots_locked"
+                                                             @change="changeLotsEnabled">¿Maneja lotes?
+                                                </el-checkbox>
+                                                <el-tooltip v-if="lots_locked"
+                                                            content="Este producto tiene ventas con lotes — no puede desactivarse"
+                                                            effect="dark" placement="right">
+                                                    <i class="fa fa-lock text-muted ml-1"></i>
+                                                </el-tooltip>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                        </th>
+                                        <th width="25%" class="bg-transparent border-0">
+                                            <div v-show="form.unit_type_id !='ZZ'">
+                                                <el-checkbox v-model="form.series_enabled"
+                                                             @change="changeLotsEnabled">¿Maneja series?
+                                                </el-checkbox>
+                                            </div>
+                                        </th>
+                                        <!-- <th width="25%">
+                                            <div v-show="form.unit_type_id !='ZZ' && canSeeProduction">
+                                                <el-checkbox v-model="form.is_for_production"
+                                                             @change="changeProductioTab">Este producto, ¿requiere insumos?
+                                                </el-checkbox>
+                                            </div>
+                                        </th> -->
+                                    </tr>
+                                                                        </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td>
+                                            <div v-show="form.has_perception">
+                                                <div class="form-group">
+                                                    <el-input v-model="form.percentage_perception"
+                                                              placeholder="% de percepción"></el-input>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div v-show="form.unit_type_id !='ZZ' && form.lots_enabled">
+                                                <small class="text-muted">
+                                                    <i class="fa fa-info-circle"></i>
+                                                    Gestiona los lotes en la pestaña <strong>Lotes</strong>.
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div v-show="form.unit_type_id !='ZZ' && form.series_enabled && !recordId">
+                                                <div :class="{'has-danger': errors.lot_code}"
+                                                     class="form-group">
+                                                    <el-button icon="el-icon-edit-outline"
+                                                               size="small"
+                                                               type="primary"
+                                                               @click.prevent="clickLotcode">Ingrese series
+                                                    </el-button>
+                                                    <small v-if="errors.lot_code"
+                                                           class="form-control-feedback"
+                                                           v-text="errors.lot_code[0]"></small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
@@ -3223,6 +3246,17 @@ this.activeName = null
 /* Estilos para tabla de precios expandible */
 .prices-row td {
     border-top: none !important;
+}
+
+/* Línea horizontal de la tabla de atributos (percepción / lotes / series)
+   pintada de blanco para que sea invisible pero mantenga la separación
+   visual entre la fila de checkboxes de tributos y la fila de ISC/detracción. */
+.attributes-table,
+.attributes-table thead th,
+.attributes-table tbody td,
+.attributes-table tbody tr,
+.attributes-table > :not(caption) > * > * {
+    border-color: #fff !important;
 }
 
 .prices-row .bg-light {

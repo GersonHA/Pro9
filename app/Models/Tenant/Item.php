@@ -978,6 +978,22 @@ class Item extends ModelTenant
     }
 
     /**
+     * Retorna el siguiente internal_id disponible considerando TODOS los ítems
+     * (productos normales y compuestos, is_set = 0 y 1), sin paginación.
+     *
+     * Se usa tanto en el controlador para la sugerencia al abrir el formulario
+     * como en el endpoint /items/next-internal-id para actualizaciones en caliente.
+     */
+    public static function getNextInternalId(): string
+    {
+        $max = self::whereNotNull('internal_id')
+            ->whereRaw("internal_id REGEXP '^[0-9]+$'")
+            ->max('internal_id');
+
+        return str_pad(((int) ($max ?? 0)) + 1, 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * @return BelongsTo
      */
     public function web_platform()
@@ -3254,14 +3270,21 @@ class Item extends ModelTenant
 
 
     /**
+     * Obtener lotes para gestionar compra/venta/movimiento.
+     * Si se pasa $warehouse_id, filtra solo los lotes de ese almacén.
      *
-     * Obtener lotes para gestionar compra/venta/movimiento
-     *
+     * @param int|null $warehouse_id
      * @return array
      */
-    public function getLotsGroupForCompromise()
+    public function getLotsGroupForCompromise($warehouse_id = null)
     {
-        return $this->lots_group->transform(function ($lots_group) {
+        $lots = $this->lots_group;
+
+        if ($warehouse_id) {
+            $lots = $lots->where('warehouse_id', $warehouse_id);
+        }
+
+        return $lots->values()->transform(function ($lots_group) {
             return [
                 'id'          => $lots_group->id,
                 'code'        => $lots_group->code,

@@ -591,4 +591,28 @@ class PosController extends Controller
 
         return view('tenant.pos.garage', compact('configuration', 'soap_company', 'business_turns'));
     }
+
+    /**
+     * Devuelve los lotes con stock (>0) de un item, filtrados por almacén del establecimiento
+     * del usuario si la configuración list_items_by_warehouse está activa.
+     * Usado por el formulario de compras para autorrellenar el siguiente código de lote.
+     */
+    public function itemLots($item_id)
+    {
+        $establishment_id = auth()->user()->establishment_id;
+        $warehouse = Warehouse::where('establishment_id', $establishment_id)->first();
+        $configuration = Configuration::first();
+        $list_by_warehouse = (bool) $configuration->list_items_by_warehouse;
+
+        $item = Item::with([
+            'lots_group' => function ($q) use ($warehouse, $list_by_warehouse) {
+                $q->where('quantity', '>', 0);
+                if ($list_by_warehouse && $warehouse) {
+                    $q->where('warehouse_id', $warehouse->id);
+                }
+            }
+        ])->findOrFail($item_id);
+
+        return response()->json(['lots_group' => $item->lots_group]);
+    }
 }

@@ -25,6 +25,7 @@
     use App\Models\Tenant\GuideFile;
     use App\Models\Tenant\Item;
     use App\Models\Tenant\ItemUnitType;
+    use App\Models\Tenant\LotAlert;
     use App\Models\Tenant\ItemWarehouse;
     use App\Models\Tenant\PaymentMethodType;
     use App\Models\Tenant\Person;
@@ -758,16 +759,116 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
          * @param  int $item_id
          * @return ItemLotsGroup
          */
-        private function createItemLotsGroup($lot_code, $quantity, $date_of_due, $item_id)
+        private function createItemLotsGroup($lot_code, $quantity, $date_of_due, $item_id, $warehouse_id = null)
         {
-            return ItemLotsGroup::create([
-                    'code' => $lot_code,
-                    'quantity' => $quantity,
-                    'date_of_due' => $date_of_due,
-                    'item_id' => $item_id
-                ]);
+            $new_lot = ItemLotsGroup::firstOrCreate(
+                ['code' => $lot_code, 'item_id' => $item_id, 'date_of_due' => $date_of_due, 'warehouse_id' => $warehouse_id],
+                ['quantity' => 0]
+            );
+            $new_lot->increment('quantity', $quantity);
+
+            try {
+                $this->checkAndCreateLotAlert($new_lot);
+                $this->checkProximityAlertForLot($new_lot);
+            } catch (\Exception $e) {
+                // No interrumpir la compra si la alerta falla (ej: tabla aún no migrada)
+            }
+
+            return $new_lot;
         }
 
+        /**
+         * Crea una alerta de FEFO violado: el lote recién registrado tiene vencimiento
+         * más lejano que otro lote del mismo item que aún tiene stock.
+         * Solo se crea si NO existe ya una alerta activa para el mismo par (item, fecha).
+         */
+        private function checkAndCreateLotAlert(ItemLotsGroup $new_lot)
+        {
+            if (!$new_lot->date_of_due) return;
+
+            $earliest = ItemLotsGroup::where('item_id', $new_lot->item_id)
+                ->where('quantity', '>', 0)
+                ->where('id', '!=', $new_lot->id)
+                ->orderBy('date_of_due', 'asc')
+                ->first();
+
+            if (!$earliest) return;
+
+            if (strtotime($new_lot->date_of_due) >= strtotime($earliest->date_of_due)) return;
+
+            $item_name        = optional($new_lot->item)->description ?? 'Producto';
+            $establishment_id = auth()->user()->establishment_id ?? 1;
+            $due_new          = \Carbon\Carbon::parse($new_lot->date_of_due)->format('d/m/Y');
+            $due_old          = \Carbon\Carbon::parse($earliest->date_of_due)->format('d/m/Y');
+
+            LotAlert::create([
+                'item_id'          => $new_lot->item_id,
+                'lot_code'         => $new_lot->code,
+                'date_of_due'      => $new_lot->date_of_due,
+                'establishment_id' => $establishment_id,
+                'message'          => "Lote {$new_lot->code} de \"{$item_name}\" vence el {$due_new} — hay stock más antiguo (lote {$earliest->code} vence el {$due_old}). Priorizar la venta del stock más próximo a vencer.",
+                'seen'             => false,
+            ]);
+        }
+
+        /**
+         * Crea alertas de proximidad (bandeja de entrada) si el lote recién registrado
+         * cae dentro de algún umbral de vencimiento (15d, 10d, 7d, vencido).
+         */
+        private function checkProximityAlertForLot(ItemLotsGroup $lot)
+        {
+            if (!$lot->date_of_due || $lot->date_of_due === '9999-12-31') return;
+
+            // Productos desactivados no generan alertas (decisión grilling 2026-06-10)
+            if (!optional($lot->item)->active) return;
+
+            $thresholds       = [15, 10, 7, 0];
+            // La sucursal de la alerta es la del almacén del lote, no la del usuario logueado
+            $establishment_id = optional($lot->warehouse)->establishment_id
+                ?? (auth()->user()->establishment_id ?? 1);
+            $daysLeft         = (int) now()->diffInDays(\Carbon\Carbon::parse($lot->date_of_due), false);
+
+            foreach ($thresholds as $threshold) {
+                if ($daysLeft > $threshold) continue;
+
+                // Solo lotes de la misma sucursal — una alerta no debe mezclar almacenes ajenos
+                $sibling_lots = ItemLotsGroup::where('item_id', $lot->item_id)
+                    ->where('quantity', '>', 0)
+                    ->where('date_of_due', '!=', '9999-12-31')
+                    ->where('date_of_due', '<=', now()->addDays($threshold))
+                    ->whereHas('warehouse', fn ($q) => $q->where('establishment_id', $establishment_id))
+                    ->orderBy('date_of_due', 'asc')
+                    ->get(['code', 'date_of_due', 'quantity']);
+
+                if ($sibling_lots->isEmpty()) continue;
+
+                // ADR-0001 (extendido a lotes): la fecha efectiva del grupo es la del
+                // lote más próximo con stock, y forma parte de la deduplicación
+                $effective_date = $sibling_lots->first()->date_of_due;
+
+                $exists = LotAlert::where('type', 'expiry_proximity')
+                    ->where('item_id', $lot->item_id)
+                    ->where('threshold_days', $threshold)
+                    ->where('establishment_id', $establishment_id)
+                    ->where('date_of_due', $effective_date)
+                    ->exists();
+
+                if ($exists) continue;
+
+                $item = $lot->item;
+                LotAlert::create([
+                    'type'             => 'expiry_proximity',
+                    'threshold_days'   => $threshold,
+                    'item_id'          => $lot->item_id,
+                    'establishment_id' => $establishment_id,
+                    'lot_code'         => $sibling_lots->first()->code,
+                    'date_of_due'      => $effective_date,
+                    'seen'             => false,
+                    'message'          => "Lote(s) de \"" . optional($item)->description . "\" vencen en ≤{$threshold} días",
+                    'lots_data'        => $sibling_lots->toArray(),
+                ]);
+            }
+        }
 
         /**
          *
@@ -786,9 +887,11 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
             $presentation_quantity = (isset($purchase_item->item->presentation->quantity_unit)) ? $purchase_item->item->presentation->quantity_unit : 1;
             $quantity = $row['quantity'] * $presentation_quantity;
 
+            $warehouse_id = $row['warehouse_id'] ?? null;
+
             if($lot_code && $date_of_due)
             {
-                $item_lots_group = $this->createItemLotsGroup($lot_code, $quantity, $date_of_due, $row['item_id']);
+                $item_lots_group = $this->createItemLotsGroup($lot_code, $quantity, $date_of_due, $row['item_id'], $warehouse_id);
                 $purchase_item->item_lot_group_id = $item_lots_group->id;
                 $purchase_item->update();
             }
@@ -801,7 +904,7 @@ use Modules\Purchase\Helpers\WeightedAverageCostHelper;
                     $new_date_of_due = $data_item_lot_group['date_of_due'];
                     $new_lot_code = $data_item_lot_group['lot_code'];
 
-                    $item_lots_group = $this->createItemLotsGroup($new_lot_code, $quantity, $new_date_of_due, $row['item_id']);
+                    $item_lots_group = $this->createItemLotsGroup($new_lot_code, $quantity, $new_date_of_due, $row['item_id'], $warehouse_id);
 
                     $purchase_item->lot_code = $new_lot_code;
                     $purchase_item->date_of_due = $new_date_of_due;

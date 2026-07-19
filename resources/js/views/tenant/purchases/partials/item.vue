@@ -927,10 +927,33 @@ export default {
             this.item_unit_type = row
             this.form.item.unit_type_id = row.unit_type_id
         },
+        autoLotCode(item, existingCount) {
+            const prefix = item && item.internal_id
+                ? item.internal_id.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 3)
+                : 'LOT'
+            const datePart = moment().format('MMDD')
+            const idxPart = (existingCount + 1).toString(36).toUpperCase()
+            return (prefix + datePart + idxPart).slice(0, 8)
+        },
         changeItem() {
             const item = {..._.find(this.items, {'id': this.form.item_id})};
             this.form.item = item;
             this.form.item = this.setExtraFieldOfitem(this.form.item)
+
+            if (this.form.item.lots_enabled) {
+                // Consulta los lotes existentes para evitar colisiones con el
+                // contador del form de ítems (ambos usan la misma fórmula).
+                this.$http.get(`/pos/item-lots/${this.form.item_id}`)
+                    .then(({ data }) => {
+                        const count = (data.lots_group || []).length
+                        this.lot_code = this.autoLotCode(this.form.item, count)
+                    })
+                    .catch(() => {
+                        this.lot_code = this.autoLotCode(this.form.item, 0)
+                    })
+            } else {
+                this.lot_code = null
+            }
 
             const saleUnitPrice = item.sale_unit_price;
             this.sale_unit_price = parseFloat(saleUnitPrice).toFixed(2);

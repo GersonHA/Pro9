@@ -112,6 +112,15 @@
                                         </div>
 
                                         <div class="col-12">
+                                            <label class="control-label">Permitir generar múltiples CPE desde Notas de Venta o Cotizaciones</label>
+                                            <div :class="{ 'has-danger': errors.allow_multiple_cpe_from_sale_note }" class="form-group">
+                                                <el-switch v-model="form.allow_multiple_cpe_from_sale_note" @change="submit"></el-switch>
+                                                <small v-if="errors.allow_multiple_cpe_from_sale_note" class="form-control-feedback"
+                                                    v-text="errors.allow_multiple_cpe_from_sale_note[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
                                             <label class="control-label">Permitir crear productos a vendedores</label>
                                             <div :class="{ 'has-danger': errors.seller_can_create_product }" class="form-group">
                                                 <el-switch v-model="form.seller_can_create_product"
@@ -236,15 +245,6 @@
                                                     @change="submit"></el-switch>
                                                 <small v-if="errors.lots_govern_stock" class="form-control-feedback"
                                                     v-text="errors.lots_govern_stock[0]"></small>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="control-label">Permitir generar múltiples CPE desde Notas de Venta o Cotizaciones</label>
-                                            <div :class="{ 'has-danger': errors.allow_multiple_cpe_from_sale_note }" class="form-group">
-                                                <el-switch v-model="form.allow_multiple_cpe_from_sale_note" @change="submit"></el-switch>
-                                                <small v-if="errors.allow_multiple_cpe_from_sale_note" class="form-control-feedback"
-                                                    v-text="errors.allow_multiple_cpe_from_sale_note[0]"></small>
                                             </div>
                                         </div>
 

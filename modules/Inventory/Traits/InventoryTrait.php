@@ -162,7 +162,15 @@ trait InventoryTrait
      *
      * @return Item[]|\Illuminate\Database\Eloquent\Builder[]|\Illuminate\Database\Eloquent\Collection|\Illuminate\Support\Collection
      */
-    public function optionsItemFull($search = null, $take = null, $search_item_by_barcode = false)
+    /**
+     * Devuelve items para los selectores de ingreso/salida de inventario.
+     *
+     * @param string|null $search       Texto de búsqueda libre o código de barras.
+     * @param int|null    $take         Límite de resultados.
+     * @param bool        $search_item_by_barcode  Buscar por barcode exacto.
+     * @param bool|null   $lots_only    true → solo con lotes, false → solo sin lotes, null → todos.
+     */
+    public function optionsItemFull($search = null, $take = null, $search_item_by_barcode = false, $lots_only = null)
     {
         $query = Item::query()
             ->with([
@@ -173,6 +181,15 @@ trait InventoryTrait
             ])
             ->where([['item_type_id', '01'], ['unit_type_id', '!=', 'ZZ']])
             ->whereNotIsSet();
+
+        // Filtrar por manejo de lotes si se especifica.
+        if ($lots_only === true) {
+            $query->where('lots_enabled', true);
+        } elseif ($lots_only === false) {
+            $query->where(function ($q) {
+                $q->where('lots_enabled', false)->orWhereNull('lots_enabled');
+            });
+        }
 
         if($search)
         {
@@ -185,19 +202,6 @@ trait InventoryTrait
                 $query = func_filter_items($query, $search);
             }
         }
-
-        /*
-        if ($search) {
-            $query = func_filter_items($query, $search);
-//            $query->whereRaw(
-//                'match(text_filter) against(? in natural language mode) > 0.0000001',
-//                [$search]
-//            );
-//            $query->where('description', 'like', "%{$search}%")
-//                ->orWhere('barcode', 'like', "%{$search}%")
-//                ->orWhere('internal_id', 'like', "%{$search}%");
-        }
-        */
 
         if ($take) {
             $query->take($take);
@@ -213,6 +217,7 @@ trait InventoryTrait
             return [
                 'id' => $row->id,
                 'description' => $description,
+                'internal_id' => $row->internal_id,
                 'text_filter' => $row->text_filter,
                 'lots_enabled' => (bool)$row->lots_enabled,
                 'series_enabled' => (bool)$row->series_enabled,
@@ -230,11 +235,12 @@ trait InventoryTrait
                 }),
                 'lots_group' => collect($row->lots_group)->transform(function ($row2) {
                     return [
-                        'id' => $row2->id,
-                        'code' => $row2->code,
-                        'quantity' => $row2->quantity,
-                        'date_of_due' => $row2->date_of_due,
-                        'checked' => false
+                        'id'           => $row2->id,
+                        'code'         => $row2->code,
+                        'quantity'     => $row2->quantity,
+                        'date_of_due'  => $row2->date_of_due,
+                        'warehouse_id' => $row2->warehouse_id,
+                        'checked'      => false
                     ];
                 })
             ];
@@ -365,6 +371,8 @@ trait InventoryTrait
      */
     private function createInventoryKardex($model, $item_id, $quantity, $warehouse_id)
     {
+        $warehouse_id = $this->getRealWarehouseId($item_id, $warehouse_id);
+
         $model->inventory_kardex()->create([
             'date_of_issue' => date('Y-m-d'),
             'item_id' => $item_id,
@@ -383,8 +391,13 @@ trait InventoryTrait
      */
     private function updateStock($item_id, $quantity, $warehouse_id)
     {
+
+    $warehouse_id = $this->getRealWarehouseId($item_id, $warehouse_id);
+
         $inventory_configuration = InventoryConfiguration::firstOrFail();
-        $item_warehouse = ItemWarehouse::firstOrNew(['item_id' => $item_id, 'warehouse_id' => $warehouse_id]);
+        $item_warehouse = ItemWarehouse::where(['item_id' => $item_id, 'warehouse_id' => $warehouse_id])
+                            ->lockForUpdate()->first()
+                            ?? new ItemWarehouse(['item_id' => $item_id, 'warehouse_id' => $warehouse_id]);
         $item_warehouse->stock = $item_warehouse->stock + $quantity;
         // dd($item_warehouse->item->unit_type_id);
         if ($quantity < 0 && $item_warehouse->item->unit_type_id !== 'ZZ') {
@@ -460,6 +473,25 @@ trait InventoryTrait
     {
         return SaleNoteItem::find($sale_note_item_id);
     }
+
+
+    private function getRealWarehouseId($item_id, $warehouse_id)
+    {
+        $check_warehouse = \App\Models\Tenant\Configuration::getRecordIndividualColumn('list_items_by_warehouse');
+        if (!$check_warehouse) {
+            // Si el switch está apagado, buscamos si tiene stock en el almacén de la sucursal actual
+            $exists = \Modules\Inventory\Models\ItemWarehouse::where('item_id', $item_id)->where('warehouse_id', $warehouse_id)->first();
+            if (!$exists) {
+                // Si no existe, buscamos el primer almacén donde fue registrado (Almacén origen / Oficina Principal)
+                $origin = \Modules\Inventory\Models\ItemWarehouse::where('item_id', $item_id)->orderBy('id', 'asc')->first();
+                if ($origin) {
+                    return $origin->warehouse_id; // Redirigimos al almacén origen
+                }
+            }
+        }
+        return $warehouse_id; // Si el switch está prendido o el producto sí existe localmente, no hacemos nada
+    }
+
     /**
      * Crea la relacion en inventory_kardex con sale_note
      *
@@ -471,6 +503,9 @@ trait InventoryTrait
      */
     private function createInventoryKardexSaleNote($model, $item_id, $quantity, $warehouse_id, $sale_note_item_id)
     {
+
+    $warehouse_id = $this->getRealWarehouseId($item_id, $warehouse_id);
+    
         $sale_note_kardex = $model->inventory_kardex()->create([
             'date_of_issue' => date('Y-m-d'),
             'item_id' => $item_id,
@@ -501,11 +536,16 @@ trait InventoryTrait
         $model->inventory_kardex()->delete();
     }
     /**
-     * Actualiza los lotes por el document Item
+     * Actualiza los lotes por el document Item.
+     *
+     * $factor controla el sentido: +1 devuelve cantidad al lote (anular CPE, anular NV),
+     * -1 la quita (anular una NC que antes devolvió mercadería). El resultado se acota a
+     * ≥ 0 porque un lote nunca es negativo (ADR-0012).
      *
      * @param DocumentItem $document_item
+     * @param int          $factor  +1 suma al lote (default), -1 resta
      */
-    private function updateDataLots($document_item)
+    private function updateDataLots($document_item, $factor = 1)
     {
         // dd($document_item);
         if (isset($document_item->item->IdLoteSelected)) {
@@ -521,13 +561,13 @@ trait InventoryTrait
                     foreach ($lotesSelecteds as $item)
                     {
                         $lot = ItemLotsGroup::query()->find($item->id);
-                        $lot->quantity = $lot->quantity + ($quantity_unit * $item->compromise_quantity);
+                        $lot->quantity = max(0, $lot->quantity + ($factor * $quantity_unit * $item->compromise_quantity));
                         $lot->save();
                     }
 
                 }else {
                     $lot = ItemLotsGroup::find($document_item->item->IdLoteSelected);
-                    $lot->quantity = $lot->quantity + $document_item->quantity;
+                    $lot->quantity = max(0, $lot->quantity + ($factor * $document_item->quantity));
                     $lot->save();
                 }
 
@@ -823,6 +863,20 @@ trait InventoryTrait
         {
             throw new Exception("El lote '{$lot->code}' del producto {$document_item->item->description} no tiene suficiente stock!");
         }
+    }
+
+
+    /**
+     * Sincroniza el lote LIBRE de cada almacén con el stock huérfano del item.
+     * Delega en la fuente única de verdad: ItemLotsGroup::syncLibreForOrphanStock.
+     * Mantiene el invariante: LIBRE.quantity = item_warehouse.stock − Σ(lotes reales).
+     *
+     * @param  int      $item_id
+     * @param  int|null $warehouse_id  Si se indica, solo ese almacén; si no, todos.
+     */
+    public function syncLibreLotForOrphanStock(int $item_id, ?int $warehouse_id = null): void
+    {
+        ItemLotsGroup::syncLibreForOrphanStock($item_id, $warehouse_id);
     }
 
 

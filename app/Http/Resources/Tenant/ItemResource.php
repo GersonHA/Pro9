@@ -154,6 +154,18 @@
                 'commission_amount' => $this->commission_amount,
                 'lot_code' => $this->lot_code,
                 'line' => $this->line,
+                // Lotes de inventario (item_lots_group) para la nueva pestaña Lotes del formulario.
+                // has_sales refleja has_movements de la DB: si es true, código y fecha son inmutables.
+                'lots_tab' => $this->lots_group->map(function ($lot) {
+                    return [
+                        'id'          => $lot->id,
+                        'code'        => $lot->code,
+                        'quantity'    => (float) $lot->quantity,
+                        'date_of_due' => $lot->date_of_due,
+                        'warehouse_id' => $lot->warehouse_id,
+                        'has_sales'   => (bool) $lot->has_movements,
+                    ];
+                }),
                 'lots' => $this->lots->transform(function ($row, $key) {
                     return [
                         'id' => $row->id,
@@ -190,12 +202,16 @@
                 }),
                 'web_platform_id' => $this->web_platform_id,
 
-                // 'warehouses' => collect($this->warehouses)->transform(function($row) {
-                //     return [
-                //         'warehouse_description' => $row->warehouse->description,
-                //         'stock' => $row->stock,
-                //     ];
-                // })
+                // Stock por almacén, por producto. Sin esto el frontend asume stock 0
+                // y marca un falso "los lotes superan el stock" en todo producto con
+                // lotes, bloqueando el guardado. Ver ADR-0011 / ADR-0014.
+                'warehouses' => $this->warehouses->map(function ($row) {
+                    return [
+                        'warehouse_id'          => $row->warehouse_id,
+                        'warehouse_description'  => $row->warehouse ? $row->warehouse->description : null,
+                        'stock'                 => (float) $row->stock,
+                    ];
+                }),
                 // 'warehouse_prices' => $this->warehousePrices,
                 'item_warehouse_prices' => $this->warehousePrices->transform(function ($row) {
                     return [

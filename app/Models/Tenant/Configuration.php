@@ -60,6 +60,7 @@ use Illuminate\Support\Facades\Log;
      * @property string|null $terms_condition_sale
      * @property bool        $cotizaction_finance
      * @property bool        $quotation_allow_seller_generate_sale
+     * @property bool        $allow_multiple_cpe_from_sale_note
      * @property bool        $allow_edit_unit_price_to_seller
      * @property bool        $legend_footer
      * @property string|null $header_image
@@ -208,6 +209,7 @@ use Illuminate\Support\Facades\Log;
             'product_only_location',
             'quantity_documents',
             'quotation_allow_seller_generate_sale',
+            'allow_multiple_cpe_from_sale_note',
             'restrict_receipt_date',
             'search_item_by_barcode',
             'search_item_by_series',
@@ -393,6 +395,7 @@ use Illuminate\Support\Facades\Log;
         protected $casts = [
             'whatsapp_bot_enabled' => 'boolean',
             'quotation_allow_seller_generate_sale' => 'boolean',
+            'allow_multiple_cpe_from_sale_note' => 'boolean',
             'allow_edit_unit_price_to_seller' => 'boolean',
             'seller_can_create_product' => 'boolean',
             'seller_can_generate_sale_opportunities' => 'boolean',
@@ -773,6 +776,7 @@ use Illuminate\Support\Facades\Log;
                 'header_image' => $this->header_image,
                 'destination_sale' => (bool)$this->destination_sale,
                 'quotation_allow_seller_generate_sale' => $this->quotation_allow_seller_generate_sale,
+                'allow_multiple_cpe_from_sale_note' => (bool)$this->allow_multiple_cpe_from_sale_note,
                 'allow_edit_unit_price_to_seller' => $this->allow_edit_unit_price_to_seller,
                 'finances' => $this->finances,
                 'ticket_58' => (bool)$this->ticket_58,

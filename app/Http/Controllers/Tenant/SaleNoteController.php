@@ -1925,10 +1925,17 @@ class SaleNoteController extends Controller
             'client_id' => 'required|numeric|min:1',
         ]);
         $clientId = $request->client_id;
+        $allowMultipleCpe = Configuration::select('allow_multiple_cpe_from_sale_note')
+                                ->first()
+                                ->allow_multiple_cpe_from_sale_note;
+
         $records = SaleNote::without(['user', 'soap_type', 'state_type', 'currency_type', 'payments'])
-                            ->select('series', 'number', 'id', 'date_of_issue', 'total')
+                            ->select('series', 'number', 'id', 'date_of_issue', 'total', 'document_id')
                             ->where('customer_id', $clientId)
-                            ->whereNull('document_id')
+                            ->when(!$allowMultipleCpe, function ($q) {
+                                // Si no está activa la opción, solo mostrar NVs sin CPE generada
+                                $q->whereNull('document_id');
+                            })
                             ->whereIn('state_type_id', ['01', '03', '05'])
                             ->orderBy('number', 'desc');
 

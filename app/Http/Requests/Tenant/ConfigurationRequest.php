@@ -24,6 +24,7 @@ class ConfigurationRequest extends FormRequest
             'search_by_extra_name' => 'nullable|boolean',
             'show_quotation_pos' => 'nullable|boolean',
             'lots_govern_stock' => 'nullable|boolean',
+            'allow_multiple_cpe_from_sale_note' => 'nullable|boolean',
 
 
             // 'subtotal_account' => ['required'],

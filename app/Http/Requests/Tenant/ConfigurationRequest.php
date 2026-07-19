@@ -23,6 +23,7 @@ class ConfigurationRequest extends FormRequest
             'search_by_model' => 'nullable|boolean',
             'search_by_extra_name' => 'nullable|boolean',
             'show_quotation_pos' => 'nullable|boolean',
+            'lots_govern_stock' => 'nullable|boolean',
 
 
             // 'subtotal_account' => ['required'],

@@ -2185,6 +2185,28 @@
 
                                         <div class="col-12">
                                             <label class="control-label">
+                                                Los lotes mandan sobre el stock
+                                                <el-tooltip class="item" effect="dark" placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                    <div slot="content">
+                                                        Cuando está activo, en los productos con lotes el stock de cada
+                                                        almacén se calcula como la suma de sus lotes. Al guardar, el
+                                                        stock se ajusta a Σlotes y el cambio queda registrado en el
+                                                        kardex. Si está inactivo, el stock manda y la suma de lotes no
+                                                        puede superarlo.
+                                                    </div>
+                                                </el-tooltip>
+                                            </label>
+                                            <div :class="{ 'has-danger': errors.lots_govern_stock }" class="form-group">
+                                                <el-switch v-model="form.lots_govern_stock"
+                                                    @change="submit"></el-switch>
+                                                <small v-if="errors.lots_govern_stock" class="form-control-feedback"
+                                                    v-text="errors.lots_govern_stock[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="control-label">
                                                 Modificar tipo de afectación
                                                 <el-tooltip class="item" effect="dark" placement="top-start">
                                                     <div slot="content">
@@ -3605,6 +3627,7 @@ export default {
                 default_document_type_03: false,
                 default_document_type_80: false,
                 show_quotation_pos: true,
+                lots_govern_stock: false,
                 search_item_by_barcode: false,
                 destination_sale: false,
                 quotation_allow_seller_generate_sale: false,

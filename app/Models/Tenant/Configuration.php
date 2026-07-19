@@ -387,6 +387,7 @@ use Illuminate\Support\Facades\Log;
             'search_by_model',
             'search_by_extra_name',
             'show_quotation_pos',
+            'lots_govern_stock',
         ];
 
         protected $casts = [
@@ -404,6 +405,7 @@ use Illuminate\Support\Facades\Log;
             'send_data_to_other_server' => 'boolean',
             'select_available_price_list' => 'boolean',
             'show_extra_info_to_item' => 'boolean',
+            'lots_govern_stock' => 'boolean',
             'group_items_generate_document' => 'boolean',
             'enabled_global_igv_to_purchase' => 'boolean',
             'show_pdf_name' => 'boolean',
@@ -765,6 +767,7 @@ use Illuminate\Support\Facades\Log;
                 'include_igv' => (bool)$this->include_igv,
                 'global_igv_handling' => (bool)$this->global_igv_handling,
                 'product_only_location' => (bool)$this->product_only_location,
+                'lots_govern_stock' => (bool)$this->lots_govern_stock,
                 'legend_footer' => (bool)$this->legend_footer,
                 'default_document_type_03' => (bool)$this->default_document_type_03,
                 'header_image' => $this->header_image,

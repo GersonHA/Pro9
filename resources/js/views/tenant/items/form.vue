@@ -665,8 +665,14 @@
                                         <th width="25%" class="bg-transparent border-0">
                                             <div v-show="form.unit_type_id !='ZZ'">
                                                 <el-checkbox v-model="form.lots_enabled"
+                                                             :disabled="lots_locked"
                                                              @change="changeLotsEnabled">¿Maneja lotes?
                                                 </el-checkbox>
+                                                <el-tooltip v-if="lots_locked"
+                                                            content="Este producto tiene ventas con lotes — no puede desactivarse"
+                                                            effect="dark" placement="right">
+                                                    <i class="fa fa-lock text-muted ml-1"></i>
+                                                </el-tooltip>
                                             </div>
                                         </th>
                                         <th width="25%" class="bg-transparent border-0">
@@ -697,20 +703,10 @@
                                         </td>
                                         <td>
                                             <div v-show="form.unit_type_id !='ZZ' && form.lots_enabled">
-                                                <div :class="{'has-danger': errors.lot_code}"
-                                                     class="form-group">
-
-                                                     <el-tooltip class="item"
-                                                    content="Si va a usar el mismo LOTE en otros almacenes coloque un prefijo para diferenciarlos."
-                                                    effect="dark"
-                                                    placement="top">
-                                                    <el-input v-model="form.lot_code"
-                                                              placeholder="Código de lote"></el-input>
-                                                    </el-tooltip>
-                                                    <small v-if="errors.lot_code"
-                                                           class="form-control-feedback"
-                                                           v-text="errors.lot_code[0]"></small>
-                                                </div>
+                                                <small class="text-muted">
+                                                    <i class="fa fa-info-circle"></i>
+                                                    Gestiona los lotes en la pestaña <strong>Lotes</strong>.
+                                                </small>
                                             </div>
                                         </td>
                                         <td>
@@ -1010,6 +1006,241 @@
                         <div class="col add-row-table" v-if="config.enable_list_product || !config.enable_list_product && form.item_unit_types.length < 1" @click="clickAddRow">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-circle-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M9 12h6" /><path d="M12 9v6" /></svg>
                             Agregar lista de precios
+                        </div>
+                    </div>
+                </el-tab-pane>
+                <!-- Pestaña Lotes: visible solo cuando lots_enabled = true -->
+                <el-tab-pane
+                    v-if="form.lots_enabled && form.unit_type_id != 'ZZ'"
+                    name="lots_tab">
+                    <span slot="label">
+                        <i class="fa fa-boxes"></i> Lotes
+                    </span>
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+
+                            <!-- Aviso si el checkbox está bloqueado por ventas -->
+                            <el-alert
+                                v-if="lots_locked"
+                                title="Este producto tiene ventas con lotes registradas. El checkbox '¿Maneja lotes?' no puede desactivarse."
+                                type="warning"
+                                :closable="false"
+                                show-icon
+                                class="mb-3">
+                            </el-alert>
+
+                            <!-- Toolbar: selector de almacén + filtro sin stock + botón agregar -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="d-flex align-items-center" style="gap:16px;">
+                                    <div class="d-flex align-items-center">
+                                        <span class="mr-2 text-muted" style="white-space:nowrap;font-size:13px;">
+                                            <i class="fa fa-warehouse mr-1"></i> Almacén:
+                                        </span>
+                                        <el-select
+                                            v-model="selected_lot_warehouse_id"
+                                            size="small"
+                                            :filterable="false"
+                                            style="width:220px">
+                                            <el-option
+                                                v-for="w in lotWarehouses"
+                                                :key="w.id"
+                                                :value="w.id"
+                                                :label="w.description"/>
+                                        </el-select>
+                                    </div>
+                                    <el-checkbox v-model="hide_empty_lots">
+                                        Ocultar lotes sin stock
+                                    </el-checkbox>
+                                </div>
+                                <el-button
+                                    size="small"
+                                    type="primary"
+                                    icon="el-icon-plus"
+                                    @click.prevent="addLotTab">
+                                    Agregar lote
+                                </el-button>
+                            </div>
+
+                            <!-- Sin almacén seleccionado -->
+                            <p v-if="!selected_lot_warehouse_id" class="text-muted mt-2">
+                                <i class="fa fa-info-circle"></i>
+                                Selecciona un almacén para ver o agregar lotes.
+                            </p>
+
+                            <!-- Con almacén seleccionado: banner + tabla (o estado vacío) -->
+                            <template v-else>
+                                <!-- Resumen stock vs. lotes del almacén seleccionado.
+                                     La suma de lotes no puede superar el stock real; lo que
+                                     sobra queda como "Libre" (lote LIBRE del sistema). -->
+                                <div class="d-flex align-items-center mb-2"
+                                     style="gap:18px; font-size:13px; flex-wrap:wrap;">
+                                    <span>Stock real: <b>{{ selectedWarehouseStock }}</b></span>
+                                    <span>Asignado en lotes:
+                                        <b :style="{ color: (freeUnits < 0 && !lotsGovernStock) ? '#f56c6c' : '#303133' }">{{ assignedLotsTotal }}</b>
+                                    </span>
+                                    <span>Libre (sin lote):
+                                        <b :style="{ color: freeUnits < 0 ? (lotsGovernStock ? '#303133' : '#f56c6c') : '#67c23a' }">{{ freeUnits }}</b>
+                                    </span>
+                                </div>
+
+                                <!-- Exceso en el almacén visible (solo en modo "stock manda";
+                                     en ON el stock seguirá a los lotes, no es un exceso) -->
+                                <el-alert
+                                    v-if="freeUnits < 0 && !lotsGovernStock"
+                                    type="error"
+                                    :closable="false"
+                                    show-icon
+                                    style="margin-bottom:10px;">
+                                    <span>
+                                        Los lotes de este almacén suman <b>{{ assignedLotsTotal }}</b> unidad(es)
+                                        pero el stock real es <b>{{ selectedWarehouseStock }}</b>.
+                                        Reduce <b>{{ -freeUnits }}</b> unidad(es): la suma de lotes no puede superar el stock.
+                                    </span>
+                                </el-alert>
+
+                                <!-- Exceso en OTROS almacenes (no visibles ahora) -->
+                                <el-alert
+                                    v-if="overAllocatedWarehouses.length && !overAllocatedWarehouses.some(w => w.warehouse_id == selected_lot_warehouse_id)"
+                                    type="warning"
+                                    :closable="false"
+                                    show-icon
+                                    style="margin-bottom:10px;">
+                                    <span>
+                                        Hay sobre-asignación de lotes en otros almacenes:
+                                        <b>{{ overAllocatedWarehouses.map(w => w.description).join(', ') }}</b>.
+                                        Corrígelos antes de guardar.
+                                    </span>
+                                </el-alert>
+
+                                <!-- Aviso: hay duplicados entre lotes ocultos sin stock -->
+                                <p v-if="hasHiddenDuplicates" class="text-warning small mt-1 mb-2">
+                                    <i class="fa fa-exclamation-triangle mr-1"></i>
+                                    Hay lotes con código duplicado entre los lotes ocultos.
+                                    <a href="#" @click.prevent="hide_empty_lots = false" class="text-primary">
+                                        Desactiva "Ocultar sin stock"
+                                    </a>
+                                    para verlos y corregirlos antes de guardar.
+                                </p>
+
+                                <!-- Estado vacío para el almacén seleccionado -->
+                                <template v-if="lotsTabVisible.length === 0">
+                                    <p class="text-muted mt-2">
+                                        <i class="fa fa-info-circle"></i>
+                                        <span v-if="hide_empty_lots">
+                                            No hay lotes con stock en este almacén.
+                                            <a href="#" @click.prevent="hide_empty_lots = false" class="text-primary">Ver todos</a>
+                                            o haz clic en
+                                        </span>
+                                        <span v-else>No hay lotes registrados en este almacén.</span>
+                                        <template v-if="!hide_empty_lots">
+                                            Haz clic en
+                                        </template>
+                                        <strong>Agregar lote</strong> para crear el primero.
+                                    </p>
+                                    <!-- Aviso cuando el producto tiene ID (edición) y no hay lotes en este almacén -->
+                                    <p v-if="form.id" class="text-muted small">
+                                        <i class="fa fa-exclamation-triangle text-warning mr-1"></i>
+                                        Si trasladó stock hacia este almacén desde Inventario → Traslados, los lotes
+                                        no se mueven automáticamente. Agréguelos manualmente aquí.
+                                    </p>
+                                </template>
+
+                                <!-- Tabla de lotes del almacén seleccionado -->
+                                <table v-else class="table table-sm table-bordered">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th class="text-center" style="width:40px">#</th>
+                                            <th>Código de lote</th>
+                                            <th class="text-center" style="width:130px">Cantidad</th>
+                                            <th class="text-center" style="width:175px">Fecha vencimiento</th>
+                                            <th style="width:50px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="lot in lotsTabVisible" :key="lot._idx"
+                                            :class="{
+                                                'table-danger': duplicateLotCodes.includes(lotKey(lot)),
+                                                'lot-depleted': lot.quantity === 0 && !duplicateLotCodes.includes(lotKey(lot))
+                                            }">
+                                            <td class="text-center align-middle">{{ lot._idx + 1 }}</td>
+                                            <td>
+                                                <!-- Lote con ventas: no editable -->
+                                                <el-tooltip
+                                                    v-if="lot.has_sales"
+                                                    content="Este lote tiene ventas registradas. El código no puede modificarse."
+                                                    effect="dark" placement="top">
+                                                    <el-input v-model="form.lots_tab[lot._idx].code" size="small" disabled/>
+                                                </el-tooltip>
+                                                <!-- Lote agotado (qty=0) en DB: código read-only -->
+                                                <el-tooltip
+                                                    v-else-if="lot.quantity === 0 && lot.id !== null"
+                                                    content="Lote agotado — el código no puede modificarse."
+                                                    effect="dark" placement="top">
+                                                    <el-input v-model="form.lots_tab[lot._idx].code" size="small" disabled/>
+                                                </el-tooltip>
+                                                <!-- Lote activo o nuevo: editable -->
+                                                <el-input v-else
+                                                          v-model="form.lots_tab[lot._idx].code"
+                                                          size="small"
+                                                          placeholder="Ej: L0001"/>
+                                                <small v-if="duplicateLotCodes.includes(lotKey(lot))"
+                                                       class="text-danger">
+                                                    Código duplicado
+                                                </small>
+                                                <!-- Solo mostrar el aviso en lotes nuevos o con stock — no en el propio lote agotado -->
+                                                <small v-else-if="(lot.quantity > 0 || lot.id === null) && usedLotCodes.has((form.lots_tab[lot._idx].code || '').trim().toUpperCase())"
+                                                       class="text-muted">
+                                                    Ya se ha usado este nombre de lote.
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <el-input-number
+                                                    v-model="form.lots_tab[lot._idx].quantity"
+                                                    size="small"
+                                                    :min="0"
+                                                    :controls="false"
+                                                    :disabled="lot.has_sales"
+                                                    style="width:100%"/>
+                                                <small v-if="lot.id === null && (!form.lots_tab[lot._idx].quantity || form.lots_tab[lot._idx].quantity <= 0)"
+                                                       class="text-danger">
+                                                    La cantidad debe ser mayor a 0.
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <el-date-picker
+                                                    v-model="form.lots_tab[lot._idx].date_of_due"
+                                                    type="date"
+                                                    size="small"
+                                                    value-format="yyyy-MM-dd"
+                                                    :clearable="false"
+                                                    :disabled="lot.has_sales || (lot.quantity === 0 && lot.id !== null)"
+                                                    style="width:100%"/>
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                <el-tooltip
+                                                    v-if="lot.has_sales"
+                                                    content="Lote con ventas registradas — no puede eliminarse"
+                                                    effect="dark" placement="top">
+                                                    <i class="fa fa-lock text-muted"></i>
+                                                </el-tooltip>
+                                                <el-tooltip
+                                                    v-else-if="lot.quantity === 0 && lot.id !== null"
+                                                    content="Lote agotado — forma parte del historial y no puede eliminarse"
+                                                    effect="dark" placement="top">
+                                                    <i class="fa fa-lock text-muted"></i>
+                                                </el-tooltip>
+                                                <button
+                                                    v-else
+                                                    type="button"
+                                                    class="btn btn-xs btn-danger"
+                                                    @click.prevent="removeLotTab(lot._idx)">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </template>
                         </div>
                     </div>
                 </el-tab-pane>
@@ -1593,6 +1824,161 @@ export default {
         ModifiersTab,
     },
     computed: {
+        // ADR-0015 (rev.): flag GLOBAL "los lotes mandan sobre el stock"
+        // (configurations.lots_govern_stock), expuesto vía la config global del tenant.
+        lotsGovernStock() {
+            return !!(this.config && this.config.lots_govern_stock)
+        },
+        /**
+         * true cuando al menos un lote ya tiene ventas registradas.
+         * En ese caso el checkbox "¿Maneja lotes?" se bloquea para evitar
+         * eliminar registros que ya tienen movimientos de inventario.
+         */
+        lots_locked() {
+            return this.form.lots_tab && this.form.lots_tab.some(lot => lot.has_sales)
+        },
+        canEditPrice() {
+            if (this.config && this.config.user) {
+                if (this.config.user.type === 'seller') {
+                    return Boolean(this.config.user.permission_edit_item_prices);
+                }
+            }
+            return true;
+        },
+        /**
+         * Almacenes que tienen al menos un lote (para el selector).
+         * Si no hay lotes aún, devuelve todos los almacenes disponibles.
+         */
+        lotWarehouses() {
+            if (!this.form.lots_tab || this.form.lots_tab.length === 0) {
+                return this.warehouses
+            }
+            const ids = new Set(this.form.lots_tab.map(l => l.warehouse_id).filter(Boolean))
+            const inLots = this.warehouses.filter(w => ids.has(w.id))
+            // Incluir también almacenes sin lotes para poder agregar desde cualquier sucursal.
+            const notInLots = this.warehouses.filter(w => !ids.has(w.id))
+            return [...inLots, ...notInLots]
+        },
+        /**
+         * Lotes del almacén seleccionado actualmente, con filtro de sin-stock.
+         * Cada elemento lleva _idx apuntando a su posición real en form.lots_tab
+         * para que removeLotTab y los v-model funcionen sobre el array original.
+         */
+        lotsTabVisible() {
+            if (!this.selected_lot_warehouse_id) return []
+            return this.form.lots_tab
+                .map((lot, idx) => ({ ...lot, _idx: idx }))
+                .filter(lot => lot.warehouse_id == this.selected_lot_warehouse_id)
+                .filter(lot => !this.hide_empty_lots || lot.quantity > 0)
+        },
+        /**
+         * Códigos duplicados SOLO entre los lotes visibles (lotsTabVisible).
+         * La clave es (code, date_of_due) porque ya estamos filtrados por warehouse.
+         * Solo marcamos en rojo cuando el usuario puede ver AMBAS filas duplicadas;
+         * los duplicados con lotes ocultos se notifican via hasHiddenDuplicates.
+         */
+        duplicateLotCodes() {
+            const counts = {}
+            this.lotsTabVisible.forEach(lot => {
+                const key = `${(lot.code || '').trim()}|${lot.date_of_due || ''}`
+                if ((lot.code || '').trim()) counts[key] = (counts[key] || 0) + 1
+            })
+            return Object.keys(counts).filter(k => counts[k] > 1)
+        },
+        /**
+         * True cuando hay duplicados entre lotes ocultos (qty=0 con "Ocultar sin stock" activo)
+         * que no aparecen en duplicateLotCodes porque no son visibles.
+         * Sirve para mostrar un aviso al usuario sin marcar filas rojas invisibles.
+         */
+        hasHiddenDuplicates() {
+            if (!this.selected_lot_warehouse_id || !this.hide_empty_lots) return false
+            const counts = {}
+            this.form.lots_tab
+                .filter(l => l.warehouse_id == this.selected_lot_warehouse_id)
+                .forEach(lot => {
+                    const key = `${(lot.code || '').trim()}|${lot.date_of_due || ''}`
+                    if ((lot.code || '').trim()) counts[key] = (counts[key] || 0) + 1
+                })
+            const allDupKeys = Object.keys(counts).filter(k => counts[k] > 1)
+            return allDupKeys.some(k => !this.duplicateLotCodes.includes(k))
+        },
+        /**
+         * Conjunto de códigos usados en lotes con qty=0 del almacén seleccionado.
+         * Los lotes con qty=0 se consideran "virtualmente eliminados" — no bloquean
+         * pero sí disparan un aviso informativo al escribir el mismo código.
+         */
+        usedLotCodes() {
+            if (!this.selected_lot_warehouse_id) return new Set()
+            return new Set(
+                this.form.lots_tab
+                    .filter(l => l.warehouse_id == this.selected_lot_warehouse_id && l.quantity === 0)
+                    .map(l => (l.code || '').trim().toUpperCase())
+                    .filter(Boolean)
+            )
+        },
+        /**
+         * Mapa warehouse_id => stock real del producto en ese almacén.
+         * En edición viene de form.warehouses (ItemResource). En alta solo se
+         * conoce el stock del almacén por defecto (form.stock).
+         */
+        stockByWarehouse() {
+            const map = {}
+            if (Array.isArray(this.form.warehouses)) {
+                this.form.warehouses.forEach(w => {
+                    if (w.warehouse_id != null) map[w.warehouse_id] = parseFloat(w.stock || 0)
+                })
+            }
+            if (!this.form.id) {
+                const defWh = this.form.warehouse_id || (this.warehouses.length ? this.warehouses[0].id : null)
+                if (defWh != null && map[defWh] === undefined) map[defWh] = parseFloat(this.form.stock || 0)
+            }
+            return map
+        },
+        /** Σ cantidades de lotes reales por almacén (excluye LIBRE). */
+        assignedLotsByWarehouse() {
+            const map = {}
+            ;(this.form.lots_tab || []).forEach(l => {
+                if ((l.code || '').trim().toUpperCase() === 'LIBRE') return
+                if (l.warehouse_id == null) return
+                map[l.warehouse_id] = (map[l.warehouse_id] || 0) + parseFloat(l.quantity || 0)
+            })
+            return map
+        },
+        /** Stock real del almacén seleccionado en el selector de lotes. */
+        selectedWarehouseStock() {
+            if (this.selected_lot_warehouse_id == null) return 0
+            return this.stockByWarehouse[this.selected_lot_warehouse_id] || 0
+        },
+        /** Σ lotes reales del almacén seleccionado. */
+        assignedLotsTotal() {
+            if (this.selected_lot_warehouse_id == null) return 0
+            return this.assignedLotsByWarehouse[this.selected_lot_warehouse_id] || 0
+        },
+        /** Unidades libres (futuro lote LIBRE) del almacén seleccionado. Negativo = exceso. */
+        freeUnits() {
+            return this.selectedWarehouseStock - this.assignedLotsTotal
+        },
+        /**
+         * Almacenes (de TODO el producto, no solo el visible) cuya suma de lotes
+         * reales supera el stock real. Si la lista no está vacía el guardado se
+         * bloquea, para que no se evada cambiando de almacén en el selector.
+         */
+        overAllocatedWarehouses() {
+            // ADR-0015: en modo "los lotes mandan" (flag global) no hay sobre-asignación
+            // posible — el stock se recalcula a Σlotes al guardar, así que no se bloquea.
+            if (!this.form.lots_enabled || this.lotsGovernStock) return []
+            const eps = 1e-6
+            const out = []
+            Object.keys(this.assignedLotsByWarehouse).forEach(wh => {
+                const assigned = this.assignedLotsByWarehouse[wh]
+                const stock = this.stockByWarehouse[wh] || 0
+                if (assigned - stock > eps) {
+                    const w = this.warehouses.find(x => x.id == wh)
+                    out.push({ warehouse_id: wh, description: w ? w.description : `Almacén #${wh}`, assigned, stock })
+                }
+            })
+            return out
+        },
         resolvedVariant() {
             return ALLOWED_VARIANTS.includes(this.variant) ? this.variant : 'standard'
         },
@@ -1729,6 +2115,13 @@ export default {
         return {
             loading_search: false,
             showDialogLots: false,
+            // Contador monotónico para autoLotCode. No usar lots_tab.length porque
+            // baja al eliminar filas y genera códigos duplicados.
+            lots_tab_counter: 0,
+            // Almacén seleccionado actualmente en la pestaña Lotes.
+            selected_lot_warehouse_id: null,
+            // Ocultar lotes con cantidad = 0 en la tabla. Activo por defecto.
+            hide_empty_lots: true,
             form_category: {add: false, name: null, id: null},
             form_brand: {add: false, name: null, id: null},
             warehouses: [],
@@ -1750,6 +2143,10 @@ export default {
             form: {
                 item_supplies:[],
                 is_for_production:false,
+                // Array de lotes para la Pestaña Lotes. Se puebla desde ItemResource.lots_tab
+                // en edición (this.form = response.data.data, form.vue línea 2208/2263) y se
+                // mantiene [] en creación. changeLotsEnabled hace push sobre este array.
+                lots_tab: [],
             },
             // configuration: {},
             unit_types: [],
@@ -1874,7 +2271,17 @@ export default {
                     }
                 });
             }
-        }
+        },
+        // Nunca sobreescribir lotes existentes: al cargar el form, este watcher
+        // se dispara (null → id_real) y destruiría los warehouse_ids correctos de la DB.
+        'form.warehouse_id'(newWarehouseId) {
+            if (!newWarehouseId || !this.form.lots_tab) return
+            this.form.lots_tab.forEach(lot => {
+                if (!lot.has_sales && lot.id === null) {
+                    lot.warehouse_id = newWarehouseId
+                }
+            })
+        },
     },
 
     methods: {
@@ -1967,12 +2374,90 @@ export default {
                 })
         },
         changeLotsEnabled() {
+            if (this.form.lots_enabled) {
+                // Activando lotes: crear el primer lote automáticamente si aún no hay ninguno.
+                if (this.form.lots_tab.length === 0) {
+                    const defaultWarehouseId = this.form.warehouse_id
+                        || (this.warehouses.length > 0 ? this.warehouses[0].id : null)
+                    this.selected_lot_warehouse_id = defaultWarehouseId
+                    this.form.lots_tab.push({
+                        id: null,
+                        code: this.autoLotCode(this.lots_tab_counter++),
+                        quantity: parseFloat(this.form.stock) || 0,
+                        date_of_due: moment().add(30, 'days').format('YYYY-MM-DD'),
+                        warehouse_id: defaultWarehouseId,
+                        has_sales: false,
+                    })
+                }
+                // Navegar a la pestaña Lotes para que el usuario vea el resultado.
+                this.activeName = 'lots_tab'
+            } else {
+                if (this.form.lots_tab.length > 0) {
+                    // Desactivando con lotes existentes: pedir confirmación explícita.
+                    this.$confirm(
+                        'Desactivar "¿Maneja lotes?" eliminará todos los lotes registrados en este formulario. ¿Continuar?',
+                        'Advertencia',
+                        {
+                            confirmButtonText: 'Sí, desactivar',
+                            cancelButtonText: 'Cancelar',
+                            type: 'warning',
+                        }
+                    ).then(() => {
+                        this.form.lots_tab = []
+                    }).catch(() => {
+                        // El usuario canceló: revertir el checkbox.
+                        this.form.lots_enabled = true
+                    })
+                }
+            }
+        },
 
-            // if(!this.form.lots_enabled){
-            //     this.form.lot_code = null
-            //     this.form.lots = []
-            // }
+        /**
+         * Genera un código de lote único de hasta 8 caracteres.
+         * Formato: prefijo(3) + MMDD(4) + índice en base36(1+).
+         * Ejemplo con internal_id "01642": "01605221"
+         */
+        autoLotCode(index) {
+            const rawPrefix = this.form.internal_id
+                ? this.form.internal_id.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 3)
+                : 'LOT'
+            const datePart = moment().format('MMDD')
+            const idxPart = (index + 1).toString(36).toUpperCase()
+            return (rawPrefix + datePart + idxPart).slice(0, 8)
+        },
 
+        addLotTab() {
+            // El lote nuevo va al almacén actualmente seleccionado en el selector.
+            const warehouseId = this.selected_lot_warehouse_id
+                || (this.warehouses.length > 0 ? this.warehouses[0].id : null)
+            this.form.lots_tab.push({
+                id: null,
+                code: this.autoLotCode(this.lots_tab_counter++),
+                quantity: 1,
+                date_of_due: moment().add(30, 'days').format('YYYY-MM-DD'),
+                warehouse_id: warehouseId,
+                has_sales: false,
+            })
+        },
+
+        removeLotTab(index) {
+            this.form.lots_tab.splice(index, 1)
+        },
+
+        /**
+         * Clave de un lote para detección de duplicados en la vista (dentro del mismo almacén).
+         * Para la validación cross-almacén en submit() se usa lotKeyFull().
+         */
+        lotKey(lot) {
+            return `${(lot.code || '').trim()}|${lot.date_of_due || ''}`
+        },
+
+        /**
+         * Clave completa incluyendo warehouse_id — usada en submit() para
+         * verificar el constraint real de la DB: (code, item_id, date_of_due, warehouse_id).
+         */
+        lotKeyFull(lot) {
+            return `${(lot.code || '').trim()}|${lot.date_of_due || ''}|${lot.warehouse_id || ''}`
         },
         changeProductioTab(){
 

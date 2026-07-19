@@ -4,6 +4,7 @@ import Vue from 'vue'
 import TenantItemAditionalInfoSelector from './views/tenant/components/partials/item_extra_info.vue'
 import TenantItemAditionalInfoModal from './views/tenant/components/partials/modal_item_info_attributes.vue'
 import NotificationHeader from './components/NotificationHeader.vue'
+import TenantLotAlertBanner from './views/tenant/common/LotAlertBanner.vue'
 
 import TenantDashboardIndex from '../../modules/Dashboard/Resources/assets/js/views/index.vue'
 import TenantDashboardSalesByProduct from '../../modules/Dashboard/Resources/assets/js/views/items/SalesByProduct.vue'
@@ -807,3 +808,7 @@ Vue.component('tenant-checkout-izipay', CheckoutIzipay)
 Vue.component('tenant-checkout-mercadopago', CheckoutMercadopago)
 Vue.component('checkout-admin', CheckoutAdmin)
 Vue.component('checkout-tenant', CheckoutTenant)
+
+// Bandeja de alertas de lotes (Fase 7: LotAlert). Componente UI usado en
+// encabezados de módulos para mostrar vencimientos próximos.
+Vue.component('tenant-lot-alert-banner', TenantLotAlertBanner)

@@ -126,11 +126,7 @@
 
             
             $document->payments->each(function($payment) use($cash,$isDocument,$cashDocument){
-                CashDocumentPayment::updateOrCreate([
-                    'cash_id' => $cash->id,
-                    $isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id,
-                    'cash_document_id' => optional($cashDocument)->id,
-                ]);
+                $this->syncCashDocumentPayment($cash->id, $payment->id, $isDocument, optional($cashDocument)->id);
             });
 
         }
@@ -190,13 +186,36 @@
                 ?CashDocumentCredit::where('document_id',$payment->document_id)->first()
                 :CashDocumentCredit::where('sale_note_id',$payment->sale_note_id)->first();
 
-            CashDocumentPayment::create([
-                'cash_id' => $cash->id,
-                $isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id,
-                'cash_document_id' => optional($cashDocument)->id,
-                'cash_document_credit_id' => optional($cashDocumentCredit)->id,
-            ]);
+            $this->syncCashDocumentPayment(
+                $cash->id,
+                $payment->id,
+                $isDocument,
+                optional($cashDocument)->id,
+                optional($cashDocumentCredit)->id
+            );
 
+        }
+
+        /**
+         * Amarra un pago a una caja de forma idempotente. La identidad natural
+         * es el pago mismo (un pago físico ocurre en UNA sola caja), no la fila:
+         * por eso la llave es solo document_payment_id / sale_note_payment_id.
+         *
+         * Antes había 4 escritores con llaves distintas (unos incluían
+         * cash_document_id en la llave, otros no) y un mismo pago terminaba
+         * registrado dos veces, inflando los reportes que suman por JOIN. Todos
+         * pasan ahora por aquí. No sobrescribe cash_document_id con null para no
+         * perder el amarre que otro escritor ya haya dejado.
+         */
+        public function syncCashDocumentPayment($cashId, $paymentId, $isDocument = true, $cashDocumentId = null, $cashDocumentCreditId = null)
+        {
+            $paymentField = $isDocument ? 'document_payment_id' : 'sale_note_payment_id';
+
+            $values = ['cash_id' => $cashId];
+            if (!is_null($cashDocumentId)) $values['cash_document_id'] = $cashDocumentId;
+            if (!is_null($cashDocumentCreditId)) $values['cash_document_credit_id'] = $cashDocumentCreditId;
+
+            return CashDocumentPayment::updateOrCreate([$paymentField => $paymentId], $values);
         }
 
         public function deleteAllPayments($payments)

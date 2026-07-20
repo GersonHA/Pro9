@@ -396,11 +396,7 @@ class CashController extends Controller
         ]);
         
         $document->payments->each(function($payment) use($cash,$isDocument,$cashDocument){
-            CashDocumentPayment::updateOrCreate([
-                'cash_id' => $cash->id,
-                $isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id,
-                'cash_document_id' => optional($cashDocument)->id,
-            ]);
+            $this->syncCashDocumentPayment($cash->id, $payment->id, $isDocument, optional($cashDocument)->id);
         });
 
         return response()->json([

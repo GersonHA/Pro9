@@ -116,11 +116,13 @@ class CashController extends Controller
         ]);
         
         $document->payments->each(function($payment) use($cash,$isDocument,$cashDocument){
-            CashDocumentPayment::create([
-                'cash_id' => $cash->id,
-                $isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id,
-                'cash_document_id' => optional($cashDocument)->id,
-            ]);
+            // Idempotente: la identidad es el pago (un pago ocurre en UNA caja), no
+            // la fila. Antes era create() y podía duplicar el amarre — esta API no
+            // usa FinanceTrait, así que la llave se replica aquí a propósito.
+            CashDocumentPayment::updateOrCreate(
+                [$isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id],
+                ['cash_id' => $cash->id, 'cash_document_id' => optional($cashDocument)->id]
+            );
         });
 
         return response()->json([

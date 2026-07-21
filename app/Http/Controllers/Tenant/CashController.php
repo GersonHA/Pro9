@@ -676,8 +676,10 @@ class CashController extends Controller
 
     public function report_cash_excel($cash_id)
     {
-        
-
+        // FIX #35 OOM prod (preventivo): cash 5 + 6,533 cash_documents con
+        // eager loading post-6d7a48e9 mide 397MB peak en mi test. Prod es
+        // 128M → podría OOMEar. Subir solo este método.
+        @ini_set('memory_limit', '512M');
         set_time_limit(0);
         $data = [];
         /** @var Cash $cash */

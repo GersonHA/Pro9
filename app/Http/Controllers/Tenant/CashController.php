@@ -540,6 +540,11 @@ class CashController extends Controller
 
     public function report_products_excel($id)
     {
+        // FIX #35 OOM prod: cash 5 + 19,614 SaleNoteItems con JSON column
+        // 'item' hidrata ~2.7GB en mi test local. Prod container es 128M
+        // → FatalError. Subir solo este método, sin tocar php.ini global.
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(0);
 
         $data = $this->getDataReport($id);
         $filename = "Reporte_POS_PRODUCTOS - {$data['cash']->user->name} - {$data['cash']->date_opening} {$data['cash']->time_opening}";

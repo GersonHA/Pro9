@@ -132,6 +132,12 @@ class CashController extends Controller
      */
     public function setDataToReport($cash_id = 0, $summary = 0) {
 
+        // FIX #35 OOM prod: cash 5 HENAVI pica 374MB en mi test local (eager
+        // load post-37db0793). Prod container = 128MB → FatalError → HTTP 500
+        // blank page (como el que reportó Carlos 16:50pm GMT-5).
+        // Subir solo este método. Cubre TODOS los callers: reportExcel, getPdf
+        // (todos los formatos: ticket, A4, simple_a4, ticket_resumen), etc.
+        @ini_set('memory_limit', '512M');
         set_time_limit(0);
         $data = [];
         /** @var Cash $cash */
@@ -1210,6 +1216,10 @@ class CashController extends Controller
      * @return Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
      */
     public function reportExcel($cash) {
+        // FIX #35 OOM prod: setDataToReport ya tiene ini_set 512M, pero el Excel
+        // render añade ~60MB extra sobre los 374MB del setData. Subir aquí también.
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(0);
         $data = $this->setDataToReport($cash);
         // dd($data);
 

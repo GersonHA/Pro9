@@ -677,6 +677,22 @@ class Quotation extends ModelTenant
         return 0;
     }
 
+    /**
+     *
+     * Total de pagos no-efectivo (tarjeta/Yape/Plin/transferencia) para la
+     * columna "Transferencias" del Resumen Diario. Preserva el guard
+     * applyQuotationToCash() para no doble-contar cotizaciones convertidas.
+     * Ver reconciliación CashReportTrait (RECONCILE B).
+     *
+     * @return float
+     */
+    public function totalNonCashPayments()
+    {
+        if($this->applyQuotationToCash()) return $this->payments()->filterNonCashPayment()->sum('payment');
+
+        return 0;
+    }
+
 
     /**
      *

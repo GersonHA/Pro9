@@ -175,7 +175,7 @@ trait CashReportTrait
                         $data['credit_sales'] += $model_associated->total;
                         
                         $total_cash = $model_associated->totalCashPaymentsWithoutDestination();
-                        $total_transfer = $model_associated->totalTransferPayments();
+                        $total_transfer = $model_associated->totalNonCashPayments();
 
                         $data['amortization_credit_sales']['total_cash'] += $total_cash;
                         $data['amortization_credit_sales']['total_transfer'] += $total_transfer;
@@ -266,7 +266,7 @@ trait CashReportTrait
     public function setDataCashSalesIncome($model_associated, &$data)
     {
         $total_cash = $model_associated->totalCashPaymentsWithoutDestination();
-        $total_transfer = $model_associated->totalTransferPayments();
+        $total_transfer = $model_associated->totalNonCashPayments();
         $total_cash_transfer = $total_cash + $total_transfer;
 
         $data['cash_sales_income']['total_cash'] += $total_cash;
@@ -286,7 +286,7 @@ trait CashReportTrait
     public function setDataCashCreditPurchases($model_associated, &$data)
     {
         $total_cash = $model_associated->totalCashPaymentsWithoutDestination();
-        $total_transfer = $model_associated->totalTransferPayments();
+        $total_transfer = $model_associated->totalNonCashPayments();
         $total_cash_transfer = $total_cash + $total_transfer;
 
         //es una compra por pagar

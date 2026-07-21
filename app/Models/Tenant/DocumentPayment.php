@@ -180,9 +180,23 @@ class DocumentPayment extends ModelTenant
         return $query->where('payment_method_type_id', PaymentMethodType::TRANSFER_PAYMENT_ID);
     }
 
-    
     /**
-     * 
+     * Pagos NO en efectivo (tarjeta, Yape, Plin, transferencia…). Para el
+     * Resumen Diario de caja, que solo tiene 2 columnas y agrupa todo lo
+     * no-efectivo en "Transferencias" para no perder dinero del cuadro.
+     * Ver reconciliación CashReportTrait (RECONCILE B).
+     *
+     * @param  Builder $query
+     * @return Builder
+     */
+    public function scopeFilterNonCashPayment($query)
+    {
+        return $query->where('payment_method_type_id', '!=', PaymentMethodType::CASH_PAYMENT_ID);
+    }
+
+
+    /**
+     *
      * Filtros para obtener pagos en efectivo de un documento aceptado (facturas y boletas)
      *
      * @param  Builder $query

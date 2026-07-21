@@ -881,9 +881,22 @@ class Purchase extends ModelTenant
         return $this->payments()->filterTransferPayment()->sum('payment');
     }
 
+    /**
+     *
+     * Obtener total de pagos no-efectivo (agrupa tarjeta/Yape/Plin/transferencia)
+     * para la columna "Transferencias" del Resumen Diario. Ver reconciliación
+     * CashReportTrait (RECONCILE B).
+     *
+     * @return float
+     */
+    public function totalNonCashPayments()
+    {
+        return $this->payments()->filterNonCashPayment()->sum('payment');
+    }
+
 
     /**
-     * 
+     *
      * Validar si tiene estado permitido para calculos/etc
      *
      * @return bool

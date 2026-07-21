@@ -212,6 +212,9 @@ class CashController extends Controller
      * @return array
      */
     public function close($id) {
+        // cash_documents grandes (HENAVI: 6500+) pueden OOM-ear con 128MB
+        // default de Apache mod_php. Subir a 512M SOLO para este endpoint.
+        @ini_set('memory_limit', '512M');
 
         $cash = Cash::findOrFail($id);
 

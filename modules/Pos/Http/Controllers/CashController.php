@@ -101,8 +101,14 @@ class CashController extends Controller
      * @return string
      */
     public static function getStringPaymentMethod($payment_id) {
-        $payment_method = PaymentMethodType::find($payment_id);
-        return (!empty($payment_method)) ? $payment_method->description : '';
+        // FIX #35 perf: antes hacía PaymentMethodType::find($payment_id) por
+        // cada llamada — en cash 5 eso eran ~4,200 queries. Cache estática:
+        // solo ~10 payment_method_types existen, se cargan una vez por request.
+        static $cache = null;
+        if ($cache === null) {
+            $cache = PaymentMethodType::pluck('description', 'id')->toArray();
+        }
+        return $cache[$payment_id] ?? '';
     }
 
     /**
@@ -137,7 +143,41 @@ class CashController extends Controller
         $credit = 0;
         $cash_egress = 0;
         $cash_final_balance = 0;
-        $cash_documents = $cash->cash_documents;
+        // FIX #35 perf: eager-load todas las relaciones que el foreach abajo toca.
+        // Antes era lazy → O(N*K) queries (~700K-1M en cash 5). Ahora ~50 batched IN.
+        // Reutiliza el mismo patrón que el commit 6d7a48e9 en Tenant CashController.
+        $cash_documents = $cash->cash_documents()->with([
+            'sale_note.customer:id,name,number',
+            'sale_note.payments',
+            'sale_note.payments.cashDocumentPayments',
+            'sale_note.tip',
+            'sale_note.documents',
+            // FIX #35 perf: items.collected en getFormatItemToReport (L876) accede
+            // a $item->relation_item->category->name — sin eager-load son ~20K queries
+            // sobre sale_note.items en cash 5.
+            'sale_note.items.relation_item:id,category_id',
+            'sale_note.items.relation_item.category:id,name',
+            'document.payments',
+            'document.payments.cashDocumentPayments',
+            'document.document_type:id,description',
+            'document.tip',
+            'document.fee',
+            // Mismo patrón para documents.items.
+            'document.items.relation_item:id,category_id',
+            'document.items.relation_item.category:id,name',
+            'technical_service.customer:id,name,number',
+            'technical_service.payments',
+            'technical_service.payments.cashDocumentPayments',
+            'purchase.supplier:id,name,number',
+            'purchase.payments',
+            'purchase.purchase_payments',
+            'purchase.document_type:id,description',
+            'expense_payment',
+            'expense_payment.expense.expense_type:id,description',
+            'expense_payment.expense.supplier:id,name,number',
+            'quotation.payments',
+            'quotation.payments.cashDocumentPayments',
+        ])->get();
         $all_documents = [];
 
         // Metodos de pago de no credito
@@ -272,11 +312,16 @@ class CashController extends Controller
                         $date_payment=$value->date_of_payment->format('Y-m-d');
                     }
                 }
+                // FIX #35 perf: usar relación eager-loaded en vez de query builder.
+                // Antes: $sale_note->payments()->whereHas(...)->sum('payment') —
+                // 'payments()' devuelve un Builder NUEVO cada vez, no la relación
+                // eager-loaded. Generaba ~6,500 queries extra en cash 5.
+                // Ahora: filter() sobre la Collection ya cargada.
                 $totalPayments = (!in_array($sale_note->state_type_id, $status_type_id))
                     ? 0
-                    : $sale_note->payments()
-                    ->whereHas('cashDocumentPayments', function ($query) use ($cash_id) {
-                        $query->where('cash_id', $cash_id);
+                    : $sale_note->payments
+                    ->filter(function ($p) use ($cash_id) {
+                        return $p->cashDocumentPayments->contains('cash_id', $cash_id);
                     })
                     ->sum('payment');
                 $cash_income += $totalPayments;
@@ -410,11 +455,12 @@ class CashController extends Controller
                 }
                 $order_number = $document->document_type_id === '01' ? 1 : 2;
 
+                // FIX #35 perf: idem sale_note — usar Collection eager-loaded.
                 $totalPayments = (!in_array($document->state_type_id, $status_type_id))
                     ? 0
-                    : $document->payments()
-                    ->whereHas('cashDocumentPayments', function ($query) use ($cash_id) {
-                        $query->where('cash_id', $cash_id);
+                    : $document->payments
+                    ->filter(function ($p) use ($cash_id) {
+                        return $p->cashDocumentPayments->contains('cash_id', $cash_id);
                     })
                     ->sum('payment');
                 $cash_income += $totalPayments;
@@ -728,7 +774,12 @@ class CashController extends Controller
             $incomes=$incomes->where('time_of_issue','>=', $cash->time_opening);
         }
 
-        $incomes=$incomes->get();
+        // FIX #35 perf: eager-load payments.payment_method_type + income_type para
+        // eliminar lazy loads en el foreach de abajo.
+        $incomes=$incomes->with([
+            'payments.payment_method_type:id,description',
+            'income_type:id,description',
+        ])->get();
         
         if (isset($incomes[0])) {
 

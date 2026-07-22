@@ -121,7 +121,14 @@ class CashController extends Controller
             // usa FinanceTrait, así que la llave se replica aquí a propósito.
             CashDocumentPayment::updateOrCreate(
                 [$isDocument ? 'document_payment_id' : 'sale_note_payment_id' => $payment->id],
-                ['cash_id' => $cash->id, 'cash_document_id' => optional($cashDocument)->id]
+                [
+                    'cash_id' => $cash->id,
+                    'cash_document_id' => optional($cashDocument)->id,
+                    // Plan #B (Responsable per-row): registrar QUÉN ejecuta el
+                    // movimiento (registra la venta, registra el pago). Reporte
+                    // Pos usa este user_id en lugar del dueño de la caja.
+                    'user_id' => auth()->user()->id,
+                ]
             );
         });
 

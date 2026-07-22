@@ -64,6 +64,15 @@ class CashDocument extends ModelTenant
         return $this->belongsTo(Quotation::class);
     }
 
+    // Plan #B (Responsable per-row): relación al pivote que enlaza este
+    // cash_document con sus pagos (cash_document_payments). Usado por
+    // Pos CashController::getResponsibleName() para identificar al usuario
+    // que ejecutó cada movimiento de caja.
+    public function cashDocumentPayments()
+    {
+        return $this->hasMany(CashDocumentPayment::class, 'cash_document_id', 'id');
+    }
+
     // public function expense()
     // {
     //     return $this->belongsTo(Expense::class);

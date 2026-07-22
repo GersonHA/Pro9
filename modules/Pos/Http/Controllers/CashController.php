@@ -288,7 +288,12 @@ class CashController extends Controller
             /** Documentos de Tipo Nota de venta */
             if ($cash_document->sale_note) {
                 $sale_note = $cash_document->sale_note;
-                $pays = [];
+                // Migración 6526b745 (caja): inicializar como Collection (no array)
+                // para que `$pays->isNotEmpty()` (L377) funcione aunque NO entremos
+                // al bloque filter() de L309 — caso: NV anulada (state_type_id fuera
+                // de $status_type_id). Antes era `$pays = []` → 'Call to a member
+                // function isNotEmpty() on array' en NV canceladas.
+                $pays = collect();
                 $document = $sale_note->documents->first(); 
                 $description= null;
                 $number_full = null;

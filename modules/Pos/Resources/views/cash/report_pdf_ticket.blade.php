@@ -87,6 +87,25 @@
     <p><strong>Total propinas: </strong>S/ {{$data['total_tips'] ?? 0}} </p>
     <p><strong>Total efectivo CPE: </strong>S/ {{$data['total_payment_cash_01_document'] ?? 0}} </p>
     <p><strong>Total efectivo NOTA DE VENTA: </strong>S/ {{$data['total_payment_cash_01_sale_note'] ?? 0}} </p>
+
+    {{-- Migración 6526b745 (caja): desglose por método de pago separado CPE/NV --}}
+    <p style="text-decoration: underline; margin-top: 10px;"><strong>CPE POR MÉTODO DE PAGO</strong></p>
+    @if(isset($data['methods_cpe']) && count($data['methods_cpe']) > 0)
+        @foreach($data['methods_cpe'] as $metodo => $monto)
+            <p><strong>Total {{ $metodo }}: </strong> S/ {{ number_format($monto, 2, '.', '') }}</p>
+        @endforeach
+    @else
+        <p>S/ 0.00</p>
+    @endif
+
+    <p style="text-decoration: underline; margin-top: 10px;"><strong>NOTA DE VENTA POR MÉTODO</strong></p>
+    @if(isset($data['methods_nv']) && count($data['methods_nv']) > 0)
+        @foreach($data['methods_nv'] as $metodo => $monto)
+            <p><strong>Total {{ $metodo }}: </strong> S/ {{ number_format($monto, 2, '.', '') }}</p>
+        @endforeach
+    @else
+        <p>S/ 0.00</p>
+    @endif
 </div>
 @if($data['cash_documents_total']>0)
     <div class="" style="width:100% !important">

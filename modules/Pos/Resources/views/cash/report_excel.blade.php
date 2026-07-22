@@ -162,6 +162,23 @@
                 {{--<p><strong>Egreso: </strong>S/ {{$data['cash_egress']}} </p>--}}
             </td>
         </tr>
+        {{-- Migración 6526b745 (caja): desglose de pagos por método (CPE vs NV, efectivo vs otros). --}}
+        <tr>
+            <td class="td-custom">
+                <p><strong>Total efectivo CPE: </strong>S/ {{$data['total_payment_cash_01_document'] ?? 0}}</p>
+            </td>
+            <td class="td-custom">
+                <p><strong>Total efectivo NOTA DE VENTA: </strong>S/ {{$data['total_payment_cash_01_sale_note'] ?? 0}}</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="td-custom">
+                <p><strong>Total de otros medios de pago CPE: </strong>S/ {{$data['total_payment_cash_document'] ?? 0}}</p>
+            </td>
+            <td class="td-custom">
+                <p><strong>Total de otros medios de pago NOTA DE VENTA: </strong>S/ {{$data['total_payment_cash_sale_note'] ?? 0}}</p>
+            </td>
+        </tr>
     </table>
 </div>
 @if($data['cash_documents_total']>0)
@@ -196,13 +213,16 @@
                 <thead>
                 <tr>
                     <th>#</th>
-                    <th>Tipo transacción</th>
+                    {{-- Migración 6526b745 (caja): 3 columnas extraídas del report_excel de pro8 --}}
+                    <th>Tipo de transacción</th>
+                    <th>Responsable</th>
                     <th>Tipo documento</th>
                     <th>Documento</th>
-                    <th>Fecha emisión</th>
+                    <th>Fecha y hora de emisión</th>
                     <th>Cliente/Proveedor</th>
                     <th>N° Documento</th>
                     <th>Moneda</th>
+                    <th>Método de Pago</th>
                     <th>Total</th>
                 </tr>
                 </thead>
@@ -214,7 +234,10 @@
                             <br> {!! $value['usado'] !!}  <br> <strong>{{$value['tipo']}}</strong> --}}
                         </td>
                         <td class="celda">
-                            {{ $value['type_transaction'] }}
+                            {{ $value['type_transaction'] ?? 'Venta' }}
+                        </td>
+                        <td class="celda">
+                            {{ $value['user_name'] ?? '-' }}
                         </td>
                         <td class="celda">
                             {{ $value['document_type_description'] }}
@@ -223,7 +246,7 @@
                             {{ $value['number'] }}
                         </td>
                         <td class="celda">
-                            {{ $value['date_of_issue'] }}
+                            {{ $value['date_time_of_issue'] ?? ($value['date_of_issue'] ?? '-') }}
                         </td>
                         <td class="celda">
                             {{ $value['customer_name'] }}
@@ -233,6 +256,9 @@
                         </td>
                         <td class="celda">
                             {{ $value['currency_type_id'] }}
+                        </td>
+                        <td class="celda">
+                            {{ $value['payment_method_description'] ?? '-' }}
                         </td>
                         <td class="celda">
                             {{ $value['total_string'] }}

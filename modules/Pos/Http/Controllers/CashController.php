@@ -141,7 +141,12 @@ class CashController extends Controller
         set_time_limit(0);
         $data = [];
         /** @var Cash $cash */
-        $cash = Cash::findOrFail($cash_id);
+        // Migración 6526b745 (caja): eager-load user.id,name,establishment_id — para
+        // $cash->user->name en cada $temp (sin N+1) y para preservar la FK que
+        // necesita $cash->user->establishment en línea siguiente. Sin esta columna,
+        // $cash->user->establishment devuelve null y crashea Excel con
+        // "Attempt to read property \"address\" on null".
+        $cash = Cash::with('user:id,name,establishment_id')->findOrFail($cash_id);
         $establishment = $cash->user->establishment;
         $status_type_id = self::getStateTypeId();
         $final_balance = 0;
@@ -155,6 +160,10 @@ class CashController extends Controller
         $cash_documents = $cash->cash_documents()->with([
             'sale_note.customer:id,name,number',
             'sale_note.payments',
+            // Migración 6526b745 (caja): payment_method_type para
+            // $value['payment_method_description'] del report_excel/pdf (sin esto,
+            // sería N+1: ~30K queries en cash 5 HENAVI).
+            'sale_note.payments.payment_method_type:id,description',
             'sale_note.payments.cashDocumentPayments',
             'sale_note.tip',
             'sale_note.documents',
@@ -164,6 +173,7 @@ class CashController extends Controller
             'sale_note.items.relation_item:id,category_id',
             'sale_note.items.relation_item.category:id,name',
             'document.payments',
+            'document.payments.payment_method_type:id,description',
             'document.payments.cashDocumentPayments',
             'document.document_type:id,description',
             'document.tip',
@@ -173,15 +183,18 @@ class CashController extends Controller
             'document.items.relation_item.category:id,name',
             'technical_service.customer:id,name,number',
             'technical_service.payments',
+            'technical_service.payments.payment_method_type:id,description',
             'technical_service.payments.cashDocumentPayments',
             'purchase.supplier:id,name,number',
             'purchase.payments',
             'purchase.purchase_payments',
+            'purchase.purchase_payments.payment_method_type:id,description',
             'purchase.document_type:id,description',
             'expense_payment',
             'expense_payment.expense.expense_type:id,description',
             'expense_payment.expense.supplier:id,name,number',
             'quotation.payments',
+            'quotation.payments.payment_method_type:id,description',
             'quotation.payments.cashDocumentPayments',
         ])->get();
         $all_documents = [];
@@ -221,6 +234,12 @@ class CashController extends Controller
         $data['establishment_address'] = $establishment->address;
         $data['establishment_department_description'] = $establishment->department->description;
         $data['establishment_district_description'] = $establishment->district->description;
+
+        // Migración 6526b745 (caja): desglose por método de pago, separado en
+        // CPE (Factura/Boleta/NC/ND) y NV (Nota de Venta) para report_pdf_ticket.
+        // keys = nombre del método, values = suma de pagos con destino esta caja.
+        $data['methods_cpe'] = [];
+        $data['methods_nv'] = [];
         $data['nota_venta'] = 0;
 
         $data['total_tips'] = 0;
@@ -291,6 +310,12 @@ class CashController extends Controller
                         $pays = $sale_note->payments->filter(function ($payment) use ($cash_id) {
                             return $payment->cashDocumentPayments->contains('cash_id', $cash_id);
                         });
+                        // Migración 6526b745 (caja): alimenta $data['methods_nv']
+                        // (desglose NV por método) usado por report_pdf_ticket.
+                        foreach ($pays as $pay) {
+                            $method_name = optional($pay->payment_method_type)->description ?? '-';
+                            $data['methods_nv'][$method_name] = ($data['methods_nv'][$method_name] ?? 0) + $pay->payment;
+                        }
                         foreach ($methods_payment as $record)
                         {
                             $record_total = $pays->where('payment_method_type_id', $record->id)->sum('payment');
@@ -335,9 +360,11 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Venta',
+                    'user_name'                 => $cash->user->name,
                     'document_type_description' => $document ?  $description : 'NOTA DE VENTA',
                     'number'                    => $document ? $number_full : $sale_note->number_full,
                     'date_of_issue'             => $date_payment,
+                    'date_time_of_issue'        => $sale_note->created_at ? $sale_note->created_at->format('Y-m-d H:i:s') : ($sale_note->date_of_issue ? $sale_note->date_of_issue->format('Y-m-d') : '-'),
                     'date_sort'                 => $sale_note->date_of_issue,
                     'customer_name'             => $sale_note->customer->name,
                     'customer_number'           => $sale_note->customer->number,
@@ -347,6 +374,9 @@ class CashController extends Controller
                     'usado'                     => $usado." ".__LINE__,
                     'tipo'                      => 'sale_note',
                     'total_payments'            => $totalPayments,
+                    'payment_method_description'=> $pays->isNotEmpty()
+                        ? $pays->pluck('payment_method_type.description')->filter()->unique()->implode(', ')
+                        : '-',
                     'type_transaction_prefix'   => 'income',
                     'order_number_key'          => $order_number.'_'.$sale_note->created_at->format('YmdHis'),
                 ];
@@ -371,6 +401,12 @@ class CashController extends Controller
                 $pays = $document->payments->filter(function ($payment) use ($cash_id) {
                     return $payment->cashDocumentPayments->contains('cash_id', $cash_id);
                 });
+                // Migración 6526b745 (caja): alimenta $data['methods_cpe']
+                // (desglose CPE por método) usado por report_pdf_ticket.
+                foreach ($pays as $pay) {
+                    $method_name = optional($pay->payment_method_type)->description ?? '-';
+                    $data['methods_cpe'][$method_name] = ($data['methods_cpe'][$method_name] ?? 0) + $pay->payment;
+                }
                 $pagado = 0;
                 if (in_array($document->state_type_id, $status_type_id)) {
                     if ($payment_condition_id == '01') {
@@ -474,9 +510,11 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Venta',
+                    'user_name'                 => $cash->user->name,
                     'document_type_description' => $document->document_type->description,
                     'number'                    => $document->number_full,
                     'date_of_issue'             => $date_payment,
+                    'date_time_of_issue'        => $document->created_at ? $document->created_at->format('Y-m-d H:i:s') : ($document->date_of_issue ? $document->date_of_issue->format('Y-m-d') : '-'),
                     'date_sort'                 => $document->date_of_issue,
                     'customer_name'             => $document->customer->name,
                     'customer_number'           => $document->customer->number,
@@ -487,6 +525,9 @@ class CashController extends Controller
 
                     'tipo' => 'document',
                     'total_payments'            => $totalPayments,
+                    'payment_method_description'=> $pays->isNotEmpty()
+                        ? $pays->pluck('payment_method_type.description')->filter()->unique()->implode(', ')
+                        : '-',
                     'type_transaction_prefix'   => 'income',
                     'order_number_key'          => $order_number.'_'.$document->created_at->format('YmdHis'),
 
@@ -533,9 +574,11 @@ class CashController extends Controller
 
                     $temp = [
                         'type_transaction'          => 'Venta',
+                        'user_name'                 => $cash->user->name,
                         'document_type_description' => 'Servicio técnico',
                         'number'                    => 'TS-'.$technical_service->id,//$value->document->number_full,
                         'date_of_issue'             => $technical_service->date_of_issue->format('Y-m-d'),
+                        'date_time_of_issue'        => $technical_service->created_at ? $technical_service->created_at->format('Y-m-d H:i:s') : $technical_service->date_of_issue->format('Y-m-d'),
                         'date_sort'                 => $technical_service->date_of_issue,
                         'customer_name'             => $technical_service->customer->name,
                         'customer_number'           => $technical_service->customer->number,
@@ -545,6 +588,9 @@ class CashController extends Controller
                         'usado'                     => $usado." ".__LINE__,
                         'tipo'                      => 'technical_service',
                         'total_payments'            => $technical_service->payments->sum('payment'),
+                        'payment_method_description'=> $technical_service->payments->isNotEmpty()
+                            ? $technical_service->payments->pluck('payment_method_type.description')->filter()->unique()->implode(', ')
+                            : '-',
                         'type_transaction_prefix'   => 'income',
                         'order_number_key'          => $order_number.'_'.$technical_service->created_at->format('YmdHis'),
                     ];
@@ -577,9 +623,11 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Gasto',
+                    'user_name'                 => $cash->user->name,
                     'document_type_description' => $expense_payment->expense->expense_type->description,
                     'number'                    => $expense_payment->expense->number,
                     'date_of_issue'             => $expense_payment->expense->date_of_issue->format('Y-m-d'),
+                    'date_time_of_issue'        => $expense_payment->expense->created_at ? $expense_payment->expense->created_at->format('Y-m-d H:i:s') : $expense_payment->expense->date_of_issue->format('Y-m-d'),
                     'date_sort'                 => $expense_payment->expense->date_of_issue,
                     'customer_name'             => $expense_payment->expense->supplier->name,
                     'customer_number'           => $expense_payment->expense->supplier->number,
@@ -591,6 +639,7 @@ class CashController extends Controller
                     'tipo' => 'expense_payment',
                     'total_payments'            => $total_expense_payment,
                     // 'total_payments'            => -$expense_payment->payment,
+                    'payment_method_description'=> $methods_payment->firstWhere('id', $expense_payment->payment_method_type_id)->name ?? '-',
                     'type_transaction_prefix'   => 'egress',
                     'order_number_key'          => $order_number.'_'.$expense_payment->expense->created_at->format('YmdHis'),
 
@@ -632,9 +681,11 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Compra',
+                    'user_name'                 => $cash->user->name,
                     'document_type_description' => $purchase->document_type->description,
                     'number'                    => $purchase->number_full,
                     'date_of_issue'             => $purchase->date_of_issue->format('Y-m-d'),
+                    'date_time_of_issue'        => $purchase->created_at ? $purchase->created_at->format('Y-m-d H:i:s') : $purchase->date_of_issue->format('Y-m-d'),
                     'date_sort'                 => $purchase->date_of_issue,
                     'customer_name'             => $purchase->supplier->name,
                     'customer_number'           => $purchase->supplier->number,
@@ -643,6 +694,9 @@ class CashController extends Controller
                     'usado'                     => $usado." ".__LINE__,
                     'tipo'                      => 'purchase',
                     'total_payments'            => (!in_array($purchase->state_type_id, $status_type_id)) ? 0 : $purchase->payments->sum('payment'),
+                    'payment_method_description'=> $payments->isNotEmpty()
+                        ? $payments->pluck('payment_method_type.description')->filter()->unique()->implode(', ')
+                        : '-',
                     'type_transaction_prefix'   => 'egress',
                     'order_number_key'          => $order_number.'_'.$purchase->created_at->format('YmdHis'),
                 ];
@@ -685,9 +739,11 @@ class CashController extends Controller
 
                     $temp = [
                         'type_transaction'          => 'Venta (Pago a cuenta)',
+                        'user_name'                 => $cash->user->name,
                         'document_type_description' => 'COTIZACION  ',
                         'number'                    => $quotation->number_full,
                         'date_of_issue'             => $quotation->date_of_issue->format('Y-m-d'),
+                        'date_time_of_issue'        => $quotation->created_at ? $quotation->created_at->format('Y-m-d H:i:s') : $quotation->date_of_issue->format('Y-m-d'),
                         'date_sort'                 => $quotation->date_of_issue,
                         'customer_name'             => $quotation->customer->name,
                         'customer_number'           => $quotation->customer->number,
@@ -696,6 +752,9 @@ class CashController extends Controller
                         'usado'                     => $usado." ".__LINE__,
                         'tipo'                      => 'quotation',
                         'total_payments'            => (!in_array($quotation->state_type_id, $status_type_id)) ? 0 : $quotation->payments->sum('payment'),
+                        'payment_method_description'=> $quotation->payments->isNotEmpty()
+                            ? $quotation->payments->pluck('payment_method_type.description')->filter()->unique()->implode(', ')
+                            : '-',
                         'type_transaction_prefix'   => 'income',
                         'order_number_key'          => $order_number.'_'.$quotation->created_at->format('YmdHis'),
                     ];
@@ -740,9 +799,11 @@ class CashController extends Controller
 
                         $temp = [
                             'type_transaction'          => $type,
+                            'user_name'                 => $cash->user->name,
                             'document_type_description' => $document->document_type->description,
                             'number'                    => $document->number_full,
                             'date_of_issue'             => $document->date_of_issue->format('Y-m-d'),
+                            'date_time_of_issue'        => $document->created_at ? $document->created_at->format('Y-m-d H:i:s') : $document->date_of_issue->format('Y-m-d'),
                             'date_sort'                 => $document->date_of_issue,
                             'customer_name'             => $document->customer->name,
                             'customer_number'           => $document->customer->number,
@@ -751,6 +812,7 @@ class CashController extends Controller
                             'currency_type_id'          => $document->currency_type_id,
                             'usado'                     => $usado.' '.__LINE__,
                             'tipo'                      => 'document',
+                            'payment_method_description'=> '-',
                             'type_transaction_prefix'   => $note->isDebit() ? 'income' : 'egress',
                             'order_number_key'          => $order_number.'_'.$document->created_at->format('YmdHis'),
                         ];

@@ -289,6 +289,25 @@
                 </p>
             </td>
         </tr>
+        {{-- Migración 6526b745 (caja): 2 celdas extraídas del report_pdf_simple_a4 de pro8 --}}
+        <tr>
+            <td class="td-custom">
+                <p>
+                    <strong>
+                        Total de otros medios de pago CPE:
+                    </strong>
+                    S/ {{$data['total_payment_cash_document'] ?? 0}}
+                </p>
+            </td>
+            <td class="td-custom">
+                <p>
+                    <strong>
+                        Total de otros medios de pago NOTA DE VENTA:
+                    </strong>
+                    S/ {{$data['total_payment_cash_sale_note'] ?? 0}}
+                </p>
+            </td>
+        </tr>
 
     </table>
 </div>

@@ -97,12 +97,14 @@ class UserController extends Controller
             ->where('state', true)
             ->get()
             ->transform(function($row) {
-                // Mostrar siempre "Caja #ID - cajero" para que el select nunca
-                // quede en blanco si el user no carga o su nombre es null.
+                // Alinear con pro8 (Plan #C): el label del selector "Caja por
+                // defecto" apunta al USUARIO (cajero), no a la caja. El ID de
+                // la caja es solo la PK de control - al admin le basta el
+                // nombre del cajero para identificar la caja.
                 $cajero = $row->user && $row->user->name ? $row->user->name : 'Sin asignar';
                 return [
                     'id' => $row->id,
-                    'description' => "Caja #{$row->id} - {$cajero}"
+                    'description' => "{$cajero}"
                 ];
             });
 

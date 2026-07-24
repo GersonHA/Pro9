@@ -788,6 +788,9 @@ if ($hostname) {
             Route::get('cash/close/{cash}', 'Tenant\CashController@close');
             Route::get('cash/report/{cash}', 'Tenant\CashController@report');
             Route::get('cash/report', 'Tenant\CashController@report_general');
+            // Panel Auditoría de Caja — port pro8 19e8fc86 (2026-07-21)
+            Route::get('cash/get-boxes-audit', 'Tenant\CashController@getBoxesForAudit');
+            Route::get('cash/get-audit-transactions/{id}', 'Tenant\CashController@getAuditTransactions');
 
             Route::get('cash/record/{cash}', 'Tenant\CashController@record');
             Route::delete('cash/{cash}', 'Tenant\CashController@destroy');

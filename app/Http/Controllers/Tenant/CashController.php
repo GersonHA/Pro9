@@ -163,6 +163,17 @@ class CashController extends Controller
             if(!$id){
                 $cash->date_opening = date('Y-m-d');
                 $cash->time_opening = date('H:i:s');
+
+                // Auto-referencia (formato pro8): si el cajero deja el campo
+                // "Número de Referencia" en blanco al aperturar, generamos
+                // "ddmyyy-Nombre" usando la fecha del día y el primer nombre
+                // del usuario logueado. Aterriza p.ej. "050326-Carlos".
+                // Si el admin proporciona valor manual, respetamos el suyo.
+                if (empty($cash->reference_number)) {
+                    $date_format = date('dmy'); // Genera: 050326
+                    $first_name = explode(' ', auth()->user()->name)[0]; // Saca "Carlos"
+                    $cash->reference_number = "{$date_format}-{$first_name}";
+                }
             }
 
             $cash->save();

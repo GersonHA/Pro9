@@ -126,6 +126,30 @@ class CashController extends Controller
     }
 
     /**
+     * Plan #B (Responsable per-row): devuelve el nombre del usuario que ejecutó
+     * el movimiento de caja para una fila específica del reporte. Prioriza el
+     * user_id del pivote cashDocumentPayments (registrado por syncCashDocumentPayment
+     * al crear el movimiento). Si el pivote es antiguo y tiene user_id NULL, cae
+     * al dueño de la caja como fallback.
+     *
+     * @param  \App\Models\Tenant\CashDocument  $cash_document
+     * @param  int                              $cash_id
+     * @param  \App\Models\Tenant\Cash          $cash
+     * @return string
+     */
+    public static function getResponsibleName($cash_document, $cash_id, $cash)
+    {
+        $pivot = $cash_document->cashDocumentPayments
+            ->firstWhere('cash_id', $cash_id);
+
+        if ($pivot && $pivot->user) {
+            return $pivot->user->name;
+        }
+
+        return $cash->user->name;
+    }
+
+    /**
      * @param int $cash_id
      *
      * @return array
@@ -196,6 +220,11 @@ class CashController extends Controller
             'quotation.payments',
             'quotation.payments.payment_method_type:id,description',
             'quotation.payments.cashDocumentPayments',
+            // Plan #B (Responsable per-row): cargar el user asociado al pivote
+            // cashDocumentPayments de cada cash_document. Usado por
+            // getResponsibleName() para mostrar "Responsable" por fila en lugar
+            // del dueño de la caja. user:id,name evita cargar columnas inútiles.
+            'cashDocumentPayments.user:id,name',
         ])->get();
         $all_documents = [];
 
@@ -365,7 +394,7 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Venta',
-                    'user_name'                 => $cash->user->name,
+                    'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                     'document_type_description' => $document ?  $description : 'NOTA DE VENTA',
                     'number'                    => $document ? $number_full : $sale_note->number_full,
                     'date_of_issue'             => $date_payment,
@@ -515,7 +544,7 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Venta',
-                    'user_name'                 => $cash->user->name,
+                    'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                     'document_type_description' => $document->document_type->description,
                     'number'                    => $document->number_full,
                     'date_of_issue'             => $date_payment,
@@ -579,7 +608,7 @@ class CashController extends Controller
 
                     $temp = [
                         'type_transaction'          => 'Venta',
-                        'user_name'                 => $cash->user->name,
+                        'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                         'document_type_description' => 'Servicio técnico',
                         'number'                    => 'TS-'.$technical_service->id,//$value->document->number_full,
                         'date_of_issue'             => $technical_service->date_of_issue->format('Y-m-d'),
@@ -628,7 +657,7 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Gasto',
-                    'user_name'                 => $cash->user->name,
+                    'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                     'document_type_description' => $expense_payment->expense->expense_type->description,
                     'number'                    => $expense_payment->expense->number,
                     'date_of_issue'             => $expense_payment->expense->date_of_issue->format('Y-m-d'),
@@ -686,7 +715,7 @@ class CashController extends Controller
 
                 $temp = [
                     'type_transaction'          => 'Compra',
-                    'user_name'                 => $cash->user->name,
+                    'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                     'document_type_description' => $purchase->document_type->description,
                     'number'                    => $purchase->number_full,
                     'date_of_issue'             => $purchase->date_of_issue->format('Y-m-d'),
@@ -744,7 +773,7 @@ class CashController extends Controller
 
                     $temp = [
                         'type_transaction'          => 'Venta (Pago a cuenta)',
-                        'user_name'                 => $cash->user->name,
+                        'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                         'document_type_description' => 'COTIZACION  ',
                         'number'                    => $quotation->number_full,
                         'date_of_issue'             => $quotation->date_of_issue->format('Y-m-d'),
@@ -804,7 +833,7 @@ class CashController extends Controller
 
                         $temp = [
                             'type_transaction'          => $type,
-                            'user_name'                 => $cash->user->name,
+                            'user_name'                 => self::getResponsibleName($cash_document, $cash_id, $cash),
                             'document_type_description' => $document->document_type->description,
                             'number'                    => $document->number_full,
                             'date_of_issue'             => $document->date_of_issue->format('Y-m-d'),

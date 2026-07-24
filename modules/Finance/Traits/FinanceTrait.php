@@ -207,13 +207,17 @@
          * pasan ahora por aquí. No sobrescribe cash_document_id con null para no
          * perder el amarre que otro escritor ya haya dejado.
          */
-        public function syncCashDocumentPayment($cashId, $paymentId, $isDocument = true, $cashDocumentId = null, $cashDocumentCreditId = null)
+        public function syncCashDocumentPayment($cashId, $paymentId, $isDocument = true, $cashDocumentId = null, $cashDocumentCreditId = null, $userId = null)
         {
             $paymentField = $isDocument ? 'document_payment_id' : 'sale_note_payment_id';
 
             $values = ['cash_id' => $cashId];
             if (!is_null($cashDocumentId)) $values['cash_document_id'] = $cashDocumentId;
             if (!is_null($cashDocumentCreditId)) $values['cash_document_credit_id'] = $cashDocumentCreditId;
+            // Plan #B (Responsable per-row): registrar QUÉN creó este pivote. Si
+            // no se pasa (p.ej. backfill o tests), el campo queda NULL y el
+            // reporte cae al fallback $cash->user->name.
+            if (!is_null($userId)) $values['user_id'] = $userId;
 
             return CashDocumentPayment::updateOrCreate([$paymentField => $paymentId], $values);
         }

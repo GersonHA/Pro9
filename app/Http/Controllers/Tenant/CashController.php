@@ -24,6 +24,9 @@ use Modules\Finance\Traits\FinanceTrait;
 use Modules\Pos\Models\CashTransaction;
 use App\Models\Tenant\CashDocumentCredit;
 use Modules\Finance\Models\Income;
+use Modules\Finance\Models\GlobalPayment;
+use App\Models\Tenant\DocumentPayment;
+use App\Models\Tenant\SaleNotePayment;
 use App\CoreFacturalo\Helpers\Template\ReportHelper;
 use Carbon\Carbon;
 use Modules\Restaurant\Models\RestaurantTable;
@@ -1296,6 +1299,143 @@ class CashController extends Controller
             $cache = PaymentMethodType::pluck('description', 'id')->toArray();
         }
         return $cache[$payment_id] ?? '';
+    }
+
+    /**
+     * Panel de Auditoría Forense — lista de cajas auditables.
+     *
+     * Port de pro8 L1213-1251 (commit 19e8fc86). Devuelve todas las cajas
+     * (abiertas y cerradas) con descripción enriquecida para el selector
+     * "Seleccione Caja a Auditar" del frontend cash/index.vue.
+     *
+     * Frontend consumía esta ruta desde #216 y devolvía HTTP 500 porque
+     * el método nunca se portó a Pro9. Rutas declaradas pero métodos ausentes.
+     */
+    public function getBoxesForAudit()
+    {
+        try {
+            $cajas = Cash::with('user')->orderBy('id', 'desc')->get();
+
+            $formatted = $cajas->map(function ($caja) {
+                $estado = $caja->state ? '🟢 ABIERTA' : '🔴 CERRADA';
+
+                $fecha = 'Sin fecha';
+                if ($caja->date_opening) {
+                    $fecha = Carbon::parse($caja->date_opening)->format('d/m/Y');
+                } elseif ($caja->created_at) {
+                    $fecha = $caja->created_at->format('d/m/Y');
+                }
+
+                $usuario = $caja->user ? $caja->user->name : 'Administrador';
+                $referencia = $caja->reference_number ? $caja->reference_number : $caja->id;
+
+                return [
+                    'id' => $caja->id,
+                    'description' => "Caja {$referencia} | {$usuario} | {$fecha} ({$estado})",
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error Interno: ' . $e->getMessage() . ' en la línea ' . $e->getLine(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Panel de Auditoría Forense — transacciones de una caja específica.
+     *
+     * Port de pro8 L1254-1330 (commit 19e8fc86). Lee GlobalPayments con
+     * destination_type=Cash y destination_id=$id. Deduces tipo de pago
+     * (SaleNote/Document/CashTransaction=Saldo Inicial). Ordena por fecha.
+     *
+     * Diferencias vs pro8: este método en Pro9 reemplaza los FQN por
+     * aliases ya importados (Cash en lugar de \App\Models\Tenant\Cash,
+     * GlobalPayment en lugar de \Modules\Finance\Models\GlobalPayment,
+     * etc.) para mantener consistencia con el resto del archivo.
+     */
+    public function getAuditTransactions($id)
+    {
+        try {
+            $cash = Cash::findOrFail($id);
+
+            $globalPayments = GlobalPayment::where('destination_id', $cash->id)
+                ->where('destination_type', Cash::class)
+                ->with(['payment.payment_method_type', 'user'])
+                ->get();
+
+            $transactions = [];
+
+            foreach ($globalPayments as $gp) {
+                $payment = $gp->payment;
+                if (!$payment) continue;
+
+                $number_full = 'S/N';
+                $customer_name = 'Clientes - Varios';
+                $customer_number = '';
+
+                $model = null;
+                if ($gp->payment_type === SaleNotePayment::class) {
+                    $model = $payment->sale_note;
+                } elseif ($gp->payment_type === DocumentPayment::class) {
+                    $model = $payment->document;
+                } elseif ($gp->payment_type === CashTransaction::class) {
+                    // Saldo Inicial de la apertura
+                    $number_full = 'SALDO INICIAL';
+                }
+
+                if ($model) {
+                    $number_full = $model->number_full ?? ($model->series . '-' . $model->number);
+                    $customer_name = $model->customer->name ?? 'Clientes - Varios';
+                    $customer_number = $model->customer->number ?? '';
+                }
+
+                $monto = (float) $payment->payment;
+                $responsable = $gp->user->name ?? ($cash->user->name ?? 'Administrador');
+
+                if ($model && isset($model->date_of_issue) && isset($model->time_of_issue)) {
+                    $date_format = Carbon::parse($model->date_of_issue)->format('Y-m-d');
+                    $fecha_movimiento = Carbon::parse($date_format . ' ' . $model->time_of_issue);
+                } else {
+                    // Fallback para Saldo Inicial u otros sin fecha/hora
+                    $fecha_movimiento = $payment->created_at
+                        ?? ($payment->date_of_payment ? Carbon::parse($payment->date_of_payment) : Carbon::now());
+                }
+
+                $transactions[] = [
+                    'id' => 'gp-' . $gp->id,
+                    'datetime' => $fecha_movimiento->format('Y-m-d H:i:s'),
+                    'type' => ($monto < 0) ? 'Extorno / Anulación' : (($number_full === 'SALDO INICIAL') ? 'Apertura' : 'Venta'),
+                    'responsable' => $responsable,
+                    'document' => $number_full,
+                    'customer_name' => $customer_name,
+                    'customer_number' => $customer_number,
+                    'method' => $payment->payment_method_type->description ?? 'Efectivo',
+                    'amount' => $monto,
+                    'date_sort' => $fecha_movimiento,
+                ];
+            }
+
+            usort($transactions, function ($a, $b) {
+                return $a['date_sort'] <=> $b['date_sort'];
+            });
+
+            $transactions = array_map(function ($item) {
+                unset($item['date_sort']);
+                return $item;
+            }, $transactions);
+
+            return response()->json(['success' => true, 'data' => $transactions]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage() . ' Línea: ' . $e->getLine()], 500);
+        }
     }
 
 

@@ -1363,64 +1363,110 @@ class CashController extends Controller
     public function getAuditTransactions($id)
     {
         try {
+            // FIX OOM 128MB (Gerson, 2026-07-24): caja 5 HENAVI tiene 6,700
+            // GlobalPayments y memory_limit=128M del contenedor PROD.
+            // Mismo patrón ya usado en report_products_excel y
+            // report_cash_excel (commits e47261a0, f435da33, fe762b65).
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(0);
+
             $cash = Cash::findOrFail($id);
 
-            $globalPayments = GlobalPayment::where('destination_id', $cash->id)
-                ->where('destination_type', Cash::class)
-                ->with(['payment.payment_method_type', 'user'])
-                ->get();
+            // FIX OOM (parte 2): pluck mapa id=>description una sola vez (1
+            // query) en lugar de ->with('payment.payment_method_type') que
+            // cargaba 6,700 instancias de PaymentMethodType en memoria.
+            // payment_method_types solo tiene ~15 filas en BD.
+            $pmt_desc = PaymentMethodType::pluck('description', 'id')->toArray();
+
+            // FIX OOM (parte 4): pluck persons (clientes/proveedores) para
+            // resolver nombres sin eager-load. persons tiene ~100 filas en
+            // HENAVI; cargar 5K Customer instances por cada SaleNote era el
+            // segundo OOM (502MB pico en debug).
+            $persons_name = \App\Models\Tenant\Person::pluck('name', 'id')->toArray();
+            $persons_number = \App\Models\Tenant\Person::pluck('number', 'id')->toArray();
+
+            // FIX OOM (parte 5): chunk(500) mantiene la memoria acotada.
+            // Cada lote se libera antes del siguiente; sin esto, aún con
+            // split-by-type cargábamos 6,700 GPs + 6,700 models en RAM
+            // (~342MB pico en debug). Con chunk bajamos a <100MB.
+            $processChunk = function ($gps) use (&$transactions, $cash, $pmt_desc, $persons_name, $persons_number) {
+                foreach ($gps as $gp) {
+                    $payment = $gp->payment;
+                    if (!$payment) continue;
+
+                    $number_full = 'S/N';
+                    $customer_name = 'Clientes - Varios';
+                    $customer_number = '';
+
+                    $model = null;
+                    if ($gp->payment_type === SaleNotePayment::class) {
+                        $model = $payment->sale_note;
+                    } elseif ($gp->payment_type === DocumentPayment::class) {
+                        $model = $payment->document;
+                    } elseif ($gp->payment_type === CashTransaction::class) {
+                        $number_full = 'SALDO INICIAL';
+                    }
+
+                    if ($model) {
+                        $number_full = $model->number_full ?? ($model->series . '-' . $model->number);
+                        if ($gp->payment_type === DocumentPayment::class) {
+                            $cj = $model->customer;
+                            $customer_name = is_object($cj) ? ($cj->name ?? 'Clientes - Varios') : 'Clientes - Varios';
+                            $customer_number = is_object($cj) ? ($cj->number ?? '') : '';
+                        } else {
+                            $cid = $model->customer_id ?? null;
+                            $customer_name = $cid ? ($persons_name[$cid] ?? 'Clientes - Varios') : 'Clientes - Varios';
+                            $customer_number = $cid ? ($persons_number[$cid] ?? '') : '';
+                        }
+                    }
+
+                    $monto = (float) $payment->payment;
+                    $responsable = $gp->user->name ?? ($cash->user->name ?? 'Administrador');
+                    $method = $pmt_desc[$payment->payment_method_type_id] ?? 'Efectivo';
+
+                    if ($model && isset($model->date_of_issue) && isset($model->time_of_issue)) {
+                        $date_format = Carbon::parse($model->date_of_issue)->format('Y-m-d');
+                        $fecha_movimiento = Carbon::parse($date_format . ' ' . $model->time_of_issue);
+                    } else {
+                        $fecha_movimiento = $payment->created_at
+                            ?? ($payment->date_of_payment ? Carbon::parse($payment->date_of_payment) : Carbon::now());
+                    }
+
+                    $transactions[] = [
+                        'id' => 'gp-' . $gp->id,
+                        'datetime' => $fecha_movimiento->format('Y-m-d H:i:s'),
+                        'type' => ($monto < 0) ? 'Extorno / Anulación' : (($number_full === 'SALDO INICIAL') ? 'Apertura' : 'Venta'),
+                        'responsable' => $responsable,
+                        'document' => $number_full,
+                        'customer_name' => $customer_name,
+                        'customer_number' => $customer_number,
+                        'method' => $method,
+                        'amount' => $monto,
+                        'date_sort' => $fecha_movimiento,
+                    ];
+                }
+            };
 
             $transactions = [];
-
-            foreach ($globalPayments as $gp) {
-                $payment = $gp->payment;
-                if (!$payment) continue;
-
-                $number_full = 'S/N';
-                $customer_name = 'Clientes - Varios';
-                $customer_number = '';
-
-                $model = null;
-                if ($gp->payment_type === SaleNotePayment::class) {
-                    $model = $payment->sale_note;
-                } elseif ($gp->payment_type === DocumentPayment::class) {
-                    $model = $payment->document;
-                } elseif ($gp->payment_type === CashTransaction::class) {
-                    // Saldo Inicial de la apertura
-                    $number_full = 'SALDO INICIAL';
-                }
-
-                if ($model) {
-                    $number_full = $model->number_full ?? ($model->series . '-' . $model->number);
-                    $customer_name = $model->customer->name ?? 'Clientes - Varios';
-                    $customer_number = $model->customer->number ?? '';
-                }
-
-                $monto = (float) $payment->payment;
-                $responsable = $gp->user->name ?? ($cash->user->name ?? 'Administrador');
-
-                if ($model && isset($model->date_of_issue) && isset($model->time_of_issue)) {
-                    $date_format = Carbon::parse($model->date_of_issue)->format('Y-m-d');
-                    $fecha_movimiento = Carbon::parse($date_format . ' ' . $model->time_of_issue);
-                } else {
-                    // Fallback para Saldo Inicial u otros sin fecha/hora
-                    $fecha_movimiento = $payment->created_at
-                        ?? ($payment->date_of_payment ? Carbon::parse($payment->date_of_payment) : Carbon::now());
-                }
-
-                $transactions[] = [
-                    'id' => 'gp-' . $gp->id,
-                    'datetime' => $fecha_movimiento->format('Y-m-d H:i:s'),
-                    'type' => ($monto < 0) ? 'Extorno / Anulación' : (($number_full === 'SALDO INICIAL') ? 'Apertura' : 'Venta'),
-                    'responsable' => $responsable,
-                    'document' => $number_full,
-                    'customer_name' => $customer_name,
-                    'customer_number' => $customer_number,
-                    'method' => $payment->payment_method_type->description ?? 'Efectivo',
-                    'amount' => $monto,
-                    'date_sort' => $fecha_movimiento,
-                ];
-            }
+            // FIX OOM (parte 3): dividir por payment_type para evitar el
+            // RelationNotFoundException de eager-load polymorphic
+            // (CashTransaction no tiene relaciones sale_note/document, y
+            // Document::customer es JSON accessor no relation).
+            GlobalPayment::where('destination_id', $cash->id)
+                ->where('destination_type', Cash::class)
+                ->where('payment_type', SaleNotePayment::class)
+                ->with(['payment.sale_note', 'user'])
+                ->chunk(500, $processChunk);
+            GlobalPayment::where('destination_id', $cash->id)
+                ->where('destination_type', Cash::class)
+                ->where('payment_type', DocumentPayment::class)
+                ->with(['payment.document', 'user'])
+                ->chunk(500, $processChunk);
+            GlobalPayment::where('destination_id', $cash->id)
+                ->where('destination_type', Cash::class)
+                ->where('payment_type', CashTransaction::class)
+                ->with('user')
+                ->chunk(500, $processChunk);
 
             usort($transactions, function ($a, $b) {
                 return $a['date_sort'] <=> $b['date_sort'];

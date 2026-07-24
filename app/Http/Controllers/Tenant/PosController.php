@@ -378,10 +378,25 @@ class PosController extends Controller
 
     public function validate_stock($item_id, $quantity)
     {
-
         $inventory_configuration = InventoryConfiguration::firstOrFail();
+        $list_by_warehouse = Configuration::getRecordIndividualColumn('list_items_by_warehouse');
+
         $warehouse = Warehouse::where('establishment_id', auth()->user()->establishment_id)->first();
-        $item_warehouse = ItemWarehouse::where([['item_id', $item_id], ['warehouse_id', $warehouse->id]])->first();
+
+        // Si list_items_by_warehouse está OFF, buscar el item en cualquier almacén donde exista
+        if ($list_by_warehouse) {
+            $item_warehouse = ItemWarehouse::where([['item_id', $item_id], ['warehouse_id', $warehouse->id]])->first();
+        } else {
+            // Busca en el almacén de la sucursal del usuario primero,
+            // si no existe, busca en cualquier almacén donde tenga stock
+            $item_warehouse = ItemWarehouse::where([['item_id', $item_id], ['warehouse_id', $warehouse->id]])->first();
+            if (!$item_warehouse) {
+                $item_warehouse = ItemWarehouse::where('item_id', $item_id)
+                    ->orderBy('id', 'asc') // Busca el almacén de origen
+                    ->first();
+            }
+        }
+
         $item = Item::findOrFail($item_id);
 
         if ($item->is_set) {
@@ -392,18 +407,31 @@ class PosController extends Controller
                 $individual_item = $set->individual_item;
                 $individual_quantity = $set->quantity * 1;
                 $total_item_quantity = $individual_quantity * $quantity;
-                $item_warehouse = ItemWarehouse::where([
+
+                if ($list_by_warehouse) {
+                    $item_warehouse = ItemWarehouse::where([
                         ['item_id', $individual_item->id],
-                        ['warehouse_id', $warehouse->id]]
-                )->first();
+                        ['warehouse_id', $warehouse->id]
+                    ])->first();
+                } else {
+                    $item_warehouse = ItemWarehouse::where([
+                        ['item_id', $individual_item->id],
+                        ['warehouse_id', $warehouse->id]
+                    ])->first();
+                    if (!$item_warehouse) {
+                        $item_warehouse = ItemWarehouse::where('item_id', $individual_item->id)
+                            ->orderBy('id', 'asc') // Busca el almacén de origen
+                            ->first();
+                    }
+                }
+
                 if (!$item_warehouse)
                     return [
                         'success' => false,
-                        'message' => "El producto seleccionado no está disponible en su almacén!"
+                        'message' => "El producto seleccionado no está disponible en ningún almacén!"
                     ];
 
                 $stock = $item_warehouse->stock - $total_item_quantity;
-
 
                 if ($item_warehouse->item->unit_type_id !== 'ZZ') {
                     if (($inventory_configuration->stock_control) && ($stock < 0)) {
@@ -413,9 +441,7 @@ class PosController extends Controller
                         ];
                     }
                 }
-                // dd($individual_item);
             }
-
 
         } else {
 
@@ -429,11 +455,10 @@ class PosController extends Controller
             if (!$item_warehouse && $item->unit_type_id !== 'ZZ')
                 return [
                     'success' => false,
-                    'message' => "El producto seleccionado no está disponible en su almacén!"
+                    'message' => "El producto seleccionado no está disponible en ningún almacén!"
                 ];
 
             $stock = $item_warehouse->stock - $quantity;
-
 
             if ($item_warehouse->item->unit_type_id !== 'ZZ') {
                 if (($inventory_configuration->stock_control) && ($stock < 0)) {

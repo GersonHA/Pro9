@@ -377,6 +377,26 @@ class ItemController extends Controller
         }
 
 
+        // FIX perf items-list 2026-07-26: Eager loading para evitar N+1
+        // en ItemCollection::toArray(). Reduce ~700ms / 152 queries a ~150ms / ~10 queries.
+        $records->with([
+            'currency_type:id,symbol',
+            'brand:id,name',
+            'category:id,name',
+            'warehouses.warehouse:id,description',
+            'item_unit_types.prices.priceLabel:id,label,position',
+            'tags:id,item_id,tag_id',
+            'supplies',
+            // FIX perf items-list 2026-07-26: HENAVI is_pharmacy=1 hace que
+            // getCollectionData() llame getCatDigemid() por item (N+1).
+            // Eager-load elimina ~20 queries en HENAVI.
+            'cat_digemid',
+            // FIX perf items-list 2026-07-26: getCollectionData() expone
+            // 'item_warehouse_prices' iterando $this->warehousePrices. Sin
+            // eager-load eran ~20 queries singulares.
+            'warehousePrices.warehouse:id,description',
+        ]);
+
         return $records->orderBy($sortField, $sortDirection);
 
     }

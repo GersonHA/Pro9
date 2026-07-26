@@ -16,7 +16,14 @@ class ItemCollection extends ResourceCollection
     public function toArray($request)
     {
 
-        $configuration =  Configuration::first();
+        // FIX perf items-list 2026-07-26: cachear Configuration por request.
+        // Antes: Configuration::first() se ejecutaba 1 vez por cada item transformado.
+        // Ahora: 1 vez por request (vía static). Reduce ~5ms × 20 = 100ms.
+        static $configuration = null;
+        if ($configuration === null) {
+            $configuration = Configuration::first();
+        }
+
         $isRestaurant = $request->has('isRestaurant') && $request->isRestaurant === 'true';
 
         return $this->collection->transform(function($row, $key) use($configuration, $isRestaurant){

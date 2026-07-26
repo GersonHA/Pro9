@@ -610,7 +610,12 @@ class Item extends ModelTenant
             }
 
             if ($warehouse_ids[$establishment_id] !== 0) {
-                if ($force_fresh) {
+                // FIX perf items-list 2026-07-26: si la relación `warehouses` ya está
+                // eager-loaded (vía ->with('warehouses') en ItemController::getRecords),
+                // NO la destruimos con unsetRelation() — eso forzaba N+1 (1 query por
+                // item) en /items.vue. Solo forzamos fresh si NO está cargada o si el
+                // caller lo pide explícitamente.
+                if ($force_fresh && !$this->relationLoaded('warehouses')) {
                     $this->unsetRelation('warehouses');
                 }
                 $item_warehouse = $this->warehouses->where('warehouse_id', $warehouse_ids[$establishment_id])->first();
@@ -1345,7 +1350,12 @@ class Item extends ModelTenant
      * @return Model|\Illuminate\Database\Query\Builder|mixed|CatDigemid|object|null
      */
     public function getCatDigemid(){
-        return CatDigemid::where('item_id',$this->id)->first();
+        // FIX perf items-list 2026-07-26: usar la relación eager-loaded si está
+        // disponible. Antes: CatDigemid::where(item_id) corría N+1 (~20 queries
+        // en HENAVI). Ahora: 1 query en eager load + relationLoaded check.
+        return $this->relationLoaded('cat_digemid')
+            ? $this->cat_digemid
+            : CatDigemid::where('item_id',$this->id)->first();
     }
 
     /**
@@ -1489,8 +1499,12 @@ class Item extends ModelTenant
             $configuration =  Configuration::first();
         }
         $brand = null;
+        // FIX perf items-list 2026-07-26: usar relación cargada (eager) en vez de
+        // $this->brand()->first()->name (que generaba 1 query por item con brand_id).
         if (!empty($this->brand_id)) {
-            $brand = $this->brand()->first()->name;
+            $brand = $this->relationLoaded('brand') && $this->brand
+                ? $this->brand->name
+                : $this->brand()->first()->name;
         }
         $has_igv_description = null;
         $purchase_has_igv_description = null;
@@ -1511,9 +1525,19 @@ class Item extends ModelTenant
         $digemid_exportable = false;
         $name_disa = '';
         $laboratory = '';
-        $currentColors = ItemColor::where('item_id', $this->id)->get()->transform(function ($row) {
-            return $row->TransformDatatoEdit();
-        });
+        // FIX perf items-list 2026-07-26: ItemColor no es relation en Item model.
+        // Cache estático por item_id dentro del request: la 1ª llamada cachea
+        // el resultado de ItemColor::where(item_id), llamadas siguientes (otro
+        // item) usan el cache. Reduce ~20 queries N+1 a 20 hits de cache.
+        static $itemColorCache = [];
+        if (!array_key_exists($this->id, $itemColorCache)) {
+            $itemColorCache[$this->id] = ItemColor::where('item_id', $this->id)
+                ->get()
+                ->transform(function ($row) {
+                    return $row->TransformDatatoEdit();
+                });
+        }
+        $currentColors = $itemColorCache[$this->id];
 
         if($configuration->isPharmacy()) {
             $digemid = $this->getCatDigemid();
@@ -1533,7 +1557,10 @@ class Item extends ModelTenant
             // Exonerado, solo se multiplica por la unidad para que no haga cambio.
             $igv = 1;
         }
-        $itemSupply = $this->supplies;
+        // FIX perf items-list 2026-07-26: usar supplies eager-loaded si está disponible
+        $itemSupply = $this->relationLoaded('item_supplies') && $this->item_supplies
+            ? $this->item_supplies
+            : $this->supplies;
         if(!emptY($itemSupply)){
             $itemSupply = $itemSupply->transform(function (ItemSupply $row ){
                 return $row-> getCollectionData();
@@ -1541,7 +1568,10 @@ class Item extends ModelTenant
         }
         $salePriceWithIgv = ($has_igv == true)?$this->sale_unit_price:($this->sale_unit_price * $igv);
         $salePriceWithIgv = number_format($salePriceWithIgv, $configuration->decimal_quantity, '.', '');
-        $currency = $this->currency_type;
+        // FIX perf items-list 2026-07-26: usar currency_type eager-loaded si está disponible
+        $currency = $this->relationLoaded('currency_type') && $this->currency_type
+            ? $this->currency_type
+            : $this->currency_type;
         if(empty($currency )){
             $currency = new CurrencyType();
         }

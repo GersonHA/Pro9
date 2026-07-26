@@ -98,8 +98,10 @@ class CashController extends Controller
         $isDocument = $request->document_id !== null;
         $documentModel = $isDocument ? Document::class : SaleNote::class;
         $documentField = $isDocument ? 'document_id' : 'sale_note_id';
-        $paymentConditionField = $isDocument ? 'payment_condition_id' : 'payment_method_type_id';
-        $creditCondition = $isDocument ? '02' : '09';
+        // Ver FinanceTrait::finance_cash_document — mismo criterio: '02' = Crédito para
+        // NV y comprobantes. payment_method_type_id de las NV está siempre en NULL.
+        $paymentConditionField = 'payment_condition_id';
+        $creditCondition = '02';
 
         $document = $documentModel::findOrFail((int) $request->$documentField);
 

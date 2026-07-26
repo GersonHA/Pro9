@@ -109,8 +109,13 @@
             $isDocument = $model instanceof Document;
             $documentModel = $isDocument ? Document::class : SaleNote::class;
             $documentField = $isDocument ? 'document_id' : 'sale_note_id';
-            $paymentConditionField = $isDocument ? 'payment_condition_id' : 'payment_method_type_id';
-            $creditCondition = $isDocument ? '02' : '09';
+            // NV y comprobantes comparten la misma condición de pago: '02' = Crédito.
+            // Antes las NV se evaluaban por payment_method_type_id === '09', columna que
+            // el POS nunca llena (una venta mixta tiene 2 métodos y no cabe en una sola
+            // columna), así que ninguna NV a crédito llegaba a cash_document_credits y el
+            // arqueo la contaba como venta al contado.
+            $paymentConditionField = 'payment_condition_id';
+            $creditCondition = '02';
 
             $document = $documentModel::findOrFail((int) $id);
 

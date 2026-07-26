@@ -209,7 +209,15 @@ trait CashReportTrait
                 {
                     if($data_summary_daily['transaction_type'] === 'income')
                     {
-                        $this->setDataCashSalesIncome($model_associated, $data);
+                        // Una venta a crédito ya la contabiliza setDataCreditSales() como
+                        // credit_sales + amortization_credit_sales. Sumarla también acá
+                        // haría que calculateGlobalValues() contase sus pagos dos veces en
+                        // total_cash_sales. Mismo criterio excluyente que usan las compras
+                        // en setDataCashCreditPurchases() vía isToPay().
+                        if(($model_associated->payment_condition_id ?? null) !== '02')
+                        {
+                            $this->setDataCashSalesIncome($model_associated, $data);
+                        }
                     }
                     else if($data_summary_daily['transaction_type'] === 'egress')
                     {

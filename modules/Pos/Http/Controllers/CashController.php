@@ -402,8 +402,15 @@ class CashController extends Controller
                     'date_sort'                 => $sale_note->date_of_issue,
                     'customer_name'             => $sale_note->customer->name,
                     'customer_number'           => $sale_note->customer->number,
-                    'total'                     => ((!in_array($sale_note->state_type_id, $status_type_id)) ? 0
-                        : $sale_note->total),
+                    // En una NV a crédito el total del comprobante no es lo que entró a la
+                    // caja: la parte financiada vive en sale_note_fees y se cobra después.
+                    // Mostrar $sale_note->total junto a la columna "Método de pago" hacía
+                    // que una venta mixta se leyera como "Efectivo 17.00" cuando solo
+                    // ingresaron 10.00. Para crédito se reporta lo efectivamente cobrado.
+                    'total'                     => ($sale_note->payment_condition_id === '02')
+                        ? $totalPayments
+                        : ((!in_array($sale_note->state_type_id, $status_type_id)) ? 0
+                            : $sale_note->total),
                     'currency_type_id'          => $sale_note->currency_type_id,
                     'usado'                     => $usado." ".__LINE__,
                     'tipo'                      => 'sale_note',

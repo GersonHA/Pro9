@@ -305,7 +305,16 @@ class ItemController extends Controller
             default:
                 if($request->has('column'))
                 {
-                    if($this->applyAdvancedRecordsSearch() && $request->column === 'description')
+                    if($request->column === 'description')
+                    {
+                        // FIX search-items 2026-07-26: split por espacios al estilo
+                        // SearchItemController::setFilter() del POS. "yogurt 180" →
+                        // LIKE '%yogurt%180%' (matchea cualquier item con ambos
+                        // términos en cualquier orden dentro de la columna).
+                        $value = str_replace(' ', '%', $request->value);
+                        $records->where($request->column, 'like', "%{$value}%");
+                    }
+                    elseif($this->applyAdvancedRecordsSearch())
                     {
                         if($request->value) $records->whereAdvancedRecordsSearch($request->column, $request->value);
                     }

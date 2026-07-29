@@ -59,6 +59,14 @@ class CashController extends Controller
         return new CashCollection($records->paginate(config('tenant.items_per_page')));
     }
 
+    /**
+     * Usuarios a los que se les puede aperturar una caja.
+     *
+     * Misma regla que Tenant\CashController@tables: se excluyen los usuarios con caja
+     * asignada (Enrutador de Dinero), porque su dinero va al arqueo del jefe y una caja
+     * propia quedaria fantasma. Ver
+     * docs/adr/0024-usuario-con-caja-asignada-no-tiene-caja-propia.md
+     */
     public function tables()
     {
         $user = auth()->user();
@@ -68,11 +76,10 @@ class CashController extends Controller
         switch($type)
         {
             case 'admin':
-                $users = User::where('type', 'seller')->get();
-                $users->push($user);
+                $users = User::getWorkers()->whereNull('default_cash_id')->get();
                 break;
             case 'seller':
-                $users = User::where('id', $user->id)->get();
+                $users = User::where('id', $user->id)->whereNull('default_cash_id')->get();
                 break;
         }
 

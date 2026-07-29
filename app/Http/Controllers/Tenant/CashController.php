@@ -81,6 +81,15 @@ class CashController extends Controller
         return view('tenant.items.form');
     }
 
+    /**
+     * Usuarios a los que se les puede aperturar una caja.
+     *
+     * Solo se listan los que NO tienen caja asignada (Enrutador de Dinero): el dinero de
+     * un usuario enrutado se contabiliza en el arqueo de su jefe, así que una caja propia
+     * quedaría fantasma —solo recibiría el saldo inicial y nunca cuadraría—. Para darle
+     * caja propia hay que deslindarlo antes desde Usuarios. Ver
+     * docs/adr/0024-usuario-con-caja-asignada-no-tiene-caja-propia.md
+     */
     public function tables()
     {
         $user = auth()->user();
@@ -90,11 +99,13 @@ class CashController extends Controller
         switch($type)
         {
             case 'admin':
-                $users = User::where('type', 'seller')->get();
-                $users->push($user);
+                // getWorkers() = vendedores + administradores. Antes solo traía 'seller'
+                // y se agregaba a mano al usuario actual, así que un administrador no
+                // podía aperturarle caja a otro administrador.
+                $users = User::getWorkers()->whereNull('default_cash_id')->get();
                 break;
             case 'seller':
-                $users = User::where('id', $user->id)->get();
+                $users = User::where('id', $user->id)->whereNull('default_cash_id')->get();
                 break;
         }
 

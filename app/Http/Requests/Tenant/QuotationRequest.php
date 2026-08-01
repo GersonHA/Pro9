@@ -27,6 +27,13 @@ class QuotationRequest extends FormRequest
 			'date_of_issue' => [
 				'required',
 			],
+			// FIX cotizaciones 2026-07-26: evita cotización vacía que rompe PDF
+			// cuando el frontend omite items por bug. Patrón copiado de
+			// PurchaseRequest::rules(). Sin min:1 para no romper frontend.
+			'items' => [
+				'required',
+				'array',
+			],
 			'custom_fields_data' => [
 				'nullable',
 				'array',

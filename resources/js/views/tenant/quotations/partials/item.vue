@@ -11,12 +11,12 @@
         <form autocomplete="off" @submit.prevent="clickAddItem">
             <div class="form-body">
                 <div class="row">
-                    <div class="col-12">
+                    <div class="col-12" v-if="configuration && configuration.allow_free_product">
                         <el-checkbox
                             v-model="various_item"
                             @change="setVariousItem"
                             :disabled="isUpdateItem"
-                            >Producto manual
+                            >Producto libre
                         </el-checkbox>
                     </div>
                     <div
@@ -1008,7 +1008,7 @@ export default {
             readonly_total: 0,
             itemLastPrice: null,
             various_item: false,
-            various_item_barcode: "VARIOUS_ITEM",
+            various_item_barcode: "LIBRE-SYS",
             itemSearchTerm: '',
             showDialogHistorySales: false,
             history_item_id: null
@@ -1400,11 +1400,27 @@ export default {
                 await this.reloadDataItems(this.recordItem.item_id);
                 this.form.item_id = await this.recordItem.item_id;
                 await this.changeItem();
+
+                // El comodín se reconoce por internal_id (LIBRE-SYS), que es estable
+                // aunque el barcode del ítem sea NULL.
+                let isFreeProduct = false;
                 if (
+                    this.recordItem.item.internal_id === this.various_item_barcode ||
                     this.recordItem.item.barcode === this.various_item_barcode
                 ) {
+                    isFreeProduct = true;
+                }
+
+                // Si el nombre guardado difiere del catálogo, es un producto libre editado.
+                let freeExactItem = _.find(this.items, { id: this.form.item_id });
+                if (freeExactItem && freeExactItem.description !== this.recordItem.item.description) {
+                    isFreeProduct = true;
+                }
+
+                if (isFreeProduct) {
                     this.various_item = true;
                     this.form.item.description = this.recordItem.item.description;
+                    this.form.item.internal_id = this.various_item_barcode;
                 } else {
                     this.various_item = false;
                 }
@@ -2015,36 +2031,43 @@ export default {
         },
         async setVariousItem() {
             if (this.various_item) {
-                let original_value = this.search_item_by_barcode;
-                this.search_item_by_barcode = true;
-
+                // Buscamos el comodín en modo normal (no por barcode): su barcode es NULL,
+                // así que lo localizamos por internal_id (LIBRE-SYS).
                 await this.searchRemoteItems(this.various_item_barcode);
 
-                this.search_item_by_barcode = original_value;
+                let exactItem = null;
+                if (this.items && this.items.length > 0) {
+                    exactItem = this.items.find(i => i.internal_id === this.various_item_barcode);
+                }
 
-                if (
-                    this.form.item == null ||
-                    this.form.item.barcode !== this.various_item_barcode
-                ) {
+                if (!exactItem) {
                     this.$notify({
-                        title: "Producto Manual",
-                        message: `Debe registrar un producto con código de barras ${
-                            this.various_item_barcode
-                        }`,
+                        title: "Producto Libre",
+                        message: `Debe registrar un producto con código interno ${this.various_item_barcode}`,
                         type: "error",
-                        duration: 1200
+                        duration: 1500
                     });
                     this.various_item = false;
                 } else {
-                    this.form.item.description = "";
-                    this.$refs.inputItemDescription.$el
-                        .getElementsByTagName("input")[0]
-                        .focus();
+                    this.form.item_id = exactItem.id;
+                    this.changeItem();
+
+                    setTimeout(() => {
+                        if (this.form.item) {
+                            this.form.item.description = "";
+                            if (this.$refs.inputItemDescription) {
+                                this.$refs.inputItemDescription.$el
+                                    .getElementsByTagName("input")[0]
+                                    .focus();
+                            }
+                        }
+                    }, 300);
                     return;
                 }
+            } else {
+                this.initForm();
+                this.filterItems();
             }
-            this.initForm();
-            this.filterItems();
         },
         openNewItemDialog() {
             this.showDialogNewItem = true;

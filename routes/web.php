@@ -926,6 +926,22 @@ if ($hostname) {
         // ----------------------------------------------
         Route::get('phone', 'System\UserController@getPhone');
 
+        // Landing page pública de Facturoom (accesible sin login).
+        // Port oficial de pro8 (commit e18aa9f8) — 2026-07-28.
+        // Si el admin está autenticado, LandingController@index redirige a system.dashboard.
+        Route::get('/', 'System\LandingController@index')->name('landing');
+
+        // Subpáginas públicas de la landing (cada una con su propia URL para SEO).
+        Route::get('funcionalidades', 'System\LandingController@funcionalidades')->name('landing.funcionalidades');
+        Route::get('precios', 'System\LandingController@precios')->name('landing.precios');
+        Route::get('nosotros', 'System\LandingController@nosotros')->name('landing.nosotros');
+        Route::get('contacto', 'System\LandingController@contacto')->name('landing.contacto');
+
+        // SEO: sitemap y robots dinámicos (se adaptan al dominio vía url()).
+        // Apache cae a index.php porque no existen como archivos en public/.
+        Route::get('sitemap.xml', 'System\LandingController@sitemap')->name('sitemap');
+        Route::get('robots.txt', 'System\LandingController@robots')->name('robots');
+
         // Página pública de Términos y Condiciones (decide según configuración del system).
         Route::get('terminos-y-condiciones', 'System\TermsController@show')->name('system.terms');
 
@@ -992,9 +1008,14 @@ if ($hostname) {
 
         Route::middleware(['auth:admin', 'reseller.system.admin'])->group(function () {
             Route::get('logs', '\Rap2hpoutre\LaravelLogViewer\LogViewerController@index');
-            Route::get('/', function () {
-                return redirect()->route('system.dashboard');
-            });
+            // FIX 2026-07-28: NO registrar Route::get('/') aquí. Si lo hacemos,
+            // Laravel RouteCollection::add() lo registra en $routes[GET]['localhost/']
+            // y SOBREESCRIBE nuestra ruta landing de L932 (orden de registro gana
+            // al primero). El resultado es que / -> closure -> auth:admin -> /login
+            // para anónimos, en lugar de mostrar la landing.
+            //
+            // LandingController@index() ya hace lo correcto: si el admin está
+            // autenticado redirige a system.dashboard, si no muestra la landing.
             Route::get('dashboard', 'System\HomeController@index')->name('system.dashboard');
 
             Route::get('configurations/public-search', 'System\PublicDocumentSearchController@getMainBackground')->name('system.public_search.background.record');

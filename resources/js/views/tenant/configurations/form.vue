@@ -228,6 +228,23 @@
 
                                         <div class="col-12">
                                             <label class="control-label">
+                                                Habilitar Producto Libre
+                                                <el-tooltip class="item" effect="dark"
+                                                    content="Al activar, se crea un producto comodín interno para vender productos temporales (no catalogados) en POS, notas de venta, boletas y otros módulos."
+                                                    placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div :class="{ 'has-danger': errors.allow_free_product }" class="form-group">
+                                                <el-switch v-model="form.allow_free_product"
+                                                    @change="submit"></el-switch>
+                                                <small v-if="errors.allow_free_product" class="form-control-feedback"
+                                                    v-text="errors.allow_free_product[0]"></small>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="control-label">
                                                 Los lotes mandan sobre el stock
                                                 <el-tooltip class="item" effect="dark" placement="top-start">
                                                     <i class="fa fa-info-circle"></i>
@@ -2322,6 +2339,24 @@
                                                     v-text="errors.search_item_by_series[0]"></small>
                                             </div>
                                         </div>
+                                        <div class="col-12">
+                                            <label class="control-label">Orden de Búsqueda en POS
+                                                <el-tooltip class="item" effect="dark"
+                                                    content="Define qué productos aparecen primero al buscar o abrir el POS."
+                                                    placement="top-start">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </el-tooltip>
+                                            </label>
+                                            <div class="form-group">
+                                                <el-select v-model="form.pos_search_order" placeholder="Seleccione orden"
+                                                    @change="submit" class="w-100">
+                                                    <el-option label="Por Defecto" value="default"></el-option>
+                                                    <el-option label="Alfabético (A - Z)" value="alphabetical"></el-option>
+                                                    <el-option label="Volumen de Ventas (Más vendidos primero)" value="sales"></el-option>
+                                                    <el-option label="Precio (Mayor a menor)" value="price_desc"></el-option>
+                                                </el-select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -3656,6 +3691,8 @@ export default {
                 is_pharmacy: false,
                 active_warehouse_prices: false,
                 search_item_by_series: false,
+                pos_search_order: 'default',
+                allow_free_product: false,
                 change_free_affectation_igv: false,
                 select_available_price_list: false,
                 show_pdf_name: this.config.show_pdf_name,

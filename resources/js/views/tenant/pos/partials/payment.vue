@@ -282,10 +282,15 @@
                                         <label class="control-label text-start w-100">Ingrese montos</label>
                                         <el-input ref="enter_amount"
                                                   v-model="enter_amount"
+                                                  :disabled="is_credit && !is_mixed"
                                                   @input="enterAmount()"
                                                   @keyup.enter.native="keyupEnterAmount()">
                                         </el-input>
 
+                                        <div class="d-flex justify-content-between mt-3 fp-credit-switches">
+                                            <el-switch v-model="is_credit" active-text="Crédito" @change="changeCreditStatus"></el-switch>
+                                            <el-switch v-if="is_credit" v-model="is_mixed" active-text="Crédito Mixto" @change="changeCreditStatus"></el-switch>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-4 descount-container position-relative">
@@ -336,12 +341,12 @@
                                          class="form-group">
                                         <div class="turned-container-pos" style="margin-top: 19px;">
                                             <label class="control-label mt-1"
-                                               v-text="(difference <0) ? 'Faltante' :'Vuelto'"></label>
+                                               v-text="(is_credit && !is_mixed) ? 'Vuelto' : ((difference < 0) ? 'Faltante' : 'Vuelto')"></label>
                                             <!-- <el-input v-model="difference" :disabled="true">
                                                 <template slot="prepend">{{currencyTypeActive.symbol}}</template>
                                             </el-input> -->
                                             <h4 class="control-label font-weight-semibold m-0 text-center m-b-0">
-                                                {{ currencyTypeActive.symbol }} {{ difference }}</h4>
+                                                {{ currencyTypeActive.symbol }} {{ (is_credit && !is_mixed) ? '0.00' : difference }}</h4>
                                         </div>
                                     </div>
                                 </div>
@@ -541,6 +546,8 @@
             :payments="payments"
             :showDialog.sync="showDialogMultiplePayment"
             :total="getTotal()"
+            :is-credit="is_credit"
+            :is-mixed="is_mixed"
             @add="addRow"
             @setPaymentMethod="setPaymentMethod"
 
@@ -673,6 +680,8 @@ export default {
             payment_method_type_id: null,
             showDialogDiscountPermission: false,
             totalDiscountPercentage: 0,
+            is_credit: false,
+            is_mixed: false,
         }
     },
     async created() {
@@ -844,6 +853,74 @@ export default {
         },
         changeTypeDiscount() {
             this.inputDiscountAmount()
+        },
+        changeCreditStatus() {
+            // 1. CANDADO REFORZADO ESTRICTO
+            let is_generic = !this.customer || (this.customer && this.customer.number === '99999999');
+
+            if (this.is_credit && is_generic) {
+                this.is_credit = false;
+                this.is_mixed = false;
+                return this.$message.error('Operación denegada: No se puede dar crédito a Clientes Varios. Registre un cliente real.');
+            }
+
+            // --- 2. AUTO-LLENADO EN TIEMPO REAL ---
+            this.payments = [];
+            this.form.payments = [];
+
+            // Buscamos el ID oficial del crédito en la base de datos
+            let credit_id = '09';
+            if (this.payment_method_types) {
+                let credits = this.payment_method_types.filter(m => m.is_credit == 1 || ['05', '08', '09'].includes(m.id));
+                let exact = credits.find(m => m.description && (m.description.toUpperCase() === 'CRÉDITO' || m.description.toUpperCase() === 'CREDITO'));
+                credit_id = exact ? exact.id : (credits.length >= 3 ? credits[2].id : (credits.length > 0 ? credits[0].id : '09'));
+            }
+
+            if (!this.is_credit) {
+                // Volvió a Efectivo 100%
+                this.enter_amount = this.getTotal();
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().format('YYYY-MM-DD'),
+                    payment_method_type_id: '01', payment_destination_id: 'cash',
+                    reference: null, payment: this.getTotal()
+                });
+
+            } else if (this.is_credit && !this.is_mixed) {
+                // Crédito 100%
+                this.enter_amount = 0;
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                    payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                    reference: null, payment: this.getTotal()
+                });
+
+            } else if (this.is_credit && this.is_mixed) {
+                // Crédito Mixto
+                this.enter_amount = 0;
+
+                // Fila 1: Lo que dará en Efectivo
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().format('YYYY-MM-DD'),
+                    payment_method_type_id: '01', payment_destination_id: 'cash',
+                    reference: null, payment: 0
+                });
+
+                // Fila 2: Lo que se irá a Crédito
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                    payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                    reference: null, payment: this.getTotal()
+                });
+            }
+
+            // Sincronizamos la tabla visual
+            this.payments = this.form.payments;
+
+            this.inputAmount();
         },
         inputDiscountAmount() {
 
@@ -1250,31 +1327,29 @@ export default {
         },
         async enterAmount() {
 
-            let r_item = await _.last(this.payments, {'payment_method_type_id': '01'})
-            r_item.payment = await parseFloat(this.enter_amount)
-            // console.log(r_item.payment)
-
-            let ind = this.form.payments.length - 1
-            this.form.payments[ind].payment = parseFloat(this.enter_amount)
-            // this.setAmount(item.payment)
+            if (this.is_credit && this.is_mixed && this.form.payments.length === 2) {
+                let cash_payment = parseFloat(this.enter_amount) || 0;
+                let new_credit_balance = parseFloat(this.getTotal()) - cash_payment;
+                this.form.payments[0].payment = cash_payment;
+                this.form.payments[1].payment = new_credit_balance > 0 ? new_credit_balance.toFixed(2) : 0;
+            } else if (this.form.payments.length > 0) {
+                let ind = this.form.payments.length - 1;
+                if(this.form.payments[ind]) this.form.payments[ind].payment = parseFloat(this.enter_amount) || 0;
+            }
 
             let acum_payment = 0
 
             await this.form.payments.forEach((item) => {
                 acum_payment += parseFloat(item.payment)
             })
-            // console.log(this.form.payments)
 
-            // this.amount = item.payment
             this.amount = acum_payment
-            // this.amount = this.enter_amount
-            // console.log(this.amount)
             this.difference = this.amount - this.form.total
 
             if (isNaN(this.difference)) {
                 this.button_payment = true
                 this.difference = "-"
-            } else if (this.difference >= 0) {
+            } else if (this.difference >= 0 || this.is_credit) {
                 this.button_payment = false
                 this.difference = this.amount - this.form.total
             } else {
@@ -1304,7 +1379,7 @@ export default {
         inputAmount() {
 
             this.difference = this.amount - this.getTotal()
-            if(this.payment_method_type_id == '09') {
+            if(this.payment_method_type_id == '09' || this.is_credit) {
                 this.button_payment = false
             }
             else if (isNaN(this.difference)) {
@@ -1379,6 +1454,10 @@ export default {
             await this.sleep(800);
             this.loading_submit = false
             this.cleanLocalStoragePayment()
+
+            this.is_credit = false;
+            this.is_mixed = false;
+
             this.$eventHub.$emit('cancelSale')
 
         },
@@ -1542,7 +1621,7 @@ export default {
             const validate_restrict_seller_discount = this.validateRestrictSellerDiscount()
             if(!validate_restrict_seller_discount.success) return
 
-            if (this.form.payments == 0){
+            if (this.form.payments == 0 && !this.is_credit){
                 this.form.payment_condition_id = "02";
             }
 
@@ -1587,7 +1666,75 @@ export default {
             this.loading_submit = true
             this.locked_submit = true
 
-            await this.$http.post(`/${this.resource_documents}`, this.form).then(async (response) => {
+            // --- SEPARAR CONTADO DE CRÉDITO ---
+            let valid_payments = [];
+            let fees = [];
+            let is_credit_sale = false;
+
+            // 1. Autogenerar fila de crédito si el cajero le dio Pagar rápido sin abrir la ventana
+            if (this.is_credit && this.form.payments.length === 0) {
+                let credit_id = '09';
+                if (this.payment_method_types) {
+                    let credits = this.payment_method_types.filter(m => m.is_credit == 1 || ['05', '08', '09'].includes(m.id));
+                    let exact = credits.find(m => m.description && (m.description.toUpperCase() === 'CRÉDITO' || m.description.toUpperCase() === 'CREDITO'));
+                    credit_id = exact ? exact.id : (credits.length >= 3 ? credits[2].id : (credits.length > 0 ? credits[0].id : '09'));
+                }
+
+                if (!this.is_mixed) {
+                    this.form.payments.push({
+                        id: null, document_id: null, sale_note_id: null,
+                        date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                        payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                        reference: null, payment: this.getTotal()
+                    });
+                } else {
+                    let cash_id = '01';
+                    this.form.payments.push({
+                        id: null, document_id: null, sale_note_id: null,
+                        date_of_payment: moment().format('YYYY-MM-DD'),
+                        payment_method_type_id: cash_id, payment_destination_id: 'cash',
+                        reference: null, payment: this.enter_amount
+                    });
+                    this.form.payments.push({
+                        id: null, document_id: null, sale_note_id: null,
+                        date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                        payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                        reference: null, payment: _.round(this.getTotal() - this.enter_amount, 2)
+                    });
+                }
+            }
+
+            // 2. Separar cuotas (fees) de pagos reales en caja (valid_payments)
+            this.form.payments.forEach((pay) => {
+                let method = _.find(this.payment_method_types, { id: pay.payment_method_type_id });
+                if (method && (method.is_credit == 1 || ['05', '08', '09'].includes(method.id))) {
+                    is_credit_sale = true;
+                    fees.push({
+                        date: pay.date_of_payment ? pay.date_of_payment : moment().add(7, 'days').format('YYYY-MM-DD'),
+                        currency_type_id: this.form.currency_type_id,
+                        amount: pay.payment,
+                        payment_method_type_id: pay.payment_method_type_id
+                    });
+                } else {
+                    valid_payments.push(pay);
+                }
+            });
+
+            // 3. Empaquetar el payload correcto para SUNAT
+            let payload = { ...this.form };
+            payload.payments = valid_payments; // Solo va el efectivo a la caja
+            payload.fee = fees;                // Las cuotas van separadas
+            payload.payment_condition_id = is_credit_sale ? '02' : '01';
+
+            // CANDADO FINAL ESTRICTO: Frenamos si intentaron dar crédito a Clientes Varios
+            if (is_credit_sale && this.customer && this.customer.number === '99999999') {
+                this.loading_submit = false;
+                this.locked_submit = false;
+                return this.$message.error('Operación denegada: No se puede dar crédito a Clientes Varios. Registre un cliente real.');
+            }
+            // --- FIN SEPARACIÓN ---
+
+            await this.$http.post(`/${this.resource_documents}`, payload).then(async (response) => {
                 if (response.data.success) {
                     let response_sent = null
                     this.responseForm = response.data
@@ -1624,6 +1771,10 @@ export default {
                     //     this.gethtml();
                     // migrado a options
                     // }
+
+                    this.is_credit = false;
+                    this.is_mixed = false;
+
                     this.$eventHub.$emit('saleSuccess');
                 } else {
                     this.$message.error(response.data.message);

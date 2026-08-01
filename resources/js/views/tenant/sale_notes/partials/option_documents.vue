@@ -685,10 +685,45 @@
                 this.document.payments = this.getPaymentsData(q)
                 this.document.seller_id = q.seller_id;
                 this.document.user_id = q.user_id;
+                this.document.payment_condition_id = q.payment_condition_id || '01';
                 this.document.fee = [];
-                this.document.payment_condition_id =q.payment_condition_id;
-                if(this.document.payment_condition_id === undefined || this.document.payments.length > 0) {
-                    this.document.payment_condition_id = "01";
+
+                // SUNAT exige declarar el monto neto pendiente y el vencimiento de cada cuota
+                // cuando la forma de pago es Crédito (Informe 092-2021-SUNAT: es crédito si el
+                // importe se paga "total o parcialmente" después de emitir). En una venta mixta
+                // lo pendiente es la cuota, no el total: el pago inicial ya cobrado se queda
+                // registrado en la NV, porque el CPE no absorbe su cobranza (ADR-0002).
+                if(this.document.payment_condition_id === '02') {
+                    const date_of_issue = moment(this.document.date_of_issue);
+
+                    this.document.fee = _.map(q.fee, row => {
+                        let date = moment(row.date);
+
+                        // Un comprobante emitido hoy no puede declarar una cuota ya vencida
+                        // (validatePaymentDate lo bloquea, y no tendría sentido ante SUNAT).
+                        // Se reprograma conservando el plazo pactado: si la NV vencía a N días
+                        // de emitida, la cuota vence a N días de la emisión del comprobante.
+                        // Mismo criterio que RecurrencySaleNoteCommand con las NV recurrentes.
+                        // Las cuotas cuya fecha sigue siendo futura se heredan intactas.
+                        if(!date.isAfter(date_of_issue, 'day')) {
+                            const days = Math.max(date.diff(moment(q.date_of_issue), 'days'), 1);
+                            date = date_of_issue.clone().add(days, 'days');
+                        }
+
+                        return {
+                            id: null,
+                            date: date.format('YYYY-MM-DD'),
+                            currency_type_id: row.currency_type_id,
+                            payment_method_type_id: row.payment_method_type_id,
+                            amount: row.amount,
+                        };
+                    });
+
+                    // Un CPE a crédito sin Cuota001 no es emitible. Si la NV no tiene cuotas
+                    // registradas, se genera una por el total para que el usuario la ajuste.
+                    if(this.document.fee.length < 1) this.clickAddFee();
+
+                    this.changeDatePaymentCondition();
                 }
 
                 this.assignPlateNumberToItems(q)

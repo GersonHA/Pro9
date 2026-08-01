@@ -19,6 +19,7 @@ class ConfigurationRequest extends FormRequest
             'cron' => ['required', 'boolean'],
             'decimal_quantity' => ['required', 'integer'],
             'enable_extended_search' => 'nullable|boolean',
+            'allow_free_product' => 'nullable|boolean',
             'search_by_second_name' => 'nullable|boolean',
             'search_by_model' => 'nullable|boolean',
             'search_by_extra_name' => 'nullable|boolean',

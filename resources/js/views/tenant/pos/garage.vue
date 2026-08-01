@@ -32,7 +32,6 @@
                         effect="dark"
                         content="Todas las categorías"
                         placement="top-start"
-                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -49,7 +48,6 @@
                         effect="dark"
                         content="Categorías y productos"
                         placement="top-start"
-                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -67,7 +65,6 @@
                         effect="dark"
                         content="Listado de todos los productos"
                         placement="top-start"
-                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -85,7 +82,6 @@
                         effect="dark"
                         content="Regresar"
                         placement="top-start"
-                        :disabled="performance_mode"
                     >
                         <button
                             type="button"
@@ -100,13 +96,6 @@
             </div>
             <div class="col-md-4" v-if="currency_types.length > 1">
                 <div class="pull-right h-100 d-flex align-items-center">
-                    <el-switch
-                        v-model="performance_mode"
-                        active-text="Modo Rendimiento"
-                        active-color="#ff4949"
-                        @change="togglePerformanceMode"
-                        style="margin-right: 20px;"
-                    ></el-switch>
                     <p class="pr-3 m-0 exchange-currency">
                         T.C.
                         <span>S/ {{ form.exchange_rate_sale }}</span> Cambiar
@@ -243,7 +232,6 @@
                                         <small class="text-primary internal-code-small" :title="item.internal_id">{{ item.internal_id }}</small>
                                         <el-popover
                                             v-if="item.is_set"
-                                            :disabled="performance_mode"
                                             placement="bottom"
                                             width="240"
                                             trigger="click"
@@ -390,7 +378,6 @@
                                                 effect="dark"
                                                 content="Visualizar stock"
                                                 placement="bottom-end"
-                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     style="width:100%"
@@ -412,7 +399,6 @@
                                                 effect="dark"
                                                 content="Visualizar historial de ventas del producto (precio venta) y cliente"
                                                 placement="bottom-end"
-                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     type="button"
@@ -434,7 +420,6 @@
                                                 effect="dark"
                                                 content="Visualizar historial de compras del producto (precio compra)"
                                                 placement="bottom-end"
-                                                :disabled="performance_mode"
                                             >
                                                 <button
                                                     type="button"
@@ -458,7 +443,6 @@
                                                 effect="dark"
                                                 content="Visualizar precios disponibles"
                                                 placement="bottom-end"
-                                                :disabled="performance_mode"
                                             >
                                                 <el-popover
                                                     placement="top"
@@ -604,7 +588,6 @@
                                                 effect="dark"
                                                 content="Modificar el tipo de afectación"
                                                 placement="bottom-end"
-                                                :disabled="performance_mode"
                                             >
                                                 <el-popover
                                                     placement="top"
@@ -682,7 +665,7 @@
                 </div>
             </div>
             <div
-                class="col-lg-4 col-md-6 bg-white m-0 p-0 pos-order-panel d-flex flex-column px-3 pt-2"
+                class="col-lg-4 col-md-6 bg-white m-0 p-0 pos-order-panel d-flex flex-column px-3 pt-1"
                 style="height: calc(100vh - 110px); overflow-y: auto;"
             >
                 <!-- ── TOP: Tipo documento + cliente ── -->
@@ -740,6 +723,42 @@
                         <a class="fp-add-customer" @click.prevent="showDialogNewPerson = true" title="Agregar cliente">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M16 19h6" /><path d="M19 16v6" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4" /></svg>
                         </a>
+                    </div>
+                </div>
+
+                <!-- ── Producto libre (3 columnas en una fila, Enter en Precio lo agrega) ── -->
+                <div class="fp-free" v-if="configuration.allow_free_product">
+                    <div class="row no-gutters">
+                        <div class="col-7 pr-1">
+                            <el-input
+                                v-model="freeProductForm.description"
+                                placeholder="Descripción"
+                                size="mini"
+                                ref="garageFreeDesc"
+                                @keyup.enter.native="$refs.garageFreeQty.focus()"
+                            ></el-input>
+                        </div>
+                        <div class="col-2 pr-1">
+                            <el-input
+                                v-model="freeProductForm.quantity"
+                                placeholder="Cant"
+                                size="mini"
+                                ref="garageFreeQty"
+                                @keypress.native="filterInputNumber"
+                                @keyup.enter.native="$refs.garageFreePrice.focus()"
+                                class="fp-free-qty"
+                            ></el-input>
+                        </div>
+                        <div class="col-3">
+                            <el-input
+                                v-model="freeProductForm.price"
+                                placeholder="Precio"
+                                size="mini"
+                                ref="garageFreePrice"
+                                @keypress.native="filterInputNumber"
+                                @keyup.enter.native="clickAddFreeProductInline"
+                            ></el-input>
+                        </div>
                     </div>
                 </div>
 
@@ -878,6 +897,14 @@
     </div>
 </template>
 <style>
+/* ── Producto libre (formulario inline en el panel de venta) ── */
+.fp-free {
+    padding: 4px 6px 0;
+}
+.fp-free .fp-free-qty .el-input__inner {
+    text-align: center;
+}
+
 .el-select-dropdown__item.hover {
     /* background-color: red; */
     background-color: var(--tq-accent-color-muted);
@@ -1029,6 +1056,11 @@ export default {
     data() {
         return {
             place: "cat",
+            freeProductForm: {
+                description: "",
+                quantity: 1,
+                price: "",
+            },
             showDialogItemUnitTypes: false,
             history_item_id: null,
             search_item_by_barcode: false,
@@ -1075,14 +1107,11 @@ export default {
                 { id: '80', label: 'N. Venta' },
             ],
             customerError: false,
-            // Modo Rendimiento: congeladores de catálogos para equipos de bajos recursos.
-            performance_mode: false,
             limit: 30,
             search_timer: null,
         };
     },
     async created() {
-        this.loadPerformanceMode();
         this.loadConfiguration();
 
         this.show_fast_payment_garage = false;
@@ -1196,33 +1225,124 @@ export default {
     },
     methods: {
 
-        // --- METODOS DE MODO RENDIMIENTO ---
-        togglePerformanceMode() {
-            // 1. Guardamos la decisión en memoria
-            localStorage.setItem("performance_mode", this.performance_mode);
-
-            // 2. Mostramos la notificación visual
-            if (this.performance_mode) {
-                this.$message.warning("Modo Rendimiento Activado: Apagando animaciones...");
-            } else {
-                this.$message.success("Modo Rendimiento Apagado. Restaurando sistema...");
+        clickAddFreeProductInline() {
+            // 1. Validaciones básicas
+            if (!this.freeProductForm.description) {
+                this.$message.warning("Falta la descripción");
+                this.$refs.garageFreeDesc.focus();
+                return;
             }
-            setTimeout(() => {
-                window.location.reload();
-            }, 800);
+            if (
+                !this.freeProductForm.price ||
+                parseFloat(this.freeProductForm.price) <= 0
+            ) {
+                this.$message.warning("Falta el precio");
+                this.$refs.garageFreePrice.focus();
+                return;
+            }
+
+            // 2. Preparar datos
+            let qty = parseFloat(this.freeProductForm.quantity);
+            if (!qty || qty <= 0) qty = 1;
+            let description = this.freeProductForm.description;
+            let price = parseFloat(this.freeProductForm.price);
+
+            // 3. Validación Configuración Backend
+            if (!this.configuration.allow_free_product) {
+                this.$message.error("Opción desactivada.");
+                return;
+            }
+            let comodin_id = this.configuration.product_free_id;
+            if (!comodin_id) {
+                this.$message.error("Error de ID producto libre (configuración).");
+                return;
+            }
+
+            // 4. Crear Objeto del Item (el comodín LIBRE-SYS con descripción/precio a medida)
+            let freeItem = {
+                item_id: comodin_id,
+                item: {
+                    id: comodin_id,
+                    description: description,
+                    internal_id: "LIBRE-SYS",
+                    barcode: "LIBRE-SYS",
+                    item_type_id: "01",
+                    unit_type_id: "NIU",
+                    currency_type_id: this.form.currency_type_id,
+                    currency_type_symbol:
+                        this.form.currency_type_id === "PEN" ? "S/" : "$",
+                    sale_unit_price: price,
+                    purchase_unit_price: 0,
+                    unit_price: price,
+                    has_igv: true,
+                    is_set: false,
+                    calculate_quantity: false,
+                    has_plastic_bag_taxes: false,
+                    stock: 999999,
+                    amount_plastic_bag_taxes: 0,
+                    presentation: null,
+                    sets: [],
+                    attributes: [],
+                    unit_type: [],
+                    aux_quantity: qty,
+                },
+                quantity: qty,
+                unit_value: price,
+                affectation_igv_type_id: "10",
+                affectation_igv_type: {
+                    id: "10",
+                    description: "Gravado - Operación Onerosa",
+                },
+                price_type_id: "01",
+                unit_price: price,
+                total_base_isc: 0,
+                percentage_isc: 0,
+                total_isc: 0,
+                total_base_other_taxes: 0,
+                total_other_taxes: 0,
+                total_plastic_bag_taxes: 0,
+                total_taxes: 0,
+                total_value: 0,
+                total_charge: 0,
+                total_discount: 0,
+                total: 0,
+                charges: [],
+                discounts: [],
+                attributes: [],
+            };
+
+            // 5. Calcular impuestos y agregar a la lista
+            let calculatedRow = calculateRowItem(
+                freeItem,
+                this.form.currency_type_id,
+                this.form.exchange_rate_sale,
+                this.percentage_igv
+            );
+            calculatedRow.unit_type_id = "NIU"; // Forzar unidad
+
+            this.form.items.unshift(calculatedRow);
+            this.calculateTotal();
+            this.setFormPosLocalStorage();
+
+            // 6. Limpiar formulario y devolver foco
+            this.freeProductForm.description = "";
+            this.freeProductForm.price = "";
+            this.freeProductForm.quantity = 1;
+            this.$refs.garageFreeDesc.focus();
+            this.$message.success("Agregado");
         },
 
-        loadPerformanceMode() {
-            let savedMode = localStorage.getItem("performance_mode");
-            if (savedMode === "true") {
-                this.performance_mode = true;
-                document.body.classList.add("nuclear-performance-mode");
-            } else {
-                this.performance_mode = false;
-                document.body.classList.remove("nuclear-performance-mode");
+        // Portero de teclado: solo deja pasar números (48-57) y el punto (46).
+        filterInputNumber(event) {
+            const charCode = event.which ? event.which : event.keyCode;
+            if (
+                charCode > 31 &&
+                (charCode < 48 || charCode > 57) &&
+                charCode !== 46
+            ) {
+                event.preventDefault();
             }
         },
-        // ------------------------------
 
         changeRowTotalGarage(index) {
             const item = this.form.items[index];
@@ -1409,14 +1529,15 @@ export default {
         },
         getRecords() {
             this.loading = true;
-
-            // Menos productos por página para no saturar (Modo Rendimiento)
-            this.limit = this.performance_mode ? 20 : 50;
+            this.limit = 50;
 
             return this.$http
                 .get(`/${this.resource}/items?${this.getQueryParameters()}`)
                 .then(response => {
-                    this.all_items = response.data.data;
+                    // El comodín LIBRE-SYS no se muestra en el catálogo navegable.
+                    this.all_items = response.data.data.filter(
+                        item => item.internal_id !== "LIBRE-SYS"
+                    );
                     this.filterItems();
                     this.pagination = response.data.meta;
                     this.pagination.per_page = parseInt(
@@ -1969,13 +2090,11 @@ export default {
                 return;
             }
 
-            let addingNotification = this.$notify({
-                title: "",
-                message: "Agregando...",
-                type: "info",
-                duration: 0
-            });
-
+            // OPTIMISTIC UI + NON-BLOCKING validation (Carlos 26-jul-2026):
+            // Antes había un $notify "Agregando..." con duration:0 que bloqueaba la
+            // UX durante ~164ms por click (roundtrip HTTP completo). Ahora el item
+            // aparece instantáneamente en el carrito; getStatusStock() corre en
+            // background y, si falla por stock, hace rollback + $message.error.
             let exchangeRateSale = this.form.exchange_rate_sale;
 
             // console.log(item.unit_type_id)
@@ -2001,33 +2120,19 @@ export default {
             // console.log(exist_item)
 
             let pos = this.form.items.indexOf(exist_item);
-            let response = null;
+
+            // OPTIMISTIC: capturamos el estado pre-mutación para rollback si la
+            // validación non-blocking falla por falta de stock.
+            let prevQuantity = null;
+            let prevAuxQuantity = null;
 
             if (exist_item) {
-                if (input) {
-                    response = await this.getStatusStock(
-                        item.item_id,
-                        exist_item.item.aux_quantity
-                    );
-                    if (!response.success) {
-                        item.item.aux_quantity = item.quantity;
-                        this.loading = false;
-                        addingNotification.close();
-                        return this.$message.error(response.message);
-                    }
+                prevQuantity = exist_item.quantity;
+                prevAuxQuantity = exist_item.item.aux_quantity;
 
+                if (input) {
                     exist_item.quantity = exist_item.item.aux_quantity;
                 } else {
-                    response = await this.getStatusStock(
-                        item.item_id,
-                        parseFloat(exist_item.item.aux_quantity) + 1
-                    );
-                    if (!response.success) {
-                        this.loading = false;
-                        addingNotification.close();
-                        return this.$message.error(response.message);
-                    }
-
                     exist_item.quantity++;
                     exist_item.item.aux_quantity++;
                 }
@@ -2069,19 +2174,34 @@ export default {
                 this.row.is_price_modified = !!(exist_item.is_price_modified || item.is_price_modified);
 
                 this.form.items[pos] = this.row;
-            } else {
-                response = await this.getStatusStock(
-                    item.item_id,
-                    item.presentation
-                        ? parseInt(item.presentation.quantity_unit)
-                        : 1
-                );
-                if (!response.success) {
-                    this.loading = false;
-                    addingNotification.close();
-                    return this.$message.error(response.message);
-                }
 
+                // OPTIMISTIC + NON-BLOCKING para la rama "exist_item":
+                // validación en background con rollback al estado pre-mutación.
+                // FIX 2026-07-28: este bloque debe vivir DENTRO del if(exist_item).
+                // Antes estaba fuera del if/else y al primer click sobre un item
+                // nuevo exist_item=undefined → TypeError → calculateTotal() nunca
+                // corría y los totales quedaban en 0 hasta el segundo click.
+                this.getStatusStock(item.item_id, exist_item.item.aux_quantity).then(response => {
+                    if (!response || !response.success) {
+                        exist_item.quantity = prevQuantity;
+                        exist_item.item.aux_quantity = prevAuxQuantity;
+                        // Re-asignamos el row recalculado al estado anterior para
+                        // refrescar totales/precios del ítem en pantalla.
+                        this.form.items[pos] = calculateRowItem(
+                            exist_item,
+                            this.form.currency_type_id,
+                            this.form.exchange_rate_sale,
+                            this.percentage_igv
+                        );
+                        this.form.items[pos].unit_type_id = item.unit_type_id;
+                        this.form.items[pos].is_price_modified = !!(exist_item.is_price_modified || item.is_price_modified);
+                        this.$message.error(
+                            (response && response.message) || 'Sin stock disponible'
+                        );
+                        this.calculateTotal();
+                    }
+                });
+            } else {
                 // this.form_item.item = item;
                 this.form_item.item = { ...item };
 
@@ -2134,11 +2254,26 @@ export default {
 
                 this.form.items.unshift(this.row);
                 item.aux_quantity = 1;
+
+                // OPTIMISTIC + NON-BLOCKING: validación de stock en background.
+                // Si falla, removemos el ítem que acabamos de añadir.
+                const newRowUnitTypeId = this.row.unit_type_id;
+                const validateQtyNew = item.presentation
+                    ? parseInt(item.presentation.quantity_unit)
+                    : 1;
+                this.getStatusStock(item.item_id, validateQtyNew).then(response => {
+                    if (!response || !response.success) {
+                        const idx = this.form.items.findIndex(r =>
+                            r.item_id === item.item_id &&
+                            r.unit_type_id === newRowUnitTypeId
+                        );
+                        if (idx > -1) this.form.items.splice(idx, 1);
+                        this.$message.error(
+                            (response && response.message) || 'Sin stock disponible'
+                        );
+                    }
+                });
             }
-
-            // console.log("pos", this.row);
-
-            addingNotification.close();
 
             this.$notify({
                 title: "",
@@ -2287,19 +2422,10 @@ export default {
         },
         async getTables() {
             await this.$http.get(`/${this.resource}/tables`).then(response => {
-                //this.all_items = response.data.items;
-                // ⚡ FASE 3: CRIO-CONGELACIÓN DE CATÁLOGOS PESADOS ⚡
-                if (this.performance_mode) {
-                    // Si el modo rendimiento está activo, congelamos las listas masivas
-                    this.affectation_igv_types = Object.freeze(response.data.affectation_igv_types);
-                    this.all_customers = Object.freeze(response.data.customers);
-                    this.currency_types = Object.freeze(response.data.currency_types);
-                } else {
-                    this.affectation_igv_types =
-                        response.data.affectation_igv_types;
-                    this.all_customers = response.data.customers;
-                    this.currency_types = response.data.currency_types;
-                }
+                this.affectation_igv_types =
+                    response.data.affectation_igv_types;
+                this.all_customers = response.data.customers;
+                this.currency_types = response.data.currency_types;
                 this.establishment = response.data.establishment;
                 this.user = response.data.user;
                 this.form.establishment_id = this.establishment.id;
@@ -2338,20 +2464,17 @@ export default {
             });
         },
         searchItems() {
-            // Debounce siempre activo: evita disparar un request por cada tecla.
-            // 400ms en modo normal, 700ms en modo rendimiento (ya tenía el delay más largo).
+            // Debounce: evita disparar un request por cada tecla.
             if (this.search_timer) clearTimeout(this.search_timer);
             this.search_timer = setTimeout(() => {
                 this.executeSearchItems();
-            }, this.performance_mode ? 700 : 400);
+            }, 400);
         },
 
         async executeSearchItems() {
             if (this.input_item.length > 0) {
                 this.loading = true;
-
-                // Aplicamos el racionamiento también al buscar (Modo Rendimiento)
-                this.limit = this.performance_mode ? 20 : 50;
+                this.limit = 50;
 
                 let parameters = `input_item=${this.input_item}&cat=${
                     this.category_selected
@@ -2370,7 +2493,10 @@ export default {
                 await this.$http
                     .get(`/${this.resource}/search_items_cat?${parameters}`)
                     .then(response => {
-                        this.all_items = response.data.data;
+                        // El comodín LIBRE-SYS no se muestra en la búsqueda.
+                        this.all_items = response.data.data.filter(
+                            item => item.internal_id !== "LIBRE-SYS"
+                        );
 
                         if (response.data.data.length > 0) {
                             this.filterItems();
@@ -2397,26 +2523,17 @@ export default {
                 this.loading = true;
                 let parameters = `input_item=${this.input_item}`;
 
-                // SEÑAL DEL FRANCOTIRADOR (Modo Rendimiento): barcode exacto
-                if (this.performance_mode) {
-                    parameters += `&is_barcode_exact=1`;
-                }
-
                 await this.$http
                     .get(`/${this.resource}/search_items?${parameters}`)
                     .then(response => {
-                        let results = response.data.items;
+                        // El comodín LIBRE-SYS no se muestra en la búsqueda por código de barras.
+                        let results = response.data.items.filter(
+                            i => i.internal_id !== "LIBRE-SYS"
+                        );
 
                         if (results.length > 0) {
-                            // (Cortocircuito Gráfico): si modo rendimiento, evita pintar la vitrina
-                            if (this.performance_mode) {
-                                this.clickAddItem(results[0], 0);
-                                this.cleanInput();
-                            } else {
-                                // Comportamiento normal (Dibuja la tarjeta y luego la agrega)
-                                this.items = results;
-                                this.enabledSearchItemsBarcode();
-                            }
+                            this.items = results;
+                            this.enabledSearchItemsBarcode();
                         } else {
                             this.$message.error(`No se encontró: ${this.input_item}`);
                         }
@@ -2442,13 +2559,6 @@ export default {
                 /** Si description es vacio aun */
                 if (i.description == null) {
                     i.description = i.internal_id;
-                }
-
-                // ❄️ Congelamos las colecciones pesadas para no violar la reactividad de Vue
-                if (this.performance_mode) {
-                    if (i.warehouses) i.warehouses = Object.freeze(i.warehouses);
-                    if (i.sets) i.sets = Object.freeze(i.sets);
-                    if (i.attributes) i.attributes = Object.freeze(i.attributes);
                 }
 
                 return i;
@@ -2493,16 +2603,17 @@ export default {
             this.$http
                 .get(`/${this.resource}/table/customers`)
                 .then(response => {
-                    this.all_customers = this.performance_mode
-                        ? Object.freeze(response.data)
-                        : response.data;
+                    this.all_customers = response.data;
                     this.form.customer_id = customer_id;
                     this.changeCustomer();
                 });
         },
         reloadDataItems(item_id) {
             this.$http.get(`/${this.resource}/table/items`).then(response => {
-                this.all_items = response.data;
+                // El comodín LIBRE-SYS no se muestra en el catálogo navegable.
+                this.all_items = response.data.filter(
+                    item => item.internal_id !== "LIBRE-SYS"
+                );
                 this.fixItems();
                 this.filterItems();
             });

@@ -1,5 +1,5 @@
 <template>
-    <div class="pos container-fluid p-0" :class="{'performance-mode': performance_mode}">
+    <div class="pos container-fluid p-0">
         <span class="module-title-marker" data-page-title="Punto de Venta"></span>
         <div class="row page-header pe-0 no-gutters" style="min-height:48px">
             <Keypress
@@ -33,7 +33,6 @@
                             Balanza electrónica
 
                         <el-tooltip
-                            :disabled="performance_mode"
                             class="item ms-1"
                             effect="dark"
                             placement="top-start"
@@ -92,7 +91,6 @@
                     <div class="col-6">
                         <el-button-group class="d-flex">
                             <el-tooltip
-                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Todas las categorías"
@@ -107,7 +105,6 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
-                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Categorías y productos"
@@ -123,7 +120,6 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
-                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Listado de todos los productos"
@@ -139,7 +135,6 @@
                                 </el-button>
                             </el-tooltip>
                             <el-tooltip
-                                :disabled="performance_mode"
                                 class="item"
                                 effect="dark"
                                 content="Regresar"
@@ -160,13 +155,6 @@
             </div>
             <div class="col-md-4">
                 <div class="pull-right h-100 d-flex align-items-center">
-                    <el-switch
-                        v-model="performance_mode"
-                        active-text="Modo Rendimiento"
-                        active-color="#13ce66"
-                        class="me-3"
-                        @change="togglePerformanceMode"
-                    ></el-switch>
                     <p class="pe-3 exchange-currency m-0" v-if="currency_types.length > 1">
                         T.C.
                         <span>S/ {{ form.exchange_rate_sale }}</span> Cambiar
@@ -324,7 +312,6 @@
                                         }}</small>
                                         <el-popover
                                             v-if="item.is_set"
-                                            :disabled="performance_mode"
                                             placement="bottom"
                                             width="240"
                                             trigger="click"
@@ -472,7 +459,6 @@
                                     <el-row style="width:100%">
                                         <el-col :span="6">
                                             <el-tooltip
-                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver stock"
@@ -497,7 +483,6 @@
                                             v-if="canSeeHistoryPurchase"
                                         >
                                             <el-tooltip
-                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver historial de ventas (precio venta) y cliente"
@@ -522,7 +507,6 @@
                                             v-if="canSeePriceCost"
                                         >
                                             <el-tooltip
-                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver historial de compras (precio compra)"
@@ -544,7 +528,6 @@
                                         </el-col>
                                         <el-col :span="6">
                                             <el-tooltip
-                                                :disabled="performance_mode"
                                                 class="item"
                                                 effect="dark"
                                                 content="Ver precios disponibles"
@@ -778,6 +761,55 @@
                 class="col-lg-4 col-md-6 bg-white m-0 p-0"
                 style="height: calc(100vh - 110px)"
             >
+                <div
+                    class="m-1 p-2"
+                    v-if="configuration.allow_free_product"
+                    style="border-bottom: 1px solid #ddd; background-color: #f2f2f2"
+                >
+                    <div
+                        style="
+                            margin: 0 0 4px 0;
+                            font-weight: bold;
+                            font-size: 11px;
+                            color: #555;
+                            text-transform: uppercase;
+                        "
+                    >
+                        <i class="fa fa-cube"></i> Producto libre
+                    </div>
+                    <div class="row no-gutters">
+                        <div class="col-7 pr-1">
+                            <el-input
+                                v-model="freeProductForm.description"
+                                placeholder="Descripción"
+                                size="mini"
+                                ref="posFreeDesc"
+                                @keyup.enter.native="$refs.posFreeQty.focus()"
+                            ></el-input>
+                        </div>
+                        <div class="col-2 pr-1">
+                            <el-input
+                                v-model="freeProductForm.quantity"
+                                placeholder="Cant"
+                                size="mini"
+                                ref="posFreeQty"
+                                @keypress.native="filterInputNumber"
+                                @keyup.enter.native="$refs.posFreePrice.focus()"
+                                style="text-align: center"
+                            ></el-input>
+                        </div>
+                        <div class="col-3">
+                            <el-input
+                                v-model="freeProductForm.price"
+                                placeholder="Precio"
+                                size="mini"
+                                ref="posFreePrice"
+                                @keypress.native="filterInputNumber"
+                                @keyup.enter.native="clickAddFreeProductInline"
+                            ></el-input>
+                        </div>
+                    </div>
+                </div>
                 <div class="h-60" style="overflow-y: auto">
                     <div class="row py-1 m-0 p-0">
                         <div class="col-12">
@@ -1311,6 +1343,11 @@ export default {
     data() {
         return {
             place: "cat",
+            freeProductForm: {
+                description: "",
+                quantity: 1,
+                price: "",
+            },
             showDialogItemUnitTypes: false,
             history_item_id: null,
             search_item_by_barcode: false,
@@ -1371,12 +1408,10 @@ export default {
                     description: "Precio 3"
                 }
             ],
-            selected_option_price: null,
-            performance_mode: false
+            selected_option_price: null
         };
     },
     async created() {
-        this.loadPerformanceMode();
         await this.loadPriceOptions();
         this.loadConfiguration();
         this.enabledSearchItemByBarcode();
@@ -1486,35 +1521,103 @@ export default {
         }
     },
     methods: {
-        // --- METODOS DE MODO RENDIMIENTO ---
-        togglePerformanceMode() {
-            // 1. Guardamos la decisión en memoria
-            localStorage.setItem("pos_index_performance_mode", this.performance_mode);
 
-            // 2. Mostramos la notificación visual
-            if (this.performance_mode) {
-                this.$message.warning("Modo Rendimiento Activado: Apagando animaciones...");
-            } else {
-                this.$message.success("Modo Rendimiento Apagado. Restaurando sistema...");
-            }
-
-            // 3. Recarga táctica para limpiar RAM
-            setTimeout(() => {
-                window.location.reload();
-            }, 800);
-        },
-
-        loadPerformanceMode() {
-            const savedMode = localStorage.getItem("pos_index_performance_mode");
-            if (savedMode === "true") {
-                this.performance_mode = true;
-                document.body.classList.add("nuclear-performance-mode");
-            } else {
-                this.performance_mode = false;
-                document.body.classList.remove("nuclear-performance-mode");
+        filterInputNumber(event) {
+            // Códigos ASCII: 48-57 son números (0-9), 46 es el punto (.)
+            const charCode = event.which ? event.which : event.keyCode;
+            if (
+                charCode > 31 &&
+                (charCode < 48 || charCode > 57) &&
+                charCode !== 46
+            ) {
+                event.preventDefault(); // ¡Alto ahí! No te dejo escribir.
             }
         },
-        // ---------------------------------------
+
+        clickAddFreeProductInline() {
+            // 1. Validaciones de seguridad
+            if (!this.freeProductForm.description) {
+                this.$message.warning("Falta la descripción");
+                this.$refs.posFreeDesc.focus();
+                return;
+            }
+            if (!this.freeProductForm.price || parseFloat(this.freeProductForm.price) <= 0) {
+                this.$message.warning("Falta el precio");
+                this.$refs.posFreePrice.focus();
+                return;
+            }
+
+            // 2. Preparar los datos
+            let qty = parseFloat(this.freeProductForm.quantity) || 1;
+            let description = this.freeProductForm.description;
+            let price = parseFloat(this.freeProductForm.price);
+            let comodin_id = this.configuration.product_free_id;
+
+            if (!comodin_id) {
+                this.$message.error("Error: No se ha configurado el ID del producto libre.");
+                return;
+            }
+
+            // 3. Crear Objeto del Item (el comodín LIBRE-SYS con descripción/precio a medida)
+            let freeItem = {
+                item_id: comodin_id,
+                item: {
+                    id: comodin_id,
+                    description: description,
+                    internal_id: "LIBRE-SYS",
+                    barcode: "LIBRE-SYS",
+                    item_type_id: "01",
+                    unit_type_id: "NIU",
+                    currency_type_id: this.form.currency_type_id,
+                    currency_type_symbol:
+                        this.form.currency_type_id === "PEN" ? "S/" : "$",
+                    sale_unit_price: price,
+                    purchase_unit_price: 0,
+                    unit_price: price,
+                    has_igv: true,
+                    is_set: false,
+                    calculate_quantity: false,
+                    has_plastic_bag_taxes: false,
+                    stock: 999999,
+                    amount_plastic_bag_taxes: 0,
+                    presentation: null,
+                    sets: [],
+                    attributes: [],
+                    unit_type: [],
+                    aux_quantity: qty,
+                },
+                quantity: qty,
+                unit_value: price,
+                affectation_igv_type_id: "10",
+                affectation_igv_type: { id: "10", description: "Gravado - Operación Onerosa" },
+                price_type_id: "01",
+                unit_price: price,
+                total_base_isc: 0, percentage_isc: 0, total_isc: 0,
+                total_base_other_taxes: 0, total_other_taxes: 0, total_plastic_bag_taxes: 0,
+                total_taxes: 0, total_value: 0, total_charge: 0, total_discount: 0, total: 0,
+                charges: [], discounts: [], attributes: [],
+            };
+
+            // 4. Calcular e insertar en el carrito
+            let calculatedRow = calculateRowItem(
+                freeItem,
+                this.form.currency_type_id,
+                this.form.exchange_rate_sale,
+                this.percentage_igv
+            );
+            calculatedRow.unit_type_id = "NIU";
+
+            this.form.items.unshift(calculatedRow);
+            this.calculateTotal();
+            this.setFormPosLocalStorage();
+
+            // 5. Limpiar el formulario y devolver foco
+            this.freeProductForm.description = "";
+            this.freeProductForm.price = "";
+            this.freeProductForm.quantity = 1;
+            this.$refs.posFreeDesc.focus();
+            this.$message.success("Producto libre agregado");
+        },
 
         enabledSearchItemByBarcode() {
             if (this.configuration.search_item_by_barcode) {
@@ -1704,7 +1807,10 @@ export default {
                     }`
                 )
                 .then(response => {
-                    this.all_items = response.data.data;
+                    // El comodín LIBRE-SYS no se muestra en el catálogo navegable.
+                    this.all_items = response.data.data.filter(
+                        item => item.internal_id !== "LIBRE-SYS"
+                    );
                     this.filterItems();
                     this.pagination = response.data.meta;
                     this.pagination.per_page = parseInt(
@@ -2322,13 +2428,11 @@ export default {
                 return;
             }
 
-            let addingNotification = this.$notify({
-                title: "",
-                message: "Agregando...",
-                type: "info",
-                duration: 0
-            });
-
+            // OPTIMISTIC UI + NON-BLOCKING validation (Carlos 26-jul-2026):
+            // Antes había un $notify "Agregando..." con duration:0 que bloqueaba la
+            // UX durante ~164ms por click (roundtrip HTTP completo). Ahora el item
+            // aparece instantáneamente en el carrito; getStatusStock() corre en
+            // background y, si falla por stock, hace rollback + $message.error.
             let exchangeRateSale = this.form.exchange_rate_sale;
             let presentation = item.presentation;
             let exist_item = false;
@@ -2381,33 +2485,19 @@ export default {
             */
 
             let pos = this.form.items.indexOf(exist_item);
-            let response = null;
+
+            // OPTIMISTIC: capturamos estado pre-mutación para rollback si la
+            // validación non-blocking falla por falta de stock.
+            let prevQuantity = null;
+            let prevAuxQuantity = null;
 
             if (exist_item) {
-                if (input) {
-                    response = await this.getStatusStock(
-                        item.item_id,
-                        exist_item.item.aux_quantity
-                    );
-                    if (!response.success) {
-                        item.item.aux_quantity = item.quantity;
-                        this.loading = false;
-                        addingNotification.close();
-                        return this.$message.error(response.message);
-                    }
+                prevQuantity = exist_item.quantity;
+                prevAuxQuantity = exist_item.item.aux_quantity;
 
+                if (input) {
                     exist_item.quantity = exist_item.item.aux_quantity;
                 } else {
-                    response = await this.getStatusStock(
-                        item.item_id,
-                        parseFloat(exist_item.item.aux_quantity) + 1
-                    );
-                    if (!response.success) {
-                        this.loading = false;
-                        addingNotification.close();
-                        return this.$message.error(response.message);
-                    }
-
                     // balanza
                     if (this.changeValuesElectronicScale) {
                         exist_item.quantity += this.getQuantityFromElectronicScale();
@@ -2474,17 +2564,35 @@ export default {
                 this.row.is_price_modified = !!(exist_item.is_price_modified || item.is_price_modified);
 
                 this.form.items[pos] = this.row;
-            } else {
-                response = await this.getStatusStock(
-                    item.item_id,
-                    presentation ? parseInt(presentation.quantity_unit) : 1
-                );
-                if (!response.success) {
-                    this.loading = false;
-                    addingNotification.close();
-                    return this.$message.error(response.message);
-                }
 
+                // OPTIMISTIC + NON-BLOCKING para la rama "exist_item":
+                // validación en background con rollback al estado pre-mutación.
+                // FIX 2026-07-28: este bloque debe vivir DENTRO del if(exist_item).
+                // Antes estaba fuera del if/else y al primer click sobre un item
+                // nuevo exist_item=undefined → TypeError → calculateTotal() nunca
+                // corría y los totales quedaban en 0 hasta el segundo click.
+                this.getStatusStock(item.item_id, exist_item.item.aux_quantity).then(response => {
+                    if (!response || !response.success) {
+                        exist_item.quantity = prevQuantity;
+                        exist_item.item.aux_quantity = prevAuxQuantity;
+                        // Re-asignamos el row recalculado al estado anterior para
+                        // refrescar totales/precios del ítem en pantalla.
+                        this.form.items[pos] = calculateRowItem(
+                            exist_item,
+                            this.form.currency_type_id,
+                            this.form.exchange_rate_sale,
+                            this.percentage_igv
+                        );
+                        this.form.items[pos].unit_type_id = item.unit_type_id;
+                        this.form.items[pos].presentation = exist_item.presentation;
+                        this.form.items[pos].is_price_modified = !!(exist_item.is_price_modified || item.is_price_modified);
+                        this.$message.error(
+                            (response && response.message) || 'Sin stock disponible'
+                        );
+                        this.calculateTotal();
+                    }
+                });
+            } else {
                 // this.form_item.item = item;
                 this.form_item.item = { ...item };
 
@@ -2552,11 +2660,26 @@ export default {
 
                 this.form.items.unshift(this.row);
                 item.aux_quantity = 1;
+
+                // OPTIMISTIC + NON-BLOCKING: validación de stock en background.
+                // Si falla, removemos el ítem que acabamos de añadir.
+                const newRowUnitTypeId = this.row.unit_type_id;
+                const validateQtyNew = presentation
+                    ? parseInt(presentation.quantity_unit)
+                    : 1;
+                this.getStatusStock(item.item_id, validateQtyNew).then(response => {
+                    if (!response || !response.success) {
+                        const idx = this.form.items.findIndex(r =>
+                            r.item_id === item.item_id &&
+                            r.unit_type_id === newRowUnitTypeId
+                        );
+                        if (idx > -1) this.form.items.splice(idx, 1);
+                        this.$message.error(
+                            (response && response.message) || 'Sin stock disponible'
+                        );
+                    }
+                });
             }
-
-            // console.log("pos", this.row);
-
-            addingNotification.close();
 
             this.$notify({
                 title: "",
@@ -2822,7 +2945,10 @@ export default {
                 await this.$http
                     .get(`/${this.resource}/search_items_cat?${parameters}`)
                     .then(response => {
-                        this.all_items = response.data.data;
+                        // El comodín LIBRE-SYS no se muestra en la búsqueda.
+                        this.all_items = response.data.data.filter(
+                            item => item.internal_id !== "LIBRE-SYS"
+                        );
 
                         if (response.data.data.length > 0) {
                             // this.all_items = response.data.data;
@@ -2974,12 +3100,16 @@ export default {
                             let presentation = response.data.items[0].unit_type.length > 0 ? true: false
 
                             if (presentation && this.barcode_stop_presentation) {
-                                this.items = response.data.items;
+                                this.items = response.data.items.filter(
+                                    i => i.internal_id !== "LIBRE-SYS"
+                                );
                                 this.loading = false;
                                 return
                             }
 
-                            this.items = response.data.items;
+                            this.items = response.data.items.filter(
+                                i => i.internal_id !== "LIBRE-SYS"
+                            );
                             this.enabledSearchItemsBarcode();
                             this.loading = false;
                             if (this.items.length == 0) {
@@ -3078,7 +3208,10 @@ export default {
         },
         reloadDataItems(item_id) {
             this.$http.get(`/${this.resource}/table/items`).then(response => {
-                this.all_items = response.data;
+                // El comodín LIBRE-SYS no se muestra en el catálogo navegable.
+                this.all_items = response.data.filter(
+                    item => item.internal_id !== "LIBRE-SYS"
+                );
                 this.fixItems();
                 this.filterItems();
             });

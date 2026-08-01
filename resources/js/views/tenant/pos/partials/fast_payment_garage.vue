@@ -65,6 +65,7 @@
                             ref="enter_amount"
                             v-model="enter_amount"
                             size="small"
+                            :disabled="is_credit && !is_mixed"
                             @input="userTouchedAmount = true; enterAmount()"
                             @keyup.enter.native="keyupEnterAmount()"
                             class="fp-amount-inp"
@@ -73,50 +74,67 @@
                 </div>
                 <div class="fp-change-wrap text-center">
                     <small class="fp-field-label d-block" :class="difference < 0 ? 'text-danger' : 'text-success'">
-                        {{ difference < 0 ? 'Faltante' : 'Vuelto' }}
+                        {{ (is_credit && !is_mixed) ? 'Vuelto' : ((difference < 0) ? 'Faltante' : 'Vuelto') }}
                     </small>
                     <span class="fp-change-val" :class="difference < 0 ? 'text-danger' : 'text-success'">
-                        {{ currencyTypeActive.symbol }} {{ isNaN(parseFloat(difference)) ? difference : Number(difference).toFixed(2) }}
+                        {{ currencyTypeActive.symbol }} {{ (is_credit && !is_mixed) ? '0.00' : (isNaN(parseFloat(difference)) ? difference : Number(difference).toFixed(2)) }}
                     </span>
                 </div>
             </div>
 
+            <!-- Switches Crédito / Crédito Mixto (siempre visibles, igual que pro8) -->
+            <div class="d-flex justify-content-between mt-2 px-2 fp-credit-switches">
+                <el-switch
+                    v-model="is_credit"
+                    active-text="Crédito"
+                    @change="changeCreditStatus"
+                    active-color="#13ce66"
+                ></el-switch>
+                <el-switch
+                    v-if="is_credit"
+                    v-model="is_mixed"
+                    active-text="Crédito Mixto"
+                    @change="changeCreditStatus"
+                    active-color="#ffb822"
+                ></el-switch>
+            </div>
+
             <!-- Totales -->
-            <div class="fp-totals px-3 pt-2">
+            <div class="fp-totals px-3 pt-1">
                 <template v-if="form.total_plastic_bag_taxes > 0">
-                    <div class="fp-total-row d-flex justify-content-between py-1">
+                    <div class="fp-total-row d-flex justify-content-between py-0">
                         <span class="fp-total-label">Subtotal</span>
                         <span class="fp-total-val">{{ currencyTypeActive.symbol }} {{ Number(form.total_taxed).toFixed(2) }}</span>
                     </div>
-                    <div class="fp-total-row d-flex justify-content-between py-1" v-if="!isNrus">
+                    <div class="fp-total-row d-flex justify-content-between py-0" v-if="!isNrus">
                         <span class="fp-total-label">IGV (18%)</span>
                         <span class="fp-total-val">{{ currencyTypeActive.symbol }} {{ Number(form.total_igv).toFixed(2) }}</span>
                     </div>
-                    <div class="fp-total-row d-flex justify-content-between py-1">
+                    <div class="fp-total-row d-flex justify-content-between py-0">
                         <span class="fp-total-label">Descuento</span>
                         <span class="fp-total-val text-danger">{{ currencyTypeActive.symbol }} {{ Number(form.total_discount).toFixed(2) }}</span>
                     </div>
-                    <div class="fp-total-row d-flex justify-content-between py-1">
+                    <div class="fp-total-row d-flex justify-content-between py-0">
                         <span class="fp-total-label">ICBPER</span>
                         <span class="fp-total-val">{{ currencyTypeActive.symbol }} {{ Number(form.total_plastic_bag_taxes).toFixed(2) }}</span>
                     </div>
                 </template>
                 <template v-else>
-                    <div class="fp-total-row d-flex justify-content-between py-1">
+                    <div class="fp-total-row d-flex justify-content-between py-0">
                         <span class="fp-total-label">Subtotal</span>
                         <span class="fp-total-val">{{ currencyTypeActive.symbol }} {{ Number(form.total_taxed).toFixed(2) }}</span>
                     </div>
-                    <div class="fp-total-row d-flex justify-content-between py-1" v-if="!isNrus">
+                    <div class="fp-total-row d-flex justify-content-between py-0" v-if="!isNrus">
                         <span class="fp-total-label">IGV (18%)</span>
                         <span class="fp-total-val">{{ currencyTypeActive.symbol }} {{ Number(form.total_igv).toFixed(2) }}</span>
                     </div>
-                    <div class="fp-total-row d-flex justify-content-between py-1">
+                    <div class="fp-total-row d-flex justify-content-between py-0">
                         <span class="fp-total-label">Descuento</span>
                         <span class="fp-total-val text-danger">{{ currencyTypeActive.symbol }} {{ Number(form.total_discount).toFixed(2) }}</span>
                     </div>
                 </template>
                 <!-- Gran total -->
-                <div class="fp-grand d-flex justify-content-between align-items-center pt-2 pb-1">
+                <div class="fp-grand d-flex justify-content-between align-items-center pt-1 pb-1">
                     <span class="fp-grand-label">Total</span>
                     <span class="fp-grand-amount">{{ currencyTypeActive.symbol }} {{ Number(form.total).toFixed(2) }}</span>
                 </div>
@@ -153,11 +171,11 @@
                         <div class="col-md-12 col-lg-12">
                             <div class="form-group">
                                 <label class="control-label mb-0">Número de Placa</label>
-                                <template v-if="config_tap.save_plates_client">
+                                <template v-if="config_tap && config_tap.save_plates_client">
                                     <a v-if="!btn_save_plates" href="#" @click.prevent="btn_save_plates = true">[+ Nuevo]</a>
                                     <a v-else href="#" @click.prevent="btn_save_plates = false">[ Cancelar]</a>
                                 </template>
-                                <template v-if="!config_tap.save_plates_client">
+                                <template v-if="!config_tap || !config_tap.save_plates_client">
                                     <el-input v-model="form.plate_number" type="text">
                                         <el-tooltip slot="append" placement="right" v-if="btn_save_plates">
                                             <div slot="content" v-html="messageBoxPlate"></div>
@@ -204,6 +222,8 @@
             :payments="payments"
             :showDialog.sync="showDialogMultiplePayment"
             :total="form.total"
+            :is-credit="is_credit"
+            :is-mixed="is_mixed"
             @add="addRow"
             ref="componentMultiplePaymentGarage"
         ></multiple-payment-form>
@@ -277,6 +297,8 @@ export default {
     ],
     data() {
         return {
+            is_credit: false,
+            is_mixed: false,
             showDialogPlateNumber: false,
             messageBoxPlate: '',
             btn_save_plates: false,
@@ -409,6 +431,74 @@ export default {
             this.$nextTick(() => {
                 this.$refs.plateNumberInput.focus();
             });
+        },
+        /**
+         * Cambia el estado de Crédito / Crédito Mixto (portado de pro8).
+         * - Candado Clientes Varios (99999999 / 00000000): revierte el switch.
+         * - Detecta el id de crédito por flag `is_credit` o por ids conocidos (05/08/09),
+         *   priorizando la descripción "CRÉDITO".
+         * - Arma `form.payments` según el modo: 1 fila crédito puro, 2 filas mixto.
+         */
+        changeCreditStatus() {
+            if (this.is_credit) {
+                let customer = _.find(this.all_customers, { id: this.form.customer_id });
+                if (!customer || customer.number === '99999999' || customer.number === '00000000') {
+                    this.is_credit = false;
+                    this.is_mixed = false;
+                    return this.$message.error('Operación denegada: No se puede dar crédito a Clientes Varios. Registre un cliente real.');
+                }
+            } else {
+                this.is_mixed = false;
+            }
+
+            this.payments = [];
+            this.form.payments = [];
+
+            // Detección del id de crédito: por flag is_credit o por IDs conocidos 05/08/09,
+            // priorizando la descripción "CRÉDITO" para alinear con pro8.
+            let credit_id = '09';
+            if (this.payment_method_types) {
+                let credits = this.payment_method_types.filter(m => m.is_credit == 1 || ['05', '08', '09'].includes(m.id));
+                let exact = credits.find(m => m.description && (m.description.toUpperCase() === 'CRÉDITO' || m.description.toUpperCase() === 'CREDITO'));
+                credit_id = exact
+                    ? exact.id
+                    : (credits.length >= 3 ? credits[2].id : (credits.length > 0 ? credits[0].id : '09'));
+            }
+
+            if (!this.is_credit) {
+                this.enter_amount = this.form.total;
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().format('YYYY-MM-DD'),
+                    payment_method_type_id: '01', payment_destination_id: 'cash',
+                    reference: null, payment: this.form.total,
+                });
+            } else if (this.is_credit && !this.is_mixed) {
+                this.enter_amount = 0;
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                    payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                    reference: null, payment: this.form.total,
+                });
+            } else if (this.is_credit && this.is_mixed) {
+                this.enter_amount = 0;
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().format('YYYY-MM-DD'),
+                    payment_method_type_id: '01', payment_destination_id: 'cash',
+                    reference: null, payment: 0,
+                });
+                this.form.payments.push({
+                    id: null, document_id: null, sale_note_id: null,
+                    date_of_payment: moment().add(7, 'days').format('YYYY-MM-DD'),
+                    payment_method_type_id: credit_id, payment_destination_id: 'cash',
+                    reference: null, payment: this.form.total,
+                });
+            }
+
+            this.payments = this.form.payments;
+            this.inputAmount();
         },
         closeDialogPlateNumber() {
             this.showDialogPlateNumber = false;
@@ -581,9 +671,19 @@ export default {
             this.enter_amount = this.form.total
             // this.form.payments = this.payments
             // this.$eventHub.$emit('eventSetFormPosLocalStorage', this.form)
-            await this.$refs.enter_amount.$el.getElementsByTagName('input')[0].focus()
-            await this.$refs.enter_amount.$el.getElementsByTagName('input')[0].select()
-            // console.log(this.$refs.enter_amount.$el.getElementsByTagName('input')[0])
+            // FIX: race condition — $refs se popula DESPUÉS del mount, no durante
+            // created(). Esperar al $nextTick y validar antes de tocar el DOM.
+            // Bug pre-existente de Buho merge (6c7fbcd9), exponido por el flujo
+            // optimista de clickAddItem (26-jul-2026).
+            await this.$nextTick()
+            const ref = this.$refs.enter_amount
+            if (!ref) return
+            const el = (ref.$el) || ref
+            const input = el.getElementsByTagName('input')[0]
+            if (input) {
+                input.focus()
+                input.select()
+            }
         },
         changeEnabledDiscount() {
             if (!this.enabled_discount) {
@@ -876,13 +976,18 @@ export default {
         },
         async enterAmount() {
 
-            let r_item = await _.last(this.payments, {'payment_method_type_id': '01'})
-            r_item.payment = await parseFloat(this.enter_amount)
-            // console.log(r_item.payment)
+            if (this.is_credit && this.is_mixed && this.form.payments.length === 2) {
+                let cash_payment = parseFloat(this.enter_amount) || 0;
+                let new_credit_balance = parseFloat(this.form.total) - cash_payment;
+                this.form.payments[0].payment = cash_payment;
+                this.form.payments[1].payment = new_credit_balance > 0 ? new_credit_balance.toFixed(2) : 0;
+            } else if (this.form.payments.length > 0) {
+                let r_item = await _.last(this.payments, {'payment_method_type_id': '01'})
+                if (r_item) r_item.payment = await parseFloat(this.enter_amount)
 
-            let ind = this.form.payments.length - 1
-            this.form.payments[ind].payment = parseFloat(this.enter_amount)
-            // this.setAmount(item.payment)
+                let ind = this.form.payments.length - 1
+                if (this.form.payments[ind]) this.form.payments[ind].payment = parseFloat(this.enter_amount)
+            }
 
             let acum_payment = 0
 
@@ -901,6 +1006,11 @@ export default {
                 this.button_payment = true
                 this.difference = "-"
             } else if (this.difference >= 0) {
+                this.button_payment = false
+                this.difference = this.amount - this.form.total
+            } else if (this.is_credit) {
+                // Crédito puro / mixto: el botón se habilita aunque falte vuelto
+                // (el saldo faltante va a cuotas).
                 this.button_payment = false
                 this.difference = this.amount - this.form.total
             } else {
@@ -936,6 +1046,9 @@ export default {
                 this.button_payment = true
                 this.difference = "-"
             } else if (this.difference >= 0) {
+                this.button_payment = false
+                this.difference = this.amount - this.form.total
+            } else if (this.is_credit) {
                 this.button_payment = false
                 this.difference = this.amount - this.form.total
             } else {
@@ -1035,6 +1148,8 @@ export default {
             this.userTouchedAmount = false
             this.difference = 0
             this.payments = []
+            this.is_credit = false
+            this.is_mixed = false
             this.cleanLocalStoragePayment()
 
             this.$eventHub.$emit('cancelSaleGarage')
@@ -1089,6 +1204,8 @@ export default {
         },
         initDataComponent() {
             this.cleanPayments()
+            this.is_credit = false
+            this.is_mixed = false
             // this.filterSeries()
         },
         async autoSendPdfMail() {
@@ -1245,7 +1362,46 @@ export default {
             this.loading_submit = true
             this.locked_submit = true
 
-            await this.$http.post(`/${this.resource_documents}`, this.form).then(async (response) => {
+            // --- Separar contado de crédito: valid_payments (caja) vs. fees (cuotas) ---
+            let valid_payments = [];
+            let fees = [];
+            let is_credit_sale = false;
+
+            this.form.payments.forEach((pay) => {
+                let method = _.find(this.payment_method_types, { id: pay.payment_method_type_id });
+                let is_credit_method = method
+                    ? (method.is_credit == 1 || ['05', '08', '09'].includes(method.id))
+                    : ['05', '08', '09'].includes(pay.payment_method_type_id);
+
+                if (is_credit_method) {
+                    is_credit_sale = true;
+                    fees.push({
+                        date: pay.date_of_payment ? pay.date_of_payment : moment().add(7, 'days').format('YYYY-MM-DD'),
+                        currency_type_id: this.form.currency_type_id,
+                        amount: pay.payment,
+                        payment_method_type_id: pay.payment_method_type_id,
+                    });
+                } else {
+                    valid_payments.push(pay);
+                }
+            });
+
+            // Candado final: crédito + Clientes Varios no se permite.
+            if (is_credit_sale) {
+                let customer = _.find(this.all_customers, { id: this.form.customer_id });
+                if (!customer || customer.number === '99999999' || customer.number === '00000000') {
+                    this.loading_submit = false
+                    this.locked_submit = false
+                    return this.$message.error('No se puede dar crédito a Clientes Varios.');
+                }
+            }
+
+            let payload = { ...this.form };
+            payload.payments = valid_payments;
+            payload.fee = fees;
+            payload.payment_condition_id = is_credit_sale ? '02' : '01';
+
+            await this.$http.post(`/${this.resource_documents}`, payload).then(async (response) => {
                 let response_sent = null
                 if (response.data.success) {
 

@@ -23396,7 +23396,7 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
 }
 .fp-doc-tabs {
     gap: 0;
-    margin-top: 14px;
+    margin-top: 0;
     padding: 4px;
     border-radius: 12px;
 }
@@ -23413,7 +23413,7 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
     border: none;
     background: transparent;
     border-radius: 6px;
-    padding: 8px 6px;
+    padding: 5px 6px;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -23424,7 +23424,7 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
 }
 .fp-customer-row {
     border-top: none;
-    margin-top: 14px;
+    margin-top: 6px;
     position: relative;
 }
 .fp-customer-select .el-input__inner {
@@ -23574,14 +23574,14 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
     font-size: 0.85rem;
 }
 .fp-action-row {
-    gap: 12px !important;
-    padding: 14px 4px 6px !important;
+    gap: 6px !important;
+    padding: 8px 4px 4px !important;
 }
 .fp-action-btn {
     background: transparent;
     border-radius: 10px;
-    padding: 11px 14px;
-    font-size: 0.85rem;
+    padding: 7px 14px;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
@@ -23613,7 +23613,14 @@ html.sidebar-left-collapsed .sidebar-left .contain-icon-establishment {
 }
 .fp-amount-inp .el-input__inner {
     padding-left: 26px;
+}
+.fp-credit-switches .el-switch {
+    margin-bottom: 0;
+}
+.fp-credit-switches .el-switch__label {
+    font-size: 0.78rem;
     font-weight: 600;
+    color: #495057;
 }
 .fp-change-wrap {
     flex-shrink: 0;

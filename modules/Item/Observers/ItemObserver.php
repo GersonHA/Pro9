@@ -3,6 +3,7 @@
 namespace Modules\Item\Observers;
 
 use App\Models\Tenant\Item;
+use Exception;
 
 class ItemObserver
 {
@@ -35,5 +36,25 @@ class ItemObserver
         }
 
         $item->text_filter = join(' ', $text);
+    }
+
+    /**
+     * Protege el comodín Producto Libre (LIBRE-SYS): no se puede eliminar.
+     */
+    public function deleting(Item $item)
+    {
+        if ($item->internal_id === 'LIBRE-SYS') {
+            throw new Exception("ACCESO DENEGADO: Este es un producto del sistema y no puede ser eliminado.");
+        }
+    }
+
+    /**
+     * Permite renombrar el comodín, pero NO cambiar su Código Interno (internal_id).
+     */
+    public function updating(Item $item)
+    {
+        if ($item->getOriginal('internal_id') === 'LIBRE-SYS' && $item->internal_id !== 'LIBRE-SYS') {
+            throw new Exception("ACCESO DENEGADO: No puedes cambiar el Código Interno de este producto base.");
+        }
     }
 }

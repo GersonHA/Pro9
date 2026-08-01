@@ -385,6 +385,9 @@ use Illuminate\Support\Facades\Log;
             'bot_pause_command',
             'bot_session_ttl_minutes',
             'enable_extended_search',
+            'pos_search_order',
+            'allow_free_product',
+            'product_free_id',
             'search_by_second_name',
             'search_by_model',
             'search_by_extra_name',
@@ -935,6 +938,9 @@ use Illuminate\Support\Facades\Log;
                 'smtp_encryption' => $this->smtp_encryption,
                 'enabled_guarantee_fund' => $this->enabled_guarantee_fund,
                 'enable_extended_search' => (bool)$this->enable_extended_search,
+                'pos_search_order' => $this->pos_search_order,
+                'allow_free_product' => (bool)$this->allow_free_product,
+                'product_free_id' => $this->product_free_id,
                 'search_by_second_name' => (bool)$this->search_by_second_name,
                 'search_by_model' => (bool)$this->search_by_model,
                 'search_by_extra_name' => (bool)$this->search_by_extra_name,
@@ -1256,6 +1262,11 @@ use Illuminate\Support\Facades\Log;
         {
             $this->smtp_encryption = $smtp_encryption;
             return $this;
+        }
+
+        public function setPosSearchOrderAttribute($value)
+        {
+            $this->attributes['pos_search_order'] = $value ? $value : 'default';
         }
 
         public function setPlanAttribute($value)

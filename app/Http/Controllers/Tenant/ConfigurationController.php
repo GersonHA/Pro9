@@ -503,7 +503,43 @@ class ConfigurationController extends Controller
 
         $id = $request->input('id');
         $configuration = Configuration::find($id);
-        $configuration->fill($request->all());
+        $inputs = $request->all();
+
+        // PRODUCTO LIBRE: al activar el switch, aseguramos el ítem comodín "LIBRE-SYS" con el que
+        // se facturan los productos temporales del POS. Si ya está enlazado se conserva; si existe
+        // el ítem pero no está enlazado se reutiliza; si no existe se crea una sola vez.
+        if (isset($inputs['allow_free_product']) && $inputs['allow_free_product'] == true) {
+            $existingItem = $configuration->product_free_id ? Item::find($configuration->product_free_id) : null;
+
+            if (!$existingItem) {
+                $checkCode = Item::where('internal_id', 'LIBRE-SYS')->first();
+                if ($checkCode) {
+                    $inputs['product_free_id'] = $checkCode->id;
+                } else {
+                    $newItem = Item::create([
+                        'description' => 'Producto Libre (Sistema)',
+                        'item_type_id' => '01',
+                        'unit_type_id' => 'NIU',
+                        'currency_type_id' => 'PEN',
+                        'sale_unit_price' => 0,
+                        'purchase_unit_price' => 0,
+                        'has_igv' => 1,
+                        'sale_affectation_igv_type_id' => '10',
+                        'purchase_affectation_igv_type_id' => '10',
+                        'stock' => 999999,
+                        'stock_min' => 1,
+                        'internal_id' => 'LIBRE-SYS',
+                        'item_code' => 'LIBRE-SYS',
+                        'active' => true,
+                    ]);
+                    $inputs['product_free_id'] = $newItem->id;
+                }
+            } else {
+                $inputs['product_free_id'] = $configuration->product_free_id;
+            }
+        }
+
+        $configuration->fill($inputs);
         $configuration->save();
 
         Cache::forget("{$cp->number}_token_sunat");

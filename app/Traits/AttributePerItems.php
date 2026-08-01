@@ -134,6 +134,12 @@
             $Countable = false;
             self::adjustQuantityOfItem($modelClass, $qty, $Countable);
 
+            // Actualizador de Ventas Globales: si la cantidad quedó negativa (salida/venta), la
+            // volvemos positiva y la sumamos al contador `total_sold` del producto. Alimenta el
+            // orden "Volumen de Ventas" del POS (pos_search_order='sales'). increment() es atómico.
+            if ($qty < 0) {
+                \App\Models\Tenant\Item::where('id', $item)->increment('total_sold', abs($qty));
+            }
 
             $movement = ItemMovement::where($toSearch)->first();
             if ($movement == null) {

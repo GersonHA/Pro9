@@ -16,7 +16,11 @@ class SaleNoteResource extends JsonResource
     public function toArray($request)
     {
 
-        $sale_note = SaleNote::find($this->id);
+        // 'fee' se carga explícitamente: getCollectionData() no toca la relación, así que
+        // sin esto sale_note.fee llega undefined al diálogo "Generar comprobante" y el CPE
+        // a crédito se emitiría sin Cuota001. Solo afecta a este endpoint de registro único
+        // (el listado va por SaleNoteCollection), así que no introduce N+1.
+        $sale_note = SaleNote::with('fee')->find($this->id);
         return $sale_note-> getCollectionData();
         /** Movido al modelo */
         $sale_note->seller_id = $sale_note->user_id;

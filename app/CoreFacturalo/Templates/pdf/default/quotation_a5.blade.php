@@ -260,9 +260,7 @@
         return !empty($row->item->model);
     });
 
-    $show_lot = $document->items->contains(function ($row) {
-        return !empty($row->getSaleLotGroupCodeDescription());
-    });
+    $show_lot = false; // lotes ocultos en PDF de cotización (pre-venta, no mueve stock)
 
     $show_due = $document->items->contains(function ($row) {
         return !empty(optional($row->relation_item)->date_of_due);
